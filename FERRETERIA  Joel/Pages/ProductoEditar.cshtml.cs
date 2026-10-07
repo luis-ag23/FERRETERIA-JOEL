@@ -1,12 +1,10 @@
-using FERRETERIA__Joel.Factories;
+using FERRETERIA__Joel.Aplicacion.Servicios;
+using FERRETERIA__Joel.Dominio.Entidades;
+using FERRETERIA__Joel.Dominio.Validaciones;
 using FERRETERIA__Joel.Helpers;
-using FERRETERIA__Joel.Models;
-using FERRETERIA__Joel.Repositories;
-using FERRETERIA__Joel.Validaciones;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using MySql.Data.MySqlClient;
-using System.Data;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
@@ -14,12 +12,10 @@ namespace FERRETERIA__Joel.Pages
 {
     public class ProductoEditarModel : PageModel
     {
-        private readonly IRepository<Producto> _productoRepository;
-        private readonly IModificacionRepository<Producto> _productoModificacionRepository;
-        private readonly IRepository<Categoria> _categoriaRepository;
-        private readonly IRepository<Empleado> _empleadoRepository;
-        private readonly IRepository<HistoricoPrecio> _historicoPrecioRepository;
-        private readonly MySqlHistoricoPrecioRepository _historicoPrecioEspecial;
+        private readonly ServicioProducto _servicio;
+        private readonly ServicioCategoria _servicioCategoria;
+        private readonly ServicioEmpleado _servicioEmpleado;
+        private readonly ServicioMarca _servicioMarca;
         private readonly ILogger<ProductoEditarModel> _logger;
 
         private readonly ProductoValidaciones _validacion = new();
@@ -28,25 +24,22 @@ namespace FERRETERIA__Joel.Pages
         public Producto Producto { get; set; } = new();
 
         public List<Categoria> Categorias { get; set; } = new();
+        public List<Marca> Marcas { get; set; } = new();
         public List<Empleado> Empleados { get; set; } = new();
         public List<string> Errores { get; set; } = new();
         public Dictionary<string, string> ErroresCampo { get; set; } = new();
 
         public ProductoEditarModel(
-            RepositoryCreator<IRepository<Producto>> productoRepositoryCreator,
-            IModificacionRepository<Producto> modificacionRepository,
-            RepositoryCreator<IRepository<Categoria>> categoriaRepositoryCreator,
-            RepositoryCreator<IRepository<Empleado>> empleadoRepositoryCreator,
-            RepositoryCreator<IRepository<HistoricoPrecio>> historicoPrecioRepositoryCreator,
-            MySqlHistoricoPrecioRepository historicoPrecioRepository,
+            ServicioProducto servicio,
+            ServicioCategoria servicioCategoria,
+            ServicioEmpleado servicioEmpleado,
+            ServicioMarca servicioMarca,
             ILogger<ProductoEditarModel> logger)
         {
-            _productoRepository = productoRepositoryCreator.CreateRepository();
-            _productoModificacionRepository = modificacionRepository;
-            _categoriaRepository = categoriaRepositoryCreator.CreateRepository();
-            _empleadoRepository = empleadoRepositoryCreator.CreateRepository();
-            _historicoPrecioRepository = historicoPrecioRepositoryCreator.CreateRepository();
-            _historicoPrecioEspecial = historicoPrecioRepository;
+            _servicio = servicio;
+            _servicioCategoria = servicioCategoria;
+            _servicioEmpleado = servicioEmpleado;
+            _servicioMarca = servicioMarca;
             _logger = logger;
         }
 
@@ -64,7 +57,7 @@ namespace FERRETERIA__Joel.Pages
                 return RedirectToPage("Productos");
             }
 
-            Producto? producto = _productoRepository.ObtenerPorId(id);
+            Producto? producto = _servicio.ObtenerPorId(id);
 
             if (producto is null)
             {
@@ -80,7 +73,7 @@ namespace FERRETERIA__Joel.Pages
 
         public IActionResult OnPost()
         {
-            Producto? productoActual = _productoRepository.ObtenerPorId(Producto.IdProducto);
+            Producto? productoActual = _servicio.ObtenerPorId(Producto.IdProducto);
             if (productoActual is null)
             {
                 TempData["MensajeError"] = "El producto solicitado no existe.";
@@ -143,11 +136,6 @@ namespace FERRETERIA__Joel.Pages
                     ? null
                     : NormalizarTexto(Producto.Descripcion);
 
-            Producto.Marca =
-                string.IsNullOrWhiteSpace(Producto.Marca)
-                    ? null
-                    : NormalizarTexto(Producto.Marca);
-
             Producto.UnidadMedida =
                 NormalizarTexto(Producto.UnidadMedida);
 
@@ -162,14 +150,22 @@ namespace FERRETERIA__Joel.Pages
             {
                 AgregarErrorCampo(
                     nameof(Producto.Nombre),
-                    "El nombre es obligatorio y debe tener máximo 150 caracteres.");
+                    "El nombre es obligatorio, debe tener máximo 150 caracteres y solo admite letras y espacios (sin números ni caracteres especiales).");
             }
 
-            if (!_validacion.EsMarcaValida(Producto.Marca))
+            if (!_validacion.EsMarcaValida(Producto.IdMarca))
             {
                 AgregarErrorCampo(
-                    nameof(Producto.Marca),
-                    "La marca es obligatoria y debe tener máximo 100 caracteres.");
+                    nameof(Producto.IdMarca),
+                    "Debe seleccionar una marca.");
+            }
+            else if (!_servicioMarca
+                .ObtenerActivas()
+                .Any(m => m.IdMarca == Producto.IdMarca))
+            {
+                AgregarErrorCampo(
+                    nameof(Producto.IdMarca),
+                    "La marca seleccionada no existe o está inactiva.");
             }
 
             if (!_validacion.EsDescripcionValida(Producto.Descripcion))
@@ -199,7 +195,7 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Producto.IdCategoria),
                     "Debe seleccionar una categoría.");
             }
-            else if (!_categoriaRepository
+            else if (!_servicioCategoria
                 .ObtenerActivas()
                 .Any(c => c.IdCategoria == Producto.IdCategoria))
             {
@@ -244,44 +240,18 @@ namespace FERRETERIA__Joel.Pages
         private void CargarCatalogos()
         {
             Categorias =
-                _categoriaRepository.ObtenerActivas();
+                _servicioCategoria.ObtenerActivas();
+
+            Marcas =
+                _servicioMarca.ObtenerActivas();
 
             Empleados =
-                _empleadoRepository.ObtenerTodos();
+                _servicioEmpleado.ObtenerTodos();
         }
 
         private void Actualizar()
         {
-            HistoricoPrecio? precioVigente =
-                _historicoPrecioEspecial.ObtenerPrecioVigente(
-                    Producto.IdProducto);
-
-            _productoModificacionRepository.Actualizar(Producto);
-
-            bool cambioPrecio =
-                precioVigente is null ||
-                precioVigente.Precio != Producto.PrecioVenta;
-
-            if (cambioPrecio)
-            {
-                if (precioVigente is not null)
-                {
-                    _historicoPrecioEspecial.CerrarPrecioVigente(
-                        Producto.IdProducto);
-                }
-
-                HistoricoPrecio nuevoHistorico = new()
-                {
-                    IdProducto = Producto.IdProducto,
-                    Precio = Producto.PrecioVenta,
-                    MotivoCambio = "Cambio de precio",
-                    IdEmpleadoResponsable =
-                        Producto.IdEmpleadoResponsable
-                };
-
-                _historicoPrecioRepository.Insertar(
-                    nuevoHistorico);
-            }
+            _servicio.Actualizar(Producto);
         }
     }
 }

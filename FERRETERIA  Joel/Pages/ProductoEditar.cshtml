@@ -44,17 +44,23 @@
 
             <div class="fj-form-field @(Model.ErroresCampo.ContainsKey("Nombre") ? "fj-form-field-error" : "")">
                 <label class="fj-form-label" asp-for="Producto.Nombre">Nombre</label>
-                <input class="fj-input" asp-for="Producto.Nombre" required maxlength="150" />
+                <input class="fj-input" asp-for="Producto.Nombre" required maxlength="150" data-fj-regex="^\p{L}[\p{L}\s.,'\-&()]*$" data-fj-msj="El nombre solo admite letras y espacios (sin números ni caracteres especiales)." />
                 @if (Model.ErroresCampo.TryGetValue("Nombre", out var errorNombre))
                 {
                     <p class="fj-form-error" role="alert">@errorNombre</p>
                 }
             </div>
 
-            <div class="fj-form-field @(Model.ErroresCampo.ContainsKey("Marca") ? "fj-form-field-error" : "")">
-                <label class="fj-form-label" asp-for="Producto.Marca">Marca</label>
-                <input class="fj-input" asp-for="Producto.Marca" maxlength="100" required />
-                @if (Model.ErroresCampo.TryGetValue("Marca", out var errorMarca))
+            <div class="fj-form-field @(Model.ErroresCampo.ContainsKey("IdMarca") ? "fj-form-field-error" : "")">
+                <label class="fj-form-label" asp-for="Producto.IdMarca">Marca</label>
+                <select class="fj-input fj-select" asp-for="Producto.IdMarca" required>
+                    <option value="">-- Seleccione --</option>
+                    @foreach (var marca in Model.Marcas)
+                    {
+                        <option value="@marca.IdMarca">@marca.Nombre</option>
+                    }
+                </select>
+                @if (Model.ErroresCampo.TryGetValue("IdMarca", out var errorMarca))
                 {
                     <p class="fj-form-error" role="alert">@errorMarca</p>
                 }

@@ -1,19 +1,17 @@
+using FERRETERIA__Joel.Aplicacion.Servicios;
+using FERRETERIA__Joel.Dominio.Entidades;
+using FERRETERIA__Joel.Dominio.Validaciones;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using MySql.Data.MySqlClient;
-using FERRETERIA__Joel.Factories;
-using FERRETERIA__Joel.Models;
-using FERRETERIA__Joel.Repositories;
-using FERRETERIA__Joel.Validaciones;
 using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
     public class CategoriaNuevaModel : PageModel
     {
-        private readonly IRepository<Categoria> _repositorio;
-        private readonly IModificacionRepository<Categoria> _modificacionRepository;
-        private readonly IRepository<Empleado> _empleadoRepository;
+        private readonly ServicioCategoria _servicio;
+        private readonly ServicioEmpleado _servicioEmpleado;
         private readonly ILogger<CategoriaNuevaModel> _logger;
 
         private readonly CategoriaValidaciones _validador = new();
@@ -26,27 +24,25 @@ namespace FERRETERIA__Joel.Pages
         public Dictionary<string, string> ErroresCampo { get; set; } = new();
 
         public CategoriaNuevaModel(
-            RepositoryCreator<IRepository<Categoria>> categoriaRepositoryCreator,
-            IModificacionRepository<Categoria> modificacionRepository,
-            RepositoryCreator<IRepository<Empleado>> empleadoRepositoryCreator,
+            ServicioCategoria servicio,
+            ServicioEmpleado servicioEmpleado,
             ILogger<CategoriaNuevaModel> logger)
         {
-            _repositorio = categoriaRepositoryCreator.CreateRepository();
-            _modificacionRepository = modificacionRepository;
-            _empleadoRepository = empleadoRepositoryCreator.CreateRepository();
+            _servicio = servicio;
+            _servicioEmpleado = servicioEmpleado;
             _logger = logger;
         }
 
         public void OnGet()
         {
             NuevaCategoria.Estado = 1;
-            NuevaCategoria.Codigo = $"CAT-{_modificacionRepository.Count() + 1:D3}";
+            NuevaCategoria.Codigo = _servicio.SiguienteCodigo();
             CargarEmpleados();
         }
 
         public IActionResult OnPost()
         {
-            NuevaCategoria.Codigo = $"CAT-{_modificacionRepository.Count() + 1:D3}";
+            NuevaCategoria.Codigo = _servicio.SiguienteCodigo();
             NuevaCategoria.PorcentajeGanancia = 0;
             NormalizarDatos();
             Validar();
@@ -59,7 +55,7 @@ namespace FERRETERIA__Joel.Pages
 
             try
             {
-                _repositorio.Insertar(NuevaCategoria);
+                _servicio.Insertar(NuevaCategoria);
 
                 TempData["Mensaje"] =
                     "Categoría registrada con éxito.";
@@ -121,7 +117,7 @@ namespace FERRETERIA__Joel.Pages
             {
                 AgregarErrorCampo(
                     nameof(Categoria.Nombre),
-                    "El nombre es obligatorio y debe tener máximo 100 caracteres.");
+                    "El nombre es obligatorio, debe tener máximo 100 caracteres y solo admite letras y espacios (sin números ni caracteres especiales).");
             }
 
             if (!_validador.EsDescripcionValida(NuevaCategoria.Descripcion))
@@ -155,7 +151,7 @@ namespace FERRETERIA__Joel.Pages
 
         private void CargarEmpleados()
         {
-            Empleados = _empleadoRepository.ObtenerTodos();
+            Empleados = _servicioEmpleado.ObtenerTodos();
         }
     }
 }

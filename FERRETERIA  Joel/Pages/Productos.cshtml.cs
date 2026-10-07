@@ -1,6 +1,6 @@
-using FERRETERIA__Joel.Factories;
-using FERRETERIA__Joel.Models;
-using FERRETERIA__Joel.Repositories;
+using FERRETERIA__Joel.Aplicacion.Servicios;
+using FERRETERIA__Joel.Dominio.Entidades;
+using FERRETERIA__Joel.Helpers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -8,9 +8,8 @@ namespace FERRETERIA__Joel.Pages
 {
     public class ProductosModel : PageModel
     {
-        private readonly IRepository<Producto> _productoRepository;
-        private readonly IModificacionRepository<Producto> _productoModificacionRepository;
-        private readonly IRepository<Categoria> _categoriaRepository;
+        private readonly ServicioProducto _servicio;
+        private readonly ServicioCategoria _servicioCategoria;
         private readonly ILogger<ProductosModel> _logger;
 
         public List<Producto> ListProductos { get; set; } = new();
@@ -20,34 +19,35 @@ namespace FERRETERIA__Joel.Pages
         public bool SoloActivos { get; set; }
 
         public ProductosModel(
-            RepositoryCreator<IRepository<Producto>> productoRepositoryCreator,
-            IModificacionRepository<Producto> modificacionRepository,
-            RepositoryCreator<IRepository<Categoria>> categoriaRepositoryCreator,
+            ServicioProducto servicio,
+            ServicioCategoria servicioCategoria,
             ILogger<ProductosModel> logger)
         {
-            _productoRepository = productoRepositoryCreator.CreateRepository();
-            _productoModificacionRepository = modificacionRepository;
-            _categoriaRepository = categoriaRepositoryCreator.CreateRepository();
+            _servicio = servicio;
+            _servicioCategoria = servicioCategoria;
             _logger = logger;
+        }
+
+        public string ObtenerToken(int id)
+        {
+            return UrlProtector.Cifrar(id.ToString());
         }
 
         public void OnGet(bool? soloActivos)
         {
             SoloActivos = soloActivos ?? false;
 
-            ListProductos = SoloActivos
-                ? _productoRepository.ObtenerActivas()
-                : _productoRepository.ObtenerTodos();
+            ListProductos = _servicio.Listar(SoloActivos);
 
             Categorias =
-                _categoriaRepository.ObtenerTodos();
+                _servicioCategoria.ObtenerTodos();
         }
 
         public IActionResult OnPostEliminar(int idProducto)
         {
             try
             {
-                _productoModificacionRepository.CambiarEstado(idProducto);
+                _servicio.CambiarEstado(idProducto);
 
                 TempData["Mensaje"] =
                     "Producto eliminado correctamente.";

@@ -42,7 +42,7 @@
 
             <div class="fj-form-field @(Model.ErroresCampo.ContainsKey("Nombre") ? "fj-form-field-error" : "")">
                 <label class="fj-form-label" asp-for="NuevaCategoria.Nombre">Nombre de la Categoría</label>
-                <input class="fj-input" asp-for="NuevaCategoria.Nombre" maxlength="100" placeholder="Ej: Cerrajería" required />
+                <input class="fj-input" asp-for="NuevaCategoria.Nombre" maxlength="100" placeholder="Ej: Cerrajería" required data-fj-regex="^\p{L}[\p{L}\s.,'\-&()]*$" data-fj-msj="El nombre solo admite letras y espacios (sin números ni caracteres especiales)." />
                 @if (Model.ErroresCampo.TryGetValue("Nombre", out var errorNombre))
                 {
                     <p class="fj-form-error" role="alert">@errorNombre</p>

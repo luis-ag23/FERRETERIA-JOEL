@@ -1,7 +1,6 @@
-using FERRETERIA__Joel.Factories;
+using FERRETERIA__Joel.Aplicacion.Servicios;
+using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Helpers;
-using FERRETERIA__Joel.Models;
-using FERRETERIA__Joel.Repositories;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -9,8 +8,8 @@ namespace FERRETERIA__Joel.Pages
 {
     public class ProductoHistoricoPrecioModel : PageModel
     {
-        private readonly IRepository<Producto> _productoRepository;
-        private readonly MySqlHistoricoPrecioRepository _historicoPrecioEspecial;
+        private readonly ServicioProducto _servicio;
+        private readonly ServicioHistoricoPrecio _servicioHistoricoPrecio;
         private readonly ILogger<ProductoHistoricoPrecioModel> _logger;
 
         public List<HistoricoPrecio> Historicos { get; set; } = new();
@@ -18,13 +17,12 @@ namespace FERRETERIA__Joel.Pages
         public string NombreProducto { get; set; } = string.Empty;
 
         public ProductoHistoricoPrecioModel(
-            RepositoryCreator<IRepository<Producto>> productoRepositoryCreator,
-            RepositoryCreator<IRepository<HistoricoPrecio>> historicoPrecioRepositoryCreator,
-            MySqlHistoricoPrecioRepository historicoPrecioRepository,
+            ServicioProducto servicio,
+            ServicioHistoricoPrecio servicioHistoricoPrecio,
             ILogger<ProductoHistoricoPrecioModel> logger)
         {
-            _productoRepository = productoRepositoryCreator.CreateRepository();
-            _historicoPrecioEspecial = historicoPrecioRepository;
+            _servicio = servicio;
+            _servicioHistoricoPrecio = servicioHistoricoPrecio;
             _logger = logger;
         }
 
@@ -40,7 +38,7 @@ namespace FERRETERIA__Joel.Pages
                 return RedirectToPage("Productos");
             }
 
-            var producto = _productoRepository.ObtenerPorId(id);
+            var producto = _servicio.ObtenerPorId(id);
 
             if (producto is null)
             {
@@ -55,7 +53,7 @@ namespace FERRETERIA__Joel.Pages
             try
             {
                 Historicos =
-                    _historicoPrecioEspecial.ObtenerPorProducto(producto.IdProducto);
+                    _servicioHistoricoPrecio.ObtenerPorProducto(producto.IdProducto);
             }
             catch (Exception ex)
             {

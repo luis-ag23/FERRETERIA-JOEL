@@ -206,8 +206,10 @@
     overflow: hidden;
 }
 
+/* Sin scroll horizontal: la tabla siempre cabe en el contenedor */
 .fj-table-wrap {
-    overflow-x: auto;
+    overflow-x: hidden;
+    max-width: 100%;
 }
 
 .fj-table {
@@ -215,6 +217,7 @@
     border-collapse: collapse;
     text-align: left;
     font-size: 0.9rem;
+    table-layout: fixed;
 }
 
 .fj-table thead th {
@@ -226,13 +229,15 @@
     color: var(--texto-ter);
     border-bottom: 1px solid var(--borde);
     background: var(--fondo-panel);
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .fj-table tbody td {
     padding: 17px 22px;
     border-bottom: 1px solid var(--borde-suave);
     vertical-align: middle;
+    overflow-wrap: anywhere;
 }
 
 .fj-table tbody tr {
@@ -277,7 +282,6 @@
 
 .fj-td-secundario {
     color: var(--texto-sec);
-    white-space: nowrap;
 }
 
 .fj-td-precio {
@@ -373,8 +377,84 @@
 .fj-acciones {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
     justify-content: flex-end;
+}
+
+/* Botones de acción convertidos en iconos */
+.fj-btn-icon {
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border-radius: 0.5rem;
+    flex: none;
+}
+
+.fj-btn-icon svg {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* Botón de detalle: icono + etiqueta para que se entienda sin tooltip */
+.fj-btn-detalle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0.375rem 0.7rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.fj-btn-detalle svg {
+    width: 0.95rem;
+    height: 0.95rem;
+    flex: none;
+}
+
+.fj-th-detalle,
+.fj-td-detalle {
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* Modal de detalle (descripción + unidad de medida) */
+.fj-modal-icon-info {
+    background: var(--amarillo-bg);
+    color: var(--amarillo-texto);
+    border: 1px solid var(--amarillo-borde);
+}
+
+.fj-modal-producto {
+    margin: -0.25rem 0 1rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--texto);
+    overflow-wrap: anywhere;
+}
+
+.fj-detalle {
+    margin: 0 0 1.5rem;
+    text-align: left;
+    display: grid;
+    gap: 0.875rem;
+}
+
+.fj-detalle dt {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--texto-ter);
+    margin-bottom: 0.1875rem;
+}
+
+.fj-detalle dd {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--texto-sec);
+    overflow-wrap: anywhere;
 }
 
 /* Vacío */
@@ -439,9 +519,23 @@
     .fj-td-secundario {
         white-space: normal;
     }
+
+    .fj-table thead th,
+    .fj-table tbody td {
+        padding: 12px 10px;
+    }
 }
 
 @media (max-width: 640px) {
+    .fj-table {
+        font-size: 0.82rem;
+    }
+
+    .fj-table thead th,
+    .fj-table tbody td {
+        padding: 10px 6px;
+    }
+
     .fj-stats {
         grid-template-columns: 1fr 1fr;
         gap: 10px;

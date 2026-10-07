@@ -1,15 +1,14 @@
+using FERRETERIA__Joel.Aplicacion.Servicios;
+using FERRETERIA__Joel.Dominio.Entidades;
+using FERRETERIA__Joel.Helpers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using FERRETERIA__Joel.Factories;
-using FERRETERIA__Joel.Models;
-using FERRETERIA__Joel.Repositories;
 
 namespace FERRETERIA__Joel.Pages
 {
     public class CategoriasModel : PageModel
     {
-        private readonly IRepository<Categoria> _repositorio;
-        private readonly IModificacionRepository<Categoria> _modificacionRepository;
+        private readonly ServicioCategoria _servicio;
         private readonly ILogger<CategoriasModel> _logger;
 
         public string Mensaje { get; set; } = "";
@@ -19,13 +18,16 @@ namespace FERRETERIA__Joel.Pages
         public bool SoloActivos { get; set; }
 
         public CategoriasModel(
-            RepositoryCreator<IRepository<Categoria>> categoriaRepositoryCreator,
-            IModificacionRepository<Categoria> modificacionRepository,
+            ServicioCategoria servicio,
             ILogger<CategoriasModel> logger)
         {
-            _repositorio = categoriaRepositoryCreator.CreateRepository();
-            _modificacionRepository = modificacionRepository;
+            _servicio = servicio;
             _logger = logger;
+        }
+
+        public string ObtenerToken(int id)
+        {
+            return UrlProtector.Cifrar(id.ToString());
         }
 
         public void OnGet(bool? soloActivos)
@@ -35,8 +37,8 @@ namespace FERRETERIA__Joel.Pages
             try
             {
                 ListCategorias = SoloActivos
-                    ? _repositorio.ObtenerActivas()
-                    : _repositorio.ObtenerTodos();
+                    ? _servicio.ObtenerActivas()
+                    : _servicio.ObtenerTodos();
             }
             catch (Exception ex)
             {
@@ -49,7 +51,7 @@ namespace FERRETERIA__Joel.Pages
         {
             try
             {
-                _modificacionRepository.CambiarEstado(id);
+                _servicio.CambiarEstado(id);
                 TempData["Mensaje"] = "Categoría desactivada correctamente.";
             }
             catch (Exception ex)

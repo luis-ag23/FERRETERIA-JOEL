@@ -1,6 +1,6 @@
-using FERRETERIA__Joel.Factories;
-using FERRETERIA__Joel.Models;
-using FERRETERIA__Joel.Repositories;
+using FERRETERIA__Joel.Aplicacion.Servicios;
+using FERRETERIA__Joel.Dominio.Entidades;
+using FERRETERIA__Joel.Helpers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -8,8 +8,7 @@ namespace FERRETERIA__Joel.Pages
 {
     public class ProveedoresModel : PageModel
     {
-        private readonly IRepository<Proveedor> _proveedorRepository;
-        private readonly IModificacionRepository<Proveedor> _proveedorModificacionRepository;
+        private readonly ServicioProveedor _servicio;
         private readonly ILogger<ProveedoresModel> _logger;
 
         public List<Proveedor> ListProveedores { get; set; } = new();
@@ -18,13 +17,16 @@ namespace FERRETERIA__Joel.Pages
         public bool SoloActivos { get; set; }
 
         public ProveedoresModel(
-            RepositoryCreator<IRepository<Proveedor>> proveedorRepositoryCreator,
-            IModificacionRepository<Proveedor> modificacionRepository,
+            ServicioProveedor servicio,
             ILogger<ProveedoresModel> logger)
         {
-            _proveedorRepository = proveedorRepositoryCreator.CreateRepository();
-            _proveedorModificacionRepository = modificacionRepository;
+            _servicio = servicio;
             _logger = logger;
+        }
+
+        public string ObtenerToken(int id)
+        {
+            return UrlProtector.Cifrar(id.ToString());
         }
 
         public void OnGet(bool? soloActivos)
@@ -33,9 +35,7 @@ namespace FERRETERIA__Joel.Pages
 
             try
             {
-                ListProveedores = SoloActivos
-                    ? _proveedorRepository.ObtenerActivas()
-                    : _proveedorRepository.ObtenerTodos();
+                ListProveedores = _servicio.Listar(SoloActivos);
             }
             catch (Exception ex)
             {
@@ -52,7 +52,7 @@ namespace FERRETERIA__Joel.Pages
         {
             try
             {
-                _proveedorModificacionRepository.CambiarEstado(idProveedor);
+                _servicio.CambiarEstado(idProveedor);
 
                 TempData["Mensaje"] =
                     "Proveedor eliminado correctamente.";

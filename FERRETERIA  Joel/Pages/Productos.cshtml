@@ -1,4 +1,4 @@
-﻿@page
+@page
 @model FERRETERIA__Joel.Pages.ProductosModel
 @{
     ViewData["Title"] = "Productos";
@@ -72,10 +72,8 @@
                         <th scope="col">Código</th>
                         <th scope="col">Nombre</th>
                         <th scope="col">Categoría</th>
-                        <th scope="col">Descripción</th>
-                        <th scope="col">Unidad</th>
+                        <th scope="col" class="fj-th-detalle">Detalle</th>
                         <th scope="col" class="fj-td-precio">Precio</th>
-                        <th scope="col">Fecha de registro</th>
                         <th scope="col" class="fj-td-estado">Estado</th>
                         <th scope="col" class="fj-td-acciones">Acciones</th>
                     </tr>
@@ -86,7 +84,7 @@
                     @if (Model.ListProductos.Count == 0)
                     {
                         <tr>
-                            <td colspan="9" class="fj-table-vacio">
+                            <td colspan="7" class="fj-table-vacio">
                                 <div class="fj-empty">
                                     <span class="fj-empty-ico" aria-hidden="true">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -112,7 +110,7 @@
 
                             <td>
                                 <span class="fj-nombre">@item.Nombre</span>
-                                <span class="fj-nombre-sub">@item.Marca</span>
+                                <span class="fj-nombre-sub">@item.NombreMarca</span>
                             </td>
 
                             <td class="fj-td-secundario">
@@ -124,21 +122,24 @@
                                 @(categoria?.Nombre ?? "Sin categoría")
                             </td>
 
-                            <td class="fj-td-secundario">
-                                <span class="fj-ellipsis">@item.Descripcion</span>
-                            </td>
-
-                            <td class="fj-td-secundario">
-                                @item.UnidadMedida
+                            <td class="fj-td-detalle">
+                                <button type="button"
+                                        class="fj-btn fj-btn-edit fj-btn-detalle"
+                                        data-fj-detalle
+                                        data-titulo="Detalle del producto"
+                                        data-nombre="@item.Nombre"
+                                        data-descripcion="@(item.Descripcion ?? "")"
+                                        data-unidad="@item.UnidadMedida"
+                                        title="Ver descripción y unidad"
+                                        aria-label="Ver descripción y unidad">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
+                                    <span>Detalles</span>
+                                </button>
                             </td>
 
                             <td class="fj-td-precio">
                                 <span class="fj-precio">@item.PrecioVenta.ToString("N2")</span>
                                 <span class="fj-currency">Bs</span>
-                            </td>
-
-                            <td class="fj-td-secundario">
-                                @item.FechaRegistro.ToString("dd/MM/yyyy HH:mm")
                             </td>
 
                             <td class="fj-td-estado">
@@ -148,21 +149,23 @@
                             <td class="fj-td-acciones">
                                 <div class="fj-acciones">
 
-                                    <a class="fj-btn fj-btn-edit"
+                                    <a class="fj-btn fj-btn-edit fj-btn-icon"
                                        asp-page="ProductoEditar"
-                                       asp-route-token="@item.UrlToken">
+                                       asp-route-token="@Model.ObtenerToken(item.IdProducto)"
+                                       title="Editar producto"
+                                       aria-label="Editar producto">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                                             <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                                         </svg>
-                                        Editar
                                     </a>
 
-                                    
-                                    <a class="fj-btn fj-btn-edit"
+                                    <a class="fj-btn fj-btn-edit fj-btn-icon"
                                        asp-page="ProductoHistoricoPrecio"
-                                       asp-route-token="@item.UrlToken">
-                                        Historial
+                                       asp-route-token="@Model.ObtenerToken(item.IdProducto)"
+                                       title="Historial de precios"
+                                       aria-label="Historial de precios">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
                                     </a>
 
 
@@ -174,12 +177,11 @@
                                               class="fj-inline-form"
                                               data-fj-confirm="¿Desea desactivar el producto '@item.Nombre'?">
 
-                                            <button type="submit" class="fj-btn fj-btn-sm fj-btn-danger">
+                                            <button type="submit" class="fj-btn fj-btn-danger fj-btn-icon" title="Desactivar producto" aria-label="Desactivar producto">
                                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                     <polyline points="3 6 5 6 21 6" />
                                                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                                                 </svg>
-                                                Desactivar
                                             </button>
 
                                         </form>
@@ -198,3 +200,32 @@
 </div>
 
 <partial name="_ConfirmModal" />
+
+@* Modal de detalle: descripción y unidad de medida del producto *@
+<div class="fj-modal" id="fjDetalleModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="fjDetalleTitle">
+    <div class="fj-modal-backdrop" data-fj-modal-close aria-hidden="true"></div>
+    <div class="fj-modal-wrapper" role="document">
+        <div class="fj-modal-dialog">
+            <div class="fj-modal-icon fj-modal-icon-info" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
+            </div>
+            <h2 class="fj-modal-title" id="fjDetalleTitle">Detalle del producto</h2>
+            <p class="fj-modal-producto" id="fjDetalleProducto"></p>
+
+            <dl class="fj-detalle">
+                <div>
+                    <dt>Descripción</dt>
+                    <dd id="fjDetalleDescripcion"></dd>
+                </div>
+                <div>
+                    <dt>Unidad de medida</dt>
+                    <dd id="fjDetalleUnidad"></dd>
+                </div>
+            </dl>
+
+            <div class="fj-modal-actions">
+                <button type="button" class="fj-btn fj-btn-primary" data-fj-modal-close>Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>

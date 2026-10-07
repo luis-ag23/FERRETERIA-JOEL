@@ -1,7 +1,6 @@
-using FERRETERIA__Joel.Factories;
-using FERRETERIA__Joel.Models;
-using FERRETERIA__Joel.Repositories;
-using FERRETERIA__Joel.Validaciones;
+using FERRETERIA__Joel.Aplicacion.Servicios;
+using FERRETERIA__Joel.Dominio.Entidades;
+using FERRETERIA__Joel.Dominio.Validaciones;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using System.Text.RegularExpressions;
@@ -10,8 +9,8 @@ namespace FERRETERIA__Joel.Pages
 {
     public class ProveedorNuevoModel : PageModel
     {
-        private readonly IRepository<Proveedor> _proveedorRepository;
-        private readonly IRepository<Empleado> _empleadoRepository;
+        private readonly ServicioProveedor _servicio;
+        private readonly ServicioEmpleado _servicioEmpleado;
         private readonly ILogger<ProveedorNuevoModel> _logger;
 
         private readonly ProveedorValidaciones _validacion = new();
@@ -24,12 +23,12 @@ namespace FERRETERIA__Joel.Pages
         public Dictionary<string, string> ErroresCampo { get; set; } = new();
 
         public ProveedorNuevoModel(
-            RepositoryCreator<IRepository<Proveedor>> proveedorRepositoryCreator,
-            RepositoryCreator<IRepository<Empleado>> empleadoRepositoryCreator,
+            ServicioProveedor servicio,
+            ServicioEmpleado servicioEmpleado,
             ILogger<ProveedorNuevoModel> logger)
         {
-            _proveedorRepository = proveedorRepositoryCreator.CreateRepository();
-            _empleadoRepository = empleadoRepositoryCreator.CreateRepository();
+            _servicio = servicio;
+            _servicioEmpleado = servicioEmpleado;
             _logger = logger;
         }
         public void OnGet()
@@ -49,7 +48,7 @@ namespace FERRETERIA__Joel.Pages
 
             try
             {
-                _proveedorRepository.Insertar(Proveedor);
+                _servicio.Insertar(Proveedor);
             }
             catch (Exception ex)
             {
@@ -103,28 +102,28 @@ namespace FERRETERIA__Joel.Pages
             {
                 AgregarErrorCampo(
                     nameof(Proveedor.RazonSocial),
-                    "La razón social es obligatoria y debe tener máximo 150 caracteres.");
+                    "La razón social es obligatoria, debe tener máximo 150 caracteres y solo admite letras y espacios (sin números ni caracteres especiales).");
             }
 
             if (!_validacion.EsNombreComercialValido(Proveedor.NombreComercial))
             {
                 AgregarErrorCampo(
                     nameof(Proveedor.NombreComercial),
-                    "El nombre comercial es obligatorio y debe tener máximo 150 caracteres.");
+                    "El nombre comercial es obligatorio, debe tener máximo 150 caracteres y solo admite letras y espacios (sin números ni caracteres especiales).");
             }
 
             if (!_validacion.EsNombreContactoValido(Proveedor.NombreContacto))
             {
                 AgregarErrorCampo(
                     nameof(Proveedor.NombreContacto),
-                    "El nombre del contacto es obligatorio y debe tener máximo 150 caracteres.");
+                    "El nombre del contacto es obligatorio, debe tener máximo 150 caracteres y solo admite letras y espacios (sin números ni caracteres especiales).");
             }
 
             if (!_validacion.EsTelefonoValido(Proveedor.Telefono))
             {
                 AgregarErrorCampo(
                     nameof(Proveedor.Telefono),
-                    "El teléfono debe tener 8 dígitos y comenzar con 6 o 7.");
+                    "El teléfono debe tener 8 dígitos y comenzar con 5, 6, 7 u 8.");
             }
 
             if (!_validacion.EsCorreoValido(Proveedor.CorreoElectronico))
@@ -148,7 +147,7 @@ namespace FERRETERIA__Joel.Pages
         }
         private void CargarEmpleados()
         {
-            Empleados = _empleadoRepository.ObtenerTodos();
+            Empleados = _servicioEmpleado.ObtenerTodos();
         }
     }
 }

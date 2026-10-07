@@ -1,3 +1,6 @@
 <Solution>
-  <Project Path="FERRETERIA  Joel/FERRETERIA  Joel.csproj" />
+  <Project Path="FERRETERIA__Joel.Dominio/FERRETERIA__Joel.Dominio.csproj" />
+  <Project Path="FERRETERIA__Joel.Aplicacion/FERRETERIA__Joel.Aplicacion.csproj" />
+  <Project Path="FERRETERIA__Joel.Infraestructura/FERRETERIA__Joel.Infraestructura.csproj" />
+  <Project Path="FERRETERIA  Joel/FERRETERIA__Joel.Web.csproj" />
 </Solution>

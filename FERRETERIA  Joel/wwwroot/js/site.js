@@ -140,3 +140,130 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 })();
+
+// ---------------------------------------------------------
+// Validación en el cliente de los campos con data-fj-regex
+// (nombres sin números ni caracteres especiales y teléfonos).
+// Los formularios usan novalidate, así que esta rutina
+// complementa la validación que siempre ocurre en el servidor.
+// ---------------------------------------------------------
+(function () {
+    function limpiarError(campo) {
+        var campoError = campo.closest('.fj-form-field');
+        if (!campoError) return;
+        campoError.querySelectorAll('[data-fj-error-cliente]').forEach(function (p) {
+            p.remove();
+        });
+        campoError.classList.remove('fj-form-field-error');
+    }
+
+    function mostrarError(campo, mensaje) {
+        var campoError = campo.closest('.fj-form-field');
+        if (!campoError) return;
+        if (campoError.querySelector('.fj-form-error')) return;
+
+        campoError.classList.add('fj-form-field-error');
+
+        var p = document.createElement('p');
+        p.className = 'fj-form-error';
+        p.setAttribute('role', 'alert');
+        p.setAttribute('data-fj-error-cliente', 'true');
+        p.textContent = mensaje;
+        campoError.appendChild(p);
+    }
+
+    document.querySelectorAll('form.fj-form').forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            var primerInvalido = null;
+
+            form.querySelectorAll('[data-fj-regex]').forEach(function (campo) {
+                limpiarError(campo);
+
+                var valor = (campo.value || '').trim();
+                if (!valor) return;
+
+                var regex;
+                try {
+                    regex = new RegExp(campo.getAttribute('data-fj-regex'), 'u');
+                } catch (e) {
+                    return;
+                }
+
+                if (regex.test(valor)) return;
+
+                mostrarError(
+                    campo,
+                    campo.getAttribute('data-fj-msj') || 'El valor no es válido.');
+
+                if (!primerInvalido) primerInvalido = campo;
+            });
+
+            if (primerInvalido) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                primerInvalido.focus();
+                primerInvalido.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }
+        });
+    });
+})();
+
+// ---------------------------------------------------------
+// Modal de detalle (descripción + unidad de medida).
+// Se abre desde cualquier elemento con data-fj-detalle y
+// toma los datos de sus atributos data-*.
+// ---------------------------------------------------------
+(function () {
+    var modal = document.getElementById('fjDetalleModal');
+    if (!modal) return;
+
+    var titulo = document.getElementById('fjDetalleTitle');
+    var producto = document.getElementById('fjDetalleProducto');
+    var descripcion = document.getElementById('fjDetalleDescripcion');
+    var unidad = document.getElementById('fjDetalleUnidad');
+    var botonCerrar = modal.querySelector('[data-fj-modal-close].fj-btn');
+
+    function abrir(boton) {
+        if (titulo) {
+            titulo.textContent = boton.getAttribute('data-titulo') || 'Detalle del producto';
+        }
+        if (producto) {
+            producto.textContent = boton.getAttribute('data-nombre') || '';
+        }
+        if (descripcion) {
+            descripcion.textContent = boton.getAttribute('data-descripcion') || 'Sin descripción registrada.';
+        }
+        if (unidad) {
+            unidad.textContent = boton.getAttribute('data-unidad') || '—';
+        }
+
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('fj-modal-open');
+        if (botonCerrar) botonCerrar.focus();
+    }
+
+    function cerrar() {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('fj-modal-open');
+    }
+
+    document.addEventListener('click', function (event) {
+        var boton = event.target.closest('[data-fj-detalle]');
+        if (boton) {
+            event.preventDefault();
+            abrir(boton);
+            return;
+        }
+
+        if (event.target.classList.contains('fj-modal-backdrop') ||
+            event.target.closest('[data-fj-modal-close]')) {
+            cerrar();
+        }
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') cerrar();
+    });
+})();
