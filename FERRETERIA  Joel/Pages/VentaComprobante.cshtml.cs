@@ -2,14 +2,18 @@ using FERRETERIA__Joel.Aplicacion.Modelos;
 using FERRETERIA__Joel.Aplicacion.Servicios;
 using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Helpers;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace FERRETERIA__Joel.Pages
 {
     /// <summary>
     /// Comprobante/recibo de una venta. El identificador viaja cifrado
-    /// en la ruta (token) y nunca se expone como id sin protegir.
+    /// en la ruta (token) y la vista exige autenticación explícita:
+    /// el token solo protege de exponer el id, no sustituye la
+    /// autorización.
     /// </summary>
+    [Authorize]
     public class VentaComprobanteModel : PageModel
     {
         private readonly FachadaVenta _fachada;

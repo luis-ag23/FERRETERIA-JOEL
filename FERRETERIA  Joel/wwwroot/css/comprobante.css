@@ -21,19 +21,41 @@
 
 .comprobante-titulo {
     display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.comprobante-logo {
+    width: 2.4rem;
+    height: 2.4rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    background: var(--amarillo-bg);
+    color: var(--accent);
+}
+
+.comprobante-logo svg {
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+.comprobante-marca {
+    display: flex;
     flex-direction: column;
 }
 
-.comprobante-titulo strong {
+.comprobante-marca strong {
     font-size: 1.15rem;
     letter-spacing: 0.02em;
 }
 
-.comprobante-titulo span {
+.comprobante-marca span {
     color: var(--accent);
 }
 
-.comprobante-titulo small {
+.comprobante-marca small {
     color: var(--texto-ter);
     font-size: 0.8rem;
     margin-top: 0.15rem;

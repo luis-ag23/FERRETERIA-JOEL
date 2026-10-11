@@ -1,6 +1,7 @@
 using FERRETERIA__Joel.Aplicacion.Modelos;
 using FERRETERIA__Joel.Aplicacion.Servicios;
 using FERRETERIA__Joel.Dominio.Constantes;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -11,6 +12,7 @@ namespace FERRETERIA__Joel.Pages
     /// anulación lógica con motivo. La anulación restaura el stock y
     /// registra el responsable; solo la autoriza el rol Administrador.
     /// </summary>
+    [Authorize]
     public class VentasModel : PageModel
     {
         private readonly FachadaVenta _fachada;

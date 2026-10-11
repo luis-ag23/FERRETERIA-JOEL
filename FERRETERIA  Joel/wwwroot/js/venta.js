@@ -392,7 +392,88 @@
         });
 
         document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') cerrarModal();
+            if (e.key === 'Escape') {
+                cerrarModal();
+                cerrarNuevoCliente();
+            }
+        });
+    }
+
+    // ---------- Nuevo cliente (alta sin perder la venta) ----------
+
+    var modalCliente = document.getElementById('nuevoClienteModal');
+    var btnNuevoCliente = document.getElementById('btnNuevoCliente');
+    var formCliente = document.getElementById('nuevoClienteForm');
+    var errorCliente = document.getElementById('nuevoClienteError');
+
+    function abrirNuevoCliente() {
+        if (!modalCliente) return;
+        modalCliente.classList.add('is-open');
+        modalCliente.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('fj-modal-open');
+        var primero = document.getElementById('nuevoClienteNombre');
+        if (primero) primero.focus();
+    }
+
+    function cerrarNuevoCliente() {
+        if (!modalCliente) return;
+        modalCliente.classList.remove('is-open');
+        modalCliente.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('fj-modal-open');
+    }
+
+    if (btnNuevoCliente) {
+        btnNuevoCliente.addEventListener('click', abrirNuevoCliente);
+    }
+
+    if (modalCliente) {
+        modalCliente.addEventListener('click', function (e) {
+            if (e.target.classList.contains('fj-modal-backdrop') ||
+                e.target.closest('[data-fj-modal-close]')) {
+                cerrarNuevoCliente();
+            }
+        });
+    }
+
+    if (formCliente) {
+        formCliente.addEventListener('submit', function (e) {
+            e.preventDefault();
+            errorCliente.hidden = true;
+            errorCliente.innerHTML = '';
+
+            var enviar = document.getElementById('nuevoClienteOk');
+            if (enviar) enviar.disabled = true;
+
+            var datos = new FormData(formCliente);
+
+            fetch(document.getElementById('nuevoClienteUrl').value, {
+                method: 'POST',
+                body: datos,
+                headers: { 'Accept': 'application/json' }
+            }).then(function (r) {
+                return r.json();
+            }).then(function (respuesta) {
+                if (!respuesta.exito) {
+                    errorCliente.hidden = false;
+                    errorCliente.innerHTML = '<span>' + respuesta.mensaje + '</span>';
+                    return;
+                }
+
+                // El cliente queda seleccionado y las líneas de la venta
+                // se conservan porque nunca se recargó la página.
+                mostrarCliente({
+                    id: respuesta.id,
+                    nombre: respuesta.nombre,
+                    telefono: respuesta.telefono
+                });
+                cerrarNuevoCliente();
+                formCliente.reset();
+            }).catch(function () {
+                errorCliente.hidden = false;
+                errorCliente.innerHTML = '<span>No se pudo registrar el cliente. Intente nuevamente.</span>';
+            }).finally(function () {
+                if (enviar) enviar.disabled = false;
+            });
         });
     }
 

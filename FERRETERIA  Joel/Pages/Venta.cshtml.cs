@@ -1,6 +1,7 @@
 using FERRETERIA__Joel.Aplicacion.Modelos;
 using FERRETERIA__Joel.Aplicacion.Politicas;
 using FERRETERIA__Joel.Aplicacion.Servicios;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -11,13 +12,19 @@ namespace FERRETERIA__Joel.Pages
     /// fachada de ventas: nunca accede a repositorios ni transacciones.
     /// El precio y los totales siempre se resuelven en el dominio.
     /// </summary>
+    [Authorize]
     public class VentaModel : PageModel
     {
         private readonly FachadaVenta _fachada;
+        private readonly ServicioCliente _servicioCliente;
 
-        public VentaModel(FachadaVenta fachada, ConfiguracionDescuentos descuentos)
+        public VentaModel(
+            FachadaVenta fachada,
+            ConfiguracionDescuentos descuentos,
+            ServicioCliente servicioCliente)
         {
             _fachada = fachada;
+            _servicioCliente = servicioCliente;
             Descuentos = descuentos;
         }
 
@@ -87,6 +94,41 @@ namespace FERRETERIA__Joel.Pages
                 });
 
             return new JsonResult(productos);
+        }
+
+        /// <summary>
+        /// Registra un cliente desde el modal "Nuevo cliente" de la
+        /// propia pantalla de venta. Al ser una llamada AJAX la página
+        /// nunca se recarga y las líneas seleccionadas se conservan.
+        /// </summary>
+        public JsonResult OnPostCrearCliente(
+            string? nuevoClienteNombre,
+            string? nuevoClienteApellido,
+            string? nuevoClienteTelefono,
+            string? nuevoClienteCorreo)
+        {
+            ResultadoCliente resultado = _servicioCliente.Crear(
+                nuevoClienteNombre ?? string.Empty,
+                nuevoClienteApellido ?? string.Empty,
+                nuevoClienteTelefono ?? string.Empty,
+                nuevoClienteCorreo);
+
+            if (!resultado.Exito || resultado.Cliente is null)
+            {
+                return new JsonResult(new
+                {
+                    exito = false,
+                    mensaje = resultado.Mensaje
+                });
+            }
+
+            return new JsonResult(new
+            {
+                exito = true,
+                id = resultado.Cliente.IdCliente,
+                nombre = $"{resultado.Cliente.Nombre} {resultado.Cliente.Apellido}".Trim(),
+                telefono = resultado.Cliente.Telefono
+            });
         }
 
         public IActionResult OnPostRegistrar()

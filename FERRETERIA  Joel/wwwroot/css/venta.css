@@ -209,6 +209,43 @@
     margin-top: 0.5rem;
 }
 
+/* ---------- Alta de cliente desde la venta ---------- */
+
+.fj-form-ayuda {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--texto-ter);
+}
+
+.fj-link-btn {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--accent);
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.fj-link-btn:hover {
+    text-decoration: none;
+}
+
+.fj-optional {
+    color: var(--texto-ter);
+    font-weight: 400;
+}
+
+.fj-modal-dialog-form {
+    max-width: 30rem;
+}
+
+.fj-modal-dialog-form .fj-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
 @media (max-width: 60rem) {
     .fj-page-venta .fj-venta-grid {
         grid-template-columns: 1fr;

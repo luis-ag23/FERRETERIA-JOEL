@@ -280,6 +280,7 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
                 new VentaRepositoryCreator(conexion),
                 new DetalleVentaRepositoryCreator(conexion),
                 new InventarioRepositoryCreator(conexion),
+                new EmpleadoRepositoryCreator(fabrica),
                 new MySqlUnidadDeTrabajo(conexion),
                 selector,
                 new ContextoUsuarioFake(idEmpleado));

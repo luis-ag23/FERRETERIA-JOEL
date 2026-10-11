@@ -38,8 +38,13 @@
         <section class="comprobante" aria-label="Comprobante de la venta">
             <div class="comprobante-cabecera">
                 <div class="comprobante-titulo">
-                    <strong>FERRETERÍA <span>JOEL</span></strong>
-                    <small>Av. Central N.º 123, El Alto · La Paz</small>
+                    <span class="comprobante-logo" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></svg>
+                    </span>
+                    <span class="comprobante-marca">
+                        <strong>FERRETERÍA <span>JOEL</span></strong>
+                        <small>Av. Central N.º 123, El Alto · La Paz</small>
+                    </span>
                 </div>
                 <div class="comprobante-datos">
                     <span>Comprobante @venta.CodigoVenta</span>
@@ -62,6 +67,18 @@
                 <div>
                     <dt>Estado del pago</dt>
                     <dd>@venta.EstadoPago</dd>
+                </div>
+                <div>
+                    <dt>Generado por</dt>
+                    <dd>@Model.Comprobante.NombreEmpleadoResponsable</dd>
+                </div>
+                <div>
+                    <dt>Fecha de emisión</dt>
+                    <dd>@venta.FechaRegistro.ToString("dd/MM/yyyy HH:mm")</dd>
+                </div>
+                <div>
+                    <dt>Estado</dt>
+                    <dd>@VentaComprobanteModel.ImprimirEstado(venta.EstadoVenta)</dd>
                 </div>
             </dl>
 
@@ -108,7 +125,15 @@
             {
                 <div class="comprobante-anulada">
                     <strong>VENTA ANULADA</strong>
-                    <span>@venta.MotivoAnulacion</span>
+                    <span>Motivo: @venta.MotivoAnulacion</span>
+                    <span>
+                        Anulada el
+                        @venta.FechaAnulacion?.ToString("dd/MM/yyyy HH:mm")
+                        @if (!string.IsNullOrWhiteSpace(Model.Comprobante.NombreEmpleadoAnulacion))
+                        {
+                            @:por @Model.Comprobante.NombreEmpleadoAnulacion
+                        }
+                    </span>
                 </div>
             }
 

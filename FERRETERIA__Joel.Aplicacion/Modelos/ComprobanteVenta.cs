@@ -12,6 +12,10 @@ namespace FERRETERIA__Joel.Aplicacion.Modelos
 
         public string NombreCliente { get; set; } = string.Empty;
 
+        public string NombreEmpleadoResponsable { get; set; } = string.Empty;
+
+        public string? NombreEmpleadoAnulacion { get; set; }
+
         public List<LineaVentaDetalle> Lineas { get; set; } = new();
     }
 }

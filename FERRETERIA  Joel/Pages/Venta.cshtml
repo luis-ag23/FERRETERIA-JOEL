@@ -86,6 +86,11 @@
                 <input type="hidden" asp-for="NombreCliente" id="clienteNombre" />
 
                 <p class="fj-seleccion" id="clienteSeleccionado" hidden></p>
+
+                <p class="fj-form-ayuda">
+                    ¿No encuentra al cliente?
+                    <button type="button" class="fj-link-btn" id="btnNuevoCliente">Registrar cliente nuevo</button>
+                </p>
             </div>
 
             <div class="fj-form-field">
@@ -194,6 +199,55 @@
                 <button type="button" class="fj-btn fj-btn-ghost" data-fj-modal-close>Cancelar</button>
                 <button type="button" class="fj-btn fj-btn-primary" id="ventaConfirmOk">Registrar</button>
             </div>
+        </div>
+    </div>
+</div>
+
+@* Modal "Nuevo cliente": alta desde la propia pantalla de venta, sin
+   recargar la página, por lo que las líneas seleccionadas se conservan. *@
+<div class="fj-modal" id="nuevoClienteModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="nuevoClienteTitle">
+    <div class="fj-modal-backdrop" data-fj-modal-close aria-hidden="true"></div>
+    <div class="fj-modal-wrapper" role="document">
+        <div class="fj-modal-dialog fj-modal-dialog-form">
+            <h2 class="fj-modal-title" id="nuevoClienteTitle">Registrar cliente nuevo</h2>
+            <p class="fj-modal-message" id="nuevoClienteIntro">
+                Complete los datos del cliente. Al guardar se seleccionará
+                automáticamente en la venta sin perder los productos agregados.
+            </p>
+
+            <form id="nuevoClienteForm" class="fj-form">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="nuevoClienteUrl"
+                       value="@Url.Page("/Venta", "CrearCliente")" />
+
+                <div class="fj-form-field">
+                    <label for="nuevoClienteNombre">Nombres</label>
+                    <input type="text" id="nuevoClienteNombre"
+                           name="nuevoClienteNombre" maxlength="60" autocomplete="off" />
+                </div>
+                <div class="fj-form-field">
+                    <label for="nuevoClienteApellido">Apellidos</label>
+                    <input type="text" id="nuevoClienteApellido"
+                           name="nuevoClienteApellido" maxlength="60" autocomplete="off" />
+                </div>
+                <div class="fj-form-field">
+                    <label for="nuevoClienteTelefono">Teléfono</label>
+                    <input type="tel" id="nuevoClienteTelefono"
+                           name="nuevoClienteTelefono" maxlength="30" autocomplete="off" />
+                </div>
+                <div class="fj-form-field">
+                    <label for="nuevoClienteCorreo">Correo electrónico <span class="fj-optional">(opcional)</span></label>
+                    <input type="email" id="nuevoClienteCorreo"
+                           name="nuevoClienteCorreo" maxlength="120" autocomplete="off" />
+                </div>
+
+                <div class="fj-alert" id="nuevoClienteError" role="alert" hidden></div>
+
+                <div class="fj-modal-actions">
+                    <button type="button" class="fj-btn fj-btn-ghost" data-fj-modal-close>Cancelar</button>
+                    <button type="submit" class="fj-btn fj-btn-primary" id="nuevoClienteOk">Guardar cliente</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

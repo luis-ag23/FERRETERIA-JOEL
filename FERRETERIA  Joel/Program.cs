@@ -75,6 +75,7 @@ builder.Services.AddScoped<ServicioProveedor>();
 builder.Services.AddScoped<ServicioEmpleado>();
 builder.Services.AddScoped<ServicioHistoricoPrecio>();
 builder.Services.AddScoped<ServicioMarca>();
+builder.Services.AddScoped<ServicioCliente>();
 
 builder.Services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddScoped<IContextoUsuario, ContextoUsuarioHttp>();

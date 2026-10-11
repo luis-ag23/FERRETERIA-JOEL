@@ -234,6 +234,28 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
         }
     }
 
+    public sealed class EmpleadoRepositorioFake : IRepository<Empleado>
+    {
+        private readonly List<Empleado> _empleados = new();
+
+        public void Agregar(Empleado empleado)
+        {
+            _empleados.Add(empleado);
+        }
+
+        public List<Empleado> ObtenerTodos()
+        {
+            return _empleados.ToList();
+        }
+
+        public int Insertar(Empleado entidad)
+        {
+            entidad.IdEmpleado = _empleados.Count + 1;
+            _empleados.Add(entidad);
+            return entidad.IdEmpleado;
+        }
+    }
+
     public sealed class InventarioRepositorioFake : IInventarioRepository
     {
         private readonly Dictionary<int, Producto> _productos = new();

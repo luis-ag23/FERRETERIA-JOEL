@@ -23,6 +23,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         private readonly RepositoryCreator<IVentaRepository> _creadorVentas;
         private readonly RepositoryCreator<IDetalleVentaRepository> _creadorDetalles;
         private readonly RepositoryCreator<IInventarioRepository> _creadorInventario;
+        private readonly RepositoryCreator<IRepository<Empleado>> _creadorEmpleados;
         private readonly IUnidadDeTrabajo _unidadDeTrabajo;
         private readonly SelectorDescuento _selectorDescuento;
         private readonly IContextoUsuario _contextoUsuario;
@@ -32,6 +33,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         private IVentaRepository? _ventas;
         private IDetalleVentaRepository? _detalles;
         private IInventarioRepository? _inventario;
+        private IRepository<Empleado>? _empleados;
 
         public FachadaVenta(
             RepositoryCreator<IGestionarRepository<Producto>> creadorProductos,
@@ -39,6 +41,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             RepositoryCreator<IVentaRepository> creadorVentas,
             RepositoryCreator<IDetalleVentaRepository> creadorDetalles,
             RepositoryCreator<IInventarioRepository> creadorInventario,
+            RepositoryCreator<IRepository<Empleado>> creadorEmpleados,
             IUnidadDeTrabajo unidadDeTrabajo,
             SelectorDescuento selectorDescuento,
             IContextoUsuario contextoUsuario)
@@ -48,6 +51,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             _creadorVentas = creadorVentas;
             _creadorDetalles = creadorDetalles;
             _creadorInventario = creadorInventario;
+            _creadorEmpleados = creadorEmpleados;
             _unidadDeTrabajo = unidadDeTrabajo;
             _selectorDescuento = selectorDescuento;
             _contextoUsuario = contextoUsuario;
@@ -67,6 +71,9 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
         private IInventarioRepository Inventario =>
             _inventario ??= _creadorInventario.CreateRepository();
+
+        private IRepository<Empleado> Empleados =>
+            _empleados ??= _creadorEmpleados.CreateRepository();
 
         public List<Cliente> BuscarClientes(string termino)
         {
@@ -423,13 +430,29 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 ? "Cliente eliminado"
                 : $"{cliente.Nombre} {cliente.Apellido}".Trim();
 
+            List<Empleado> todos = Empleados.ObtenerTodos();
+
             return new ComprobanteVenta
             {
                 Venta = venta,
                 NombreCliente = nombreCliente,
+                NombreEmpleadoResponsable = NombreDe(todos, venta.IdEmpleadoResponsable),
+                NombreEmpleadoAnulacion = venta.IdEmpleadoAnulacion is not null
+                    ? NombreDe(todos, venta.IdEmpleadoAnulacion.Value)
+                    : null,
                 Lineas = MapearDetalles(
                     Detalles.ObtenerPorVenta(idVenta))
             };
+        }
+
+        private static string NombreDe(List<Empleado> empleados, int idEmpleado)
+        {
+            Empleado? empleado = empleados
+                .FirstOrDefault(e => e.IdEmpleado == idEmpleado);
+
+            return empleado is null
+                ? $"Empleado #{idEmpleado}"
+                : $"{empleado.Nombre} {empleado.Apellido}".Trim();
         }
 
         public ResultadoVenta AnularVenta(int idVenta, string motivo)

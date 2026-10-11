@@ -43,6 +43,15 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                 Estado = 1
             });
 
+            EmpleadoRepositorioFake empleadosRepo = new();
+            empleadosRepo.Agregar(new Empleado
+            {
+                IdEmpleado = 42,
+                Nombre = "Usuario",
+                Apellido = "De Prueba",
+                Rol = RolesSistema.Vendedor
+            });
+
             foreach (Producto producto in productos)
             {
                 productosRepo.Agregar(producto);
@@ -61,6 +70,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                 new CreadorFake<Dominio.Puertos.IVentaRepository>(ventasRepo),
                 new CreadorFake<Dominio.Puertos.IDetalleVentaRepository>(detallesRepo),
                 new CreadorFake<Dominio.Puertos.IInventarioRepository>(inventarioRepo),
+                new CreadorFake<Dominio.Puertos.IRepository<Empleado>>(empleadosRepo),
                 unidadDeTrabajo,
                 selector,
                 new ContextoUsuarioFake());
@@ -452,6 +462,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
 
             Assert.NotNull(comprobante);
             Assert.Equal("Juan Perez", comprobante.NombreCliente);
+            Assert.Equal("Usuario De Prueba", comprobante.NombreEmpleadoResponsable);
             Assert.Equal("Tarjeta", comprobante.Venta.MetodoPago);
             Assert.Equal(450m, comprobante.Venta.MontoTotal);
             Assert.Single(comprobante.Lineas);
