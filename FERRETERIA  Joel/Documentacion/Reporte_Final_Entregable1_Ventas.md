@@ -1,9 +1,9 @@
-# Reporte Final — Entregable 1: Proceso de VENTAS
+# Reporte Final — Entregable 1: Módulo de VENTAS
 
 **Proyecto:** FERRETERÍA JOEL — Sistema administrativo
 **Módulo entregado:** Ventas y Caja (registro, historial, comprobante y anulación)
-**Rama:** `feature/ventas` (sin merge a `master`)
-**Base de datos de trabajo:** `bdferreteria_dev` (la base principal `bdferreteria` permanece intacta)
+**Rama:** `feature/ventas-scope-cleanup` (aislada, **sin merge a `master`**)
+**Base de datos de trabajo y pruebas:** `bdferreteria_dev` (la base principal `bdferreteria` permanece intacta)
 **Arquitectura:** Hexagonal (Dominio · Aplicación · Infraestructura · Web)
 **Fecha:** 2026
 
@@ -11,199 +11,226 @@
 
 ## 1. Resumen ejecutivo
 
-Se completó el primer entregable del proceso de **Ventas** con las siguientes piezas:
+Se completó el módulo de **Ventas** con estas piezas:
 
-- Registro de venta con dos buscadores (cliente y producto), tabla temporal M:N de líneas, confirmación en modal y descuentos automáticos.
-- Alta de **cliente nuevo desde la propia pantalla de venta**, sin recargar la página (no se pierden los productos seleccionados).
-- **Historial de ventas** con modal de detalle (solo lectura), refresco del listado y anulación con motivo obligatorio.
-- **Comprobante/recibo imprimible** con todos los elementos del Anexo 2 y protegido por autorización.
-- Backend con **Fachada + Factory Method + Strategy + Unit of Work**, control de stock, idempotencia y anulación segura.
+- Registro de venta con buscadores de cliente y producto, tabla temporal M:N de líneas, confirmación por modal y descuentos automáticos.
+- Alta rápida de **cliente nuevo** desde la pantalla de venta (AJAX, sin recargar ni perder los productos seleccionados).
+- **Historial de ventas** con modal de detalle de solo lectura, refresco del listado y **anulación** con motivo obligatorio.
+- **Comprobante/recibo** con los elementos del Anexo 2, obtenido por token y protegido por autorización.
+- Backend asíncrono de extremo a extremo con **Facade + Factory Method + Strategy + Unit of Work**, control de stock, idempotencia y concurrencia.
 
-Resultado de pruebas: **34/34 automatizadas en verde** y **14/14 verificaciones funcionales en vivo** correctas.
-
----
-
-## 2. Verificación de los 5 puntos solicitados
-
-Se levantó la aplicación real (`http://localhost:5199`), se inició sesión como Administrador y se ejecutó una venta real por HTTP. Evidencia:
-
-| # | Punto solicitado | Resultado | Evidencia |
-|---|------------------|-----------|-----------|
-| 1 | Abrir la interfaz de registro de cliente desde la venta y volver **sin perder los productos** | ✅ | `Venta.cshtml` expone el botón "Registrar cliente nuevo" y el modal `#nuevoClienteModal`. El alta viaja por AJAX al handler `OnPostCrearCliente` (no recarga la página), por lo que las líneas permanecen. Smoke: "boton nuevo cliente: True", "modal nuevo cliente: True", "CrearCliente exito: True". |
-| 2 | Comprobante con **todos** los elementos del Anexo 2 | ✅ | Logo SVG + marca/razón social, diseño de recibo, datos generales (cliente, pago, estado), detalle (producto/unidad/precio/cantidad/importe), sumariados (subtotal, descuento, TOTAL), fecha/hora y **usuario que lo genera** (`NombreEmpleadoResponsable`). Smoke: logo, "Generado por", "Joel", fecha/hora, detalle y sumariados = True. |
-| 3 | Historial con **refresco** y modal **solo lectura** | ✅ | Botón "Actualizar" en la barra (`asp-page="Ventas"`) y modal de detalle que solo renderiza texto (sin inputs editables). Smoke: "Historial boton Actualizar: True". |
-| 4 | Backend impide: sin stock, duplicar venta y restaurar stock dos veces | ✅ | `FachadaVenta.RegistrarVenta` valida `cantidad > producto.CantidadStock` y revierte con `Revertir()`. Idempotencia por `ClaveIdempotencia` + índice único `UNIQUE_VENTA_IDEMPOTENCIA`. `AnularVenta` exige estado `Registrada` y `MarcarAnulada` usa `UPDATE ... WHERE EstadoVenta='Registrada'`. Smoke: venta sin stock rechazada, reenvío con misma clave crea 1 sola venta. |
-| 5 | Comprobante protegido por **autorización**, no solo por token | ✅ | `VentaComprobanteModel` lleva `[Authorize]` explícito y toda la carpeta está bajo `AuthorizeFolder("/")`. Sin sesión, el token no basta: el navegador termina en `/Login`. Smoke: "Anonimo termina en /Login", "Anonimo NO ve el comprobante: True". |
+Resultados verificados: **32/32 pruebas unitarias** y **6/6 pruebas de integración** contra MySQL, con **build sin advertencias ni errores**.
 
 ---
 
-## 3. Matriz de cumplimiento de la rúbrica (100 puntos)
+## 2. Alcance: qué es y qué NO es trabajo de este módulo
 
-| Criterio | Puntos | Obtenido | Dónde se cumple |
-|----------|:------:|:--------:|-----------------|
-| Buscador de clientes con autocompletado | 6 | 6 | `FachadaVenta.BuscarClientes` + `Venta.cshtml` (`OnGetBuscarClientes`) |
-| Buscador de productos con autocompletado | 6 | 6 | `FachadaVenta.BuscarProductos` + `OnGetBuscarProductos` |
-| Invocar otra interfaz si falta el registro del cliente | 5 | 5 | Botón + modal "Nuevo cliente" y `OnPostCrearCliente` (AJAX, sin perder la venta) |
-| Alta / edición / eliminación temporal de líneas (M:N) | 9 | 9 | Tabla temporal en `venta.js` (`agregarProducto`, `cambiarCantidad`, `quitarLinea`) con tope de stock |
-| Registro de venta con validaciones y descuentos | 8 | 8 | `FachadaVenta.RegistrarVenta` + `SelectorDescuento` (Strategy) + validaciones de negocio |
-| Comprobante con elementos del Anexo 2 | 8 | 8 | `VentaComprobante.cshtml` (logo, datos, detalle, sumariados, fecha/hora, usuario) |
-| Historial con refresco y detalle en modal solo lectura | 6 | 6 | `Ventas.cshtml` + `OnGetDetalle` (`VentaListado`) |
-| Anulación con motivo, restauración de stock y auditoría | 8 | 8 | `FachadaVenta.AnularVenta`, `Ventas.MarcarAnulada`, `Inventario.Reponer`, `IdEmpleadoAnulacion` |
-| Control de stock (no vender sin existencias) | 6 | 6 | Validación en fachada + `Descontar` transaccional |
-| Idempotencia (no duplicar la venta) | 6 | 6 | `ObtenerPorClaveIdempotencia` + `UNIQUE_VENTA_IDEMPOTENCIA` |
-| Autorización del comprobante / seguridad | 6 | 6 | `[Authorize]` + `AuthorizeFolder("/")` + token `UrlProtector` como ofuscación |
-| **Reporte de patrones y SOLID + enlace al LMS** | **10** | **10** | Este documento (secciones 4 y 5) |
-| **Defensa (explicación y respuestas)** | **16** | **16** | Sección 7 (guía de preguntas y respuestas) |
-| **TOTAL** | **100** | **100** | |
+**Es trabajo propio de este entregable:**
+
+- El caso de uso de venta completo (registro, listado, detalle, comprobante y anulación).
+- La fachada, las fábricas, las estrategias de descuento y la unidad de trabajo del proceso de venta.
+- Los repositorios MySQL de venta, detalle de venta, cliente, inventario y empleado-venta.
+- La asincronía real y los mecanismos de concurrencia del flujo de venta.
+
+**NO es trabajo propio (se respeta como dependencia ajena):**
+
+- **Login, roles y sesiones:** el módulo de autenticación pertenece a otro compañero. Ventas **no** implementa autenticación; solo consume la identidad ya resuelta (ver sección 8).
+- **CRUD de Categorías, Marcas, Productos, Proveedores y demás catálogos:** pertenecen a otros entregables. Aquí solo se usan como contexto (por ejemplo, el stock de un producto) y no se modificaron como trabajo propio.
+- **Restricciones por rol** aplicadas en la carpeta de Ventas (`[Authorize]` y rol administrador para anular) son únicamente **puntos de enganche** con la seguridad del equipo, no un sistema de roles propio.
 
 ---
 
-## 4. Patrones implementados (con clases y métodos reales)
+## 3. Arquitectura
 
-### 4.1 Facade (Fachada)
-- **Clase:** `FERRETERIA__Joel.Aplicacion/Servicios/FachadaVenta.cs`
-- **Idea:** una única puerta de entrada de alto nivel al subsistema de ventas. La capa Web (Page Models) nunca ve repositorios, transacciones ni estrategias.
-- **Métodos clave:** `BuscarClientes`, `BuscarProductos`, `RegistrarVenta(SolicitudVenta)`, `ListarVentasListado`, `ObtenerVenta(int)`, `AnularVenta(int, string)`, `ObtenerComprobante(int)`.
-- **Evidencia de desacople:** `Venta.cshtml.cs` y `Ventas.cshtml.cs` solo inyectan `FachadaVenta` (y `ServicioCliente` para el alta rápida). No conocen `IUnidadDeTrabajo`, `IVentaRepository`, etc.
+Arquitectura **hexagonal por capas**, con la regla de dependencia apuntando hacia el dominio:
 
-### 4.2 Factory Method (Método Fábrica)
-- **Clase base (puerto):** `Dominio/Puertos/RepositoryCreator.cs` → `abstract class RepositoryCreator<TContrato> { abstract TContrato CreateRepository(); }`
-- **Fábricas concretas:** `ProductoRepositoryCreator`, `ClienteRepositoryCreator`, `VentaRepositoryCreator`, `DetalleVentaRepositoryCreator`, `InventarioRepositoryCreator`, `EmpleadoRepositoryCreator`.
-- **Uso:** la fachada no hace `new MySqlVentaRepository(...)`; obtiene el repositorio mediante `_creadorVentas.CreateRepository()`. Cambiar de motor de base de datos solo exige otra fábrica.
+```
+FERRETERIA__Joel.Dominio          -> contratos (puertos) y modelos. No depende de ASP.NET ni de MySql.Data.
+FERRETERIA__Joel.Aplicacion       -> caso de uso de venta (fachada, políticas, DTOs). Depende solo del dominio.
+FERRETERIA__Joel.Infraestructura  -> adaptadores MySQL (repositorios, conexión transaccional, unidad de trabajo, fábricas).
+FERRETERIA  Joel (Web)            -> Razor Pages y adaptador de identidad. Inyecta la fachada por DI.
+FERRETERIA__Joel.Pruebas          -> pruebas unitarias (fakes) e integración (MySQL real).
+```
 
-### 4.3 Strategy (Estrategia)
-- **Interfaz:** `IPoliticaDescuento` (`Calcular(subtotal, unidades) → ResultadoPoliticaDescuento`).
-- **Estrategias concretas:** `DescuentoPorMonto` (monto ≥ 1000 Bs → 5%) y `DescuentoPorCantidad` (≥ 12 unidades → 3%).
+Regla verificada: la capa Web (Page Models) **solo** inyecta `FachadaVenta` y `ServicioCliente`; nunca ve repositorios, transacciones ni estrategias.
+
+---
+
+## 4. Patrones implementados (con clases reales)
+
+### 4.1 Facade — `FachadaVenta`
+- **Archivo:** `FERRETERIA__Joel.Aplicacion/Servicios/FachadaVenta.cs`
+- Única puerta de entrada al subsistema de ventas.
+- Métodos de caso de uso (todos asíncronos, ver sección 5): `BuscarClientesAsync`, `BuscarProductosAsync`, `ObtenerProductoAsync`, `CalcularLineaAsync`, `RegistrarVentaAsync`, `ListarVentasAsync`, `ListarVentasListadoAsync`, `ObtenerVentaAsync`, `ObtenerComprobanteAsync`, `AnularVentaAsync`.
+- Desacople: `Venta.cshtml.cs` y `Ventas.cshtml.cs` no conocen `IUnidadDeTrabajo` ni los repositorios.
+
+### 4.2 Factory Method — `RepositoryCreator<TContrato>`
+- **Puerto (base):** `Dominio/Puertos/RepositoryCreator.cs` → `abstract class RepositoryCreator<TContrato> { abstract TContrato CreateRepository(); }`
+- **Fábricas concretas (Ventas):** `ClienteRepositoryCreator`, `VentaRepositoryCreator`, `DetalleVentaRepositoryCreator`, `InventarioRepositoryCreator`, `EmpleadoVentaRepositoryCreator`.
+- **Uso en la fachada:** recibe `RepositoryCreator<...>` y obtiene cada repositorio con `CreateRepository()`. No hay `new MySql*Repository(...)` dentro del caso de uso: cambiar de motor solo exige otra fábrica.
+
+### 4.3 Strategy — descuentos
+- **Interfaz:** `IPoliticaDescuento` (`Calcular(subtotal, unidades)`).
+- **Estrategias:** `DescuentoPorMonto` (monto ≥ 1000 Bs → 5%) y `DescuentoPorCantidad` (≥ 12 unidades → 3%).
 - **Contexto:** `SelectorDescuento.Seleccionar(...)` elige el **mayor beneficio**.
-- **Parámetros:** `ConfiguracionDescuentos` (fuente única, inyectada por DI y expuesta a la vista por `data-*`).
-- **Beneficio:** agregar una nueva política no modifica la fachada (principio Open/Closed).
+- Agregar una política nueva no toca la fachada (Open/Closed).
 
-### 4.4 Unit of Work (Unidad de Trabajo)
-- **Puerto:** `Dominio/Puertos/IUnidadDeTrabajo.cs` → `Iniciar()`, `Confirmar()`, `Revertir()`.
-- **Adaptador:** `Infraestructura/MySqlUnidadDeTrabajo.cs` (delega en `IConexionTransaccional`).
-- **Uso en el caso de uso:** `RegistrarVenta` y `AnularVenta` llaman `Iniciar()` al comienzo, `Confirmar()` al final y `Revertir()` ante cualquier error. Así, descontar stock + insertar venta + insertar detalle ocurren en **una sola transacción atómica**: o todo, o nada.
+### 4.4 Unit of Work — `IUnidadDeTrabajo`
+- **Puerto:** `Dominio/Puertos/IUnidadDeTrabajo.cs` → `IniciarAsync`, `ConfirmarAsync`, `RevertirAsync`.
+- **Adaptador:** `Infraestructura/MySqlUnidadDeTrabajo.cs`, que delega en `IConexionTransaccional` (`Infraestructura/Conexion/MySqlConexionTransaccional.cs`).
+- **Uso:** `RegistrarVentaAsync` y `AnularVentaAsync` abren **una sola transacción MySQL por operación** (`IniciarAsync`), aplican descuento/reposición de stock + inserción/estado de la venta, y cierran con `ConfirmarAsync`; ante cualquier error, `RevertirAsync`. Resultado: o todo, o nada.
 
-### 4.5 Puertos y adaptadores (Arquitectura Hexagonal)
-- **Puertos:** `IGestionarRepository<Producto>`, `IClienteRepository`, `IVentaRepository`, `IDetalleVentaRepository`, `IInventarioRepository`, `IContextoUsuario`, `IUnidadDeTrabajo`.
-- **Adaptadores:** repositorios MySQL en `Infraestructura/Repositorios` y `ContextoUsuarioHttp` en Web.
+### 4.5 Puertos y adaptadores (Hexagonal)
+- **Puertos (Dominio):** `IClienteRepository`, `IVentaRepository`, `IDetalleVentaRepository`, `IInventarioRepository`, `IEmpleadoVentaRepository`, `IUnidadDeTrabajo`, `IContextoUsuario`.
+- **Contratos de infraestructura:** `IConexionTransaccional` (agnóstica del caso de uso).
+- **Adaptadores:** repositorios MySQL en `Infraestructura/Repositorios` y el adaptador de identidad `ContextoUsuarioHttp` en Web.
 - El **dominio no depende** de ASP.NET ni de `MySql.Data`.
 
 ---
 
-## 5. Evidencia de Clean Code y SOLID
+## 5. Asincronía real de extremo a extremo
 
-### 5.1 Clean Code
-- **Nombres con intención:** `RegistrarVenta`, `AnularVenta`, `ObtenerClaveIdempotencia`, `DescuentoPorCantidad`, `ResultadoVenta.Fallido(...)`.
-- **Métodos pequeños y de una responsabilidad:** `CalcularLinea`, `CalcularResumen`, `MapearDetalles`, `NombreDe`.
-- **Sin números mágicos:** los umbrales viven en `ConfiguracionDescuentos`; los estados en `EstadoVenta`.
-- **Sin comentarios ruidosos:** se usan comentarios XML solo para explicar el *porqué* de los puertos/patrones.
-- **Resultados explícitos:** DTOs `ResultadoVenta`, `ResultadoCliente` con `Exito`/`Mensaje` en lugar de excepciones para reglas de negocio.
+Toda la ruta de entrada/salida a MySQL usa `async`/`await` real, **sin `Task.Run` ni `async void`** (verificado: 0 ocurrencias en el código del proyecto).
 
-### 5.2 SOLID
-- **S – Responsabilidad Única:** cada clase hace una cosa. `FachadaVenta` orquesta el caso de uso; `SelectorDescuento` solo elige política; `MySqlUnidadDeTrabajo` solo la transacción; `ServicioCliente` solo el alta/consulta de clientes.
-- **O – Abierto/Cerrado:** nuevas políticas de descuento se agregan implementando `IPoliticaDescuento` sin tocar la fachada; nuevos repositorios, creando otra fábrica.
-- **L – Sustitución de Liskov:** cualquier `IPoliticaDescuento` es intercambiable y `SelectorDescuento` no distingue la implementación concreta. En pruebas se inyectan fakes que cumplen los mismos contratos.
-- **I – Segregación de Interfaces:** interfaces pequeñas y específicas (`IClienteRepository` añade solo `ObtenerPorId` y `Buscar` sobre `IRepository<T>`), evitando métodos que el cliente no usa.
-- **D – Inversión de Dependencias:** la aplicación depende de abstracciones (`IRepository<T>`, `IUnidadDeTrabajo`, `IContextoUsuario`) y la infraestructura las implementa. Todo se inyecta con `AddScoped`.
+Ruta asíncrona:
 
-### 5.3 Evidencia transversal: roles, sesiones y auditoría de los CRUD anteriores
+1. **Páginas Razor (Web):** handlers `OnGetBuscarClientesAsync`, `OnGetBuscarProductosAsync`, `OnPostCrearClienteAsync`, `OnPostRegistrarAsync`, `OnGetAsync`, `OnGetDetalleAsync`, `OnPostAnularAsync`, `OnGetAsync(string token)`.
+2. **Fachada:** `BuscarClientesAsync`, `RegistrarVentaAsync`, `AnularVentaAsync`, `ObtenerComprobanteAsync`, etc.
+3. **Servicio de clientes:** `ServicioCliente` con `ListarAsync`, `BuscarAsync`, `CrearAsync`.
+4. **Puertos y repositorios:** `DescontarAsync`, `ReponerAsync`, `InsertarAsync`, `MarcarAnuladaAsync`, `ObtenerPorClaveIdempotenciaAsync`, `ObtenerParaVentaAsync`, etc.
+5. **Conexión/transacción:** `OpenAsync`, `BeginTransactionAsync`, `CommitAsync`, `RollbackAsync`, `DisposeAsync`.
 
-La rúbrica exige que las funcionalidades nuevas convivan con el sistema existente. Se verificó el respaldo real de estos puntos:
+**Evidencia:** 60 llamadas `await` a operaciones asíncronas de MySQL en `FERRETERIA__Joel.Infraestructura`; `MySqlConexionTransaccional` usa `OpenAsync`/`BeginTransactionAsync`/`CommitAsync`/`RollbackAsync` y `IAsyncDisposable`.
 
-- **Dos roles (sesiones diferenciadas):** `RolesSistema` normaliza todos los roles operativos a `Administrador` o `Vendedor`. Las operaciones de alto riesgo están restringidas con `[Authorize(Roles = RolesSistema.Administrador)]` (alta/edición de Categorías, Marcas, Productos y Proveedores) y con `User.IsInRole(RolesSistema.Administrador)` + `Forbid()` (desactivaciones y **anulación de ventas**). El menú de `_Layout.cshtml` oculta las secciones de administración al rol Vendedor. En `bdferreteria_dev` conviven las cuentas `joel.rios@ferreteria.com` (Administrador) y `maria.lopez@ferreteria.com` (Vendedor), entre otras.
-- **Sesiones:** el login registra la bitácora con `ServicioSesion.Registrar(...)` y genera el id de sesión en la cookie de autenticación; el logout lo cierra con `ServicioSesion.Cerrar(...)`. La tabla `sesion_usuario` almacena `Accion`, `FechaInicio` y `FechaFin`.
-- **Auditoría de los CRUD anteriores:** los ocho formularios de catálogo asignan el responsable desde `IContextoUsuario`:
-  - `CategoriaNueva`/`CategoriaEditar` → `IdEmpleadoResponsable`
-  - `MarcaNueva`/`MarcaEditar` → `IdEmpleadoResponsable`
-  - `ProductoNuevo`/`ProductoEditar` → `IdEmpleadoResponsable` (además, `ServicioHistoricoPrecio` registra el cambio de precio con su autor)
-  - `ProveedorNuevo`/`ProveedorEditar` → `IdEmpleadoResponsable`
-  - Y en ventas: `Venta.IdEmpleadoResponsable` (emisor) e `IdEmpleadoAnulacion` (autor de la anulación).
+> Nota: `CalcularResumen` se mantiene síncrono porque es cálculo puro en memoria (sin E/S). El cálculo por línea expuesto a la Web (`CalcularLineaAsync`) sí es asíncrono porque consulta el producto.
 
 ---
 
-## 6. Resultados de pruebas
+## 6. Concurrencia y consistencia
 
-### 6.1 Automatizadas (xUnit)
-Comando: `dotnet test "FERRETERIA__Joel.Pruebas\FERRETERIA__Joel.Pruebas.csproj"`
+Los cuatro escenarios críticos se garantizan en el nivel donde la concurrencia es real: **la base de datos**.
 
-```
-Passed!  - Failed: 0, Passed: 34, Skipped: 0, Total: 34
-```
+| # | Escenario | Mecanismo | Prueba |
+|---|-----------|-----------|--------|
+| 1 | Dos ventas simultáneas de la **última unidad**: solo una gana, el stock nunca queda negativo | `UPDATE producto SET CantidadStock = CantidadStock - @c WHERE IdProducto=@id AND CantidadStock >= @c` (descuento atómico condicional) | `RegistrarVenta_Real_Concurrente_SoloUnaGana` |
+| 2 | Ventas concurrentes no repiten **código de venta** | Correlativo por `IdVenta` (`V-YYYYMMDD-######`) + índice `UNIQUE_CODIGO_VENTA` | `RegistrarVenta_Real_Concurrente_CodigosUnicosAsync` |
+| 3 | **Idempotencia**: reenviar la misma venta no duplica ni descuenta dos veces | `ObtenerPorClaveIdempotenciaAsync` + índice `UNIQUE_VENTA_IDEMPOTENCIA`; ante carrera se relee la venta por clave | `RegistrarVenta_Real_Idempotente_NoDuplicaAsync` |
+| 4 | **Anulación concurrente** repone el stock exactamente una vez | `UPDATE venta SET EstadoVenta='Anulada' ... WHERE IdVenta=@id AND EstadoVenta='Registrada'` (afecta 1 fila solo una vez) + reposición en la misma transacción | `AnularVenta_Real_Concurrente_RestauraStockUnaVezAsync` |
 
-Cobertura relevante:
-- `FachadaVentaPruebas`: registro correcto, descuento por monto/cantidad, stock insuficiente, cliente inactivo, idempotencia, anulación (estado no registrada falla), listado con cliente y sin cliente, comprobante con líneas y catálogo (+ nombre del emisor), comprobante inexistente.
-- `ServicioClientePruebas` (nuevo): alta válida, sin nombre/apellido/teléfono falla, asignación del empleado responsable, búsqueda solo de activos.
-- `FachadaVentaIntegracionPruebas`: escenario con base real (repositorios MySQL) para concurrencia/idempotencia.
-
-### 6.2 Funcionales en vivo (smoke HTTP)
-```
-P1 Venta.html boton nuevo cliente: True
-P1 Venta.html modal nuevo cliente: True
-P1 CrearCliente exito: True id: 8
-P3 Historial boton Actualizar: True
-P4 Venta con stock excesivo rechazada: True
-P4 Venta valida registrada, comprobante: True
-P4 Ventas creadas tras reenvio (esperado 1): 1
-P2 Comprobante tiene logo: True
-P2 Comprobante tiene Generado por: True
-P2 Comprobante tiene usuario (Joel Rios): True
-P2 Comprobante tiene fecha/hora: True
-P2 Comprobante tiene detalle: True
-P2 Comprobante tiene sumariados: True
-P5 Anonimo termina en (esperado /Login): /Login
-P5 Anonimo NO ve el comprobante: True
-Limpieza: ventas restantes en BD = 0
-```
-
-> La base de datos `bdferreteria_dev` quedó limpia tras las pruebas: 0 ventas, 0 detalles, stock restaurado y solo los 2 clientes semilla (Juan Pérez, María Quispe).
+Consideración de errores transaccionales: si el `UPDATE` atómico no afecta filas (stock insuficiente por carrera) o si ocurre cualquier excepción (por ejemplo, colisión de índice único), el flujo llama a `RevertirAsync` y devuelve un fallo explícito, **sin dejar estados parciales**. Las operaciones de registrar y anular tocan el stock en direcciones opuestas, de modo que ante solapamiento la transacción revierte completa.
 
 ---
 
-## 7. Preparación de preguntas y respuestas para la defensa
+## 7. Transacciones: commit y rollback (incluido el fallo **después** de modificar inventario)
 
-1. **¿Por qué una Fachada y no llamar directo a los repositorios?**
-   Porque `FachadaVenta` concentra la coordinación (cliente, stock, descuento, transacción). La Web queda simple y el caso de uso reutilizable desde cualquier interfaz.
+- **Commit:** `RegistrarVentaAsync` y `AnularVentaAsync` terminan con `ConfirmarAsync` solo si todos los pasos tuvieron éxito.
+- **Rollback por validación previa:** `RegistrarVenta_Real_StockInsuficiente_NoPersisteAsync` comprueba que, si el stock es insuficiente, no se persiste venta ni se altera inventario.
+- **Rollback por fallo DESPUÉS de modificar inventario (verificado):** se forzó un fallo en el `INSERT` de la venta (clave foránea de empleado inexistente) **una vez ya aplicado el descuento de stock**. Resultado: la operación devolvió fallo, el **stock volvió a su valor original** y **no quedó ninguna venta** registrada. Esto demuestra que la reversión cubre la mutación de inventario, no solo las validaciones.
 
-2. **¿Dónde está la transacción y qué cubre?**
-   En `FachadaVenta.RegistrarVenta`/`AnularVenta` mediante `IUnidadDeTrabajo`. Cubre descontar stock, insertar la venta y sus detalles (o reponer stock y marcar anulada) como una operación atómica.
-
-3. **¿Cómo evitan vender dos veces la misma venta?**
-   Con `ClaveIdempotencia`: la fachada busca `ObtenerPorClaveIdempotencia` y la base impone `UNIQUE_VENTA_IDEMPOTENCIA`. Un reenvío devuelve la venta existente sin duplicar.
-
-4. **¿Cómo evitan el sobre-stock?**
-   `RegistrarVenta` valida `cantidad > producto.CantidadStock` antes de descontar y `Descontar` es transaccional; ante cualquier fallo se llama `Revertir()`.
-
-5. **¿Cómo garantizan que el stock se reponga una sola vez al anular?**
-   `AnularVenta` exige estado `Registrada` y `MarcarAnulada` ejecuta `UPDATE ... WHERE EstadoVenta='Registrada'`; si otra sesión ya anuló, no afecta filas y no se repone de nuevo.
-
-6. **¿Por qué el comprobante usa token cifrado y además autorización?**
-   El token (`UrlProtector`) solo evita exponer el id en la URL (ofuscación); la autorización real es `[Authorize]` + `AuthorizeFolder("/")`. El token no reemplaza la seguridad.
-
-7. **¿Cómo se agrega una nueva política de descuento?**
-   Implementando `IPoliticaDescuento` y registrándola en `SelectorDescuento`. No se toca la fachada (Open/Closed).
-
-8. **¿Dónde cambiaron la conexión/parámetros sin recompilar el dominio?**
-   Los umbrales están en `ConfiguracionDescuentos`; la cadena de conexión, en `appsettings.json` (no se versiona). El dominio no conoce esos detalles.
-
-9. **¿Por qué hay una interfaz por repositorio y no una sola gigante?**
-   Por ISP: cada cliente paga solo por lo que usa. `IClienteRepository` añade `Buscar`; `IInventarioRepository` tiene `Descontar`/`Reponer`.
-
-10. **¿Dónde se registra quién generó y quién anuló la venta?**
-    En `Venta.IdEmpleadoResponsable` y `Venta.IdEmpleadoAnulacion` (desde `IContextoUsuario`). El comprobante los muestra como "Generado por" y "Anulada ... por".
+> Verificación puntual ejecutada contra `bdferreteria_dev` con inyección de fallo; no se dejó como prueba permanente para no ampliar la suite del módulo.
 
 ---
 
-## 8. Revisión de ortografía de las interfaces
+## 8. Integración con la autenticación (dependencia ajena, documentada)
 
-Se extrajeron y revisaron 393 cadenas visibles de todas las páginas Razor. Resultado: **sin errores ortográficos**. Se verificaron acentos y caracteres especiales (`Contraseña`, `Correo electrónico`, `Teléfono`, `Dirección`, `Razón Social`, `Gestión`, `Categorías`, `automáticamente`, `Módulo · Catálogo`). Los textos del módulo de ventas son correctos: "Seleccione el cliente, agregue productos y confirme la venta.", "Complete los datos del cliente...", "Indique el motivo de la anulación.", "El comprobante no existe o el enlace es inválido."
+El módulo de Ventas **no** implementa login, roles ni sesiones. La identidad se obtiene a través del puerto:
 
-Además se tradujeron al español las páginas heredadas de la plantilla `Error.cshtml` ("Ocurrió un error al procesar su solicitud.", "Id. de solicitud", "Modo de desarrollo") y `Privacy.cshtml` ("Política de privacidad"), sin alterar su lógica. La única palabra en inglés que permanece es `Development`, por ser el **valor literal** de la variable de entorno `ASPNETCORE_ENVIRONMENT` (no un texto traducible). Con esto, **toda la interfaz visible queda en español**.
+- **Puerto:** `Dominio/Puertos/IContextoUsuario.cs` → `IdEmpleado`, `NombreCompleto`, `Rol`.
+- **Contrato documentado:** `IdEmpleado` devuelve `0` cuando no hay autenticación; Ventas **rechaza** registrar o anular venta si `IdEmpleado <= 0`. El rol administrador se usa para habilitar la anulación, pero la autorización definitiva corresponde al módulo de seguridad.
+- **Adaptador temporal:** `Servicios/ContextoUsuarioHttp.cs` resuelve la identidad desde las claims del usuario autenticado; es reemplazable por la implementación del compañero **sin tocar el código de Ventas**.
+- **En el flujo:** `Venta.IdEmpleadoResponsable` (emisor) e `IdEmpleadoAnulacion` (autor de la anulación) provienen de este puerto.
 
 ---
 
-## 9. Estado final y control de versiones
+## 9. Clases implementadas / adaptadas (módulo de Ventas)
 
-- La rama `feature/ventas` contiene el módulo completo. **No se hizo merge a `master`.**
-- La base principal `bdferreteria` **no fue modificada**; todo el trabajo usó `bdferreteria_dev`.
-- `appsettings.json` permanece sin versionar (contiene la cadena de conexión).
-- Commit de cierre: alta de cliente desde la venta, usuario emisor en el comprobante, autorización explícita, refresco del historial, pruebas de `ServicioCliente` y este reporte.
+**Dominio (puertos):**
+`IClienteRepository`, `IVentaRepository`, `IDetalleVentaRepository`, `IInventarioRepository`, `IEmpleadoVentaRepository`, `IUnidadDeTrabajo`, `IContextoUsuario`, `RepositoryCreator<TContrato>`.
+
+**Aplicación:**
+`FachadaVenta`, `ServicioCliente`, `SelectorDescuento`, `IPoliticaDescuento`, `DescuentoPorMonto`, `DescuentoPorCantidad`, `ConfiguracionDescuentos`.
+Modelos/DTOs: `SolicitudVenta`, `LineaVentaSolicitada`, `ResultadoVenta`, `ResultadoCliente`, `ComprobanteVenta`, `VentaListado`, `LineaVentaDetalle`, `SeleccionDescuento`.
+
+**Infraestructura:**
+`MySqlConexionTransaccional`, `MySqlUnidadDeTrabajo`, `MySqlClienteRepository`, `MySqlVentaRepository`, `MySqlDetalleVentaRepository`, `MySqlInventarioRepository`, `MySqlEmpleadoVentaRepository`, y las fábricas `ClienteRepositoryCreator`, `VentaRepositoryCreator`, `DetalleVentaRepositoryCreator`, `InventarioRepositoryCreator`, `EmpleadoVentaRepositoryCreator`.
+
+**Web (Razor Pages):**
+`Venta.cshtml(.cs)`, `Ventas.cshtml(.cs)`, `VentaComprobante.cshtml(.cs)`, y el adaptador `ContextoUsuarioHttp`.
+
+**Base de datos (solo `bdferreteria_dev`):**
+`UNIQUE_CODIGO_VENTA`, `UNIQUE_VENTA_IDEMPOTENCIA`, columnas de anulación (`EstadoVenta`, `FechaAnulacion`, `MotivoAnulacion`, `IdEmpleadoAnulacion`) e idempotencia (`ClaveIdempotencia`).
+
+---
+
+## 10. Pruebas ejecutadas
+
+Comando base:
+`dotnet test "FERRETERIA__Joel.Pruebas\FERRETERIA__Joel.Pruebas.csproj"`
+
+### 10.1 Unitarias (con fakes, sin base de datos)
+
+```
+Passed!  - Failed: 0, Passed: 32, Skipped: 0, Total: 32   (~70 ms)
+```
+
+Cubren: registro correcto (stock, totales, descuentos por monto y por cantidad), agrupación de líneas duplicadas, stock insuficiente, cliente inactivo, idempotencia, anulación (estado no registrada falla), empleado inválido (`IdEmpleado <= 0`) en registrar y anular, listado con y sin filtro de cliente, comprobante con líneas y catálogo, comprobante inexistente; y `ServicioCliente` (alta válida, campos obligatorios, empleado responsable, búsqueda solo de activos).
+
+### 10.2 Integración real contra MySQL (`bdferreteria_dev`)
+
+Requiere `FERRETERIA_TEST_CONNECTION` apuntando a la base de desarrollo; se ejecutó con conexiones **independientes**.
+
+```
+Passed!  - Failed: 0, Passed: 6, Skipped: 0, Total: 6   (~0.5 s)
+```
+
+| Prueba | Qué verifica |
+|--------|--------------|
+| `RegistrarVenta_Real_DescuentaStockYAnulacionRestauraAsync` | commit real: descuenta stock y la anulación lo restaura |
+| `RegistrarVenta_Real_StockInsuficiente_NoPersisteAsync` | rollback por validación: no persiste ni altera stock |
+| `RegistrarVenta_Real_Idempotente_NoDuplicaAsync` | idempotencia: 1 sola venta, stock descontado una vez |
+| `RegistrarVenta_Real_Concurrente_SoloUnaGana` | escenario 1: última unidad, gana una sola venta |
+| `RegistrarVenta_Real_Concurrente_CodigosUnicosAsync` | escenario 2: códigos de venta únicos |
+| `AnularVenta_Real_Concurrente_RestauraStockUnaVezAsync` | escenario 4: reposición exactamente una vez |
+
+> Las pruebas de integración están escritas para **omitirse sin fallar** si falta la cadena de conexión; por eso se reportan **por separado** de las unitarias. Las cifras anteriores corresponden a ejecuciones **reales** contra `bdferreteria_dev` (no a omisiones).
+
+### 10.3 Build
+`dotnet build "FERRETERIA  Joel.slnx"` → **0 advertencias, 0 errores**.
+
+---
+
+## 11. Control de versiones (commits)
+
+Rama **`feature/ventas-scope-cleanup`** (aislada, sin merge a `master`):
+
+| Hash | Descripción |
+|------|-------------|
+| `a71326c` | limpieza de alcance: quitar del módulo lo ajeno a Ventas |
+| `c024359` | desacoplar las páginas de venta del sistema de autenticación |
+| `c664323` | restaurar protección con `[Authorize]` y rol Administrador (punto de enganche) |
+| `e912b9e` | dejar de rastrear `appsettings.json` con credenciales |
+| `f75d8fc` | **F3** — asincronía real de extremo a extremo en el flujo de venta |
+| `2567816` | **F4** — verificar los cuatro escenarios de concurrencia contra MySQL |
+| `34f853e` | **F6** — documentar `IContextoUsuario` como punto de integración con la autenticación |
+
+---
+
+## 12. Estado final
+
+- Rama `feature/ventas-scope-cleanup` aislada; **no se hizo merge a `master`**.
+- La base principal `bdferreteria` **no fue modificada**; todo el trabajo y las pruebas usaron `bdferreteria_dev`.
+- `appsettings.json` permanece **sin versionar** (contiene la cadena de conexión).
+- Build limpio y suites en verde (32 unitarias + 6 integración).
+- Login, roles, sesiones y los CRUD de catálogo **no** se reclaman como trabajo de este módulo.
+
+---
+
+## 13. Preguntas frecuentes de defensa (módulo de Ventas)
+
+1. **¿Por qué una fachada y no llamar directo a los repositorios?** `FachadaVenta` coordina cliente, stock, descuento y transacción; la Web queda simple y el caso de uso es reutilizable.
+2. **¿Dónde está la transacción y qué cubre?** En `RegistrarVentaAsync`/`AnularVentaAsync` vía `IUnidadDeTrabajo`: descontar/reponer stock + venta + detalles como una sola operación atómica.
+3. **¿Cómo evitan vender dos veces?** `ClaveIdempotencia` + `UNIQUE_VENTA_IDEMPOTENCIA`; el reenvío devuelve la venta existente.
+4. **¿Cómo evitan el sobre-stock bajo concurrencia?** Descuento atómico `UPDATE ... WHERE CantidadStock >= @c`; si no afecta filas, se revierte y se informa el fallo.
+5. **¿Cómo garantizan reponer el stock una sola vez?** `UPDATE venta ... WHERE EstadoVenta='Registrada'`: la segunda anulación no afecta filas.
+6. **¿La asincronía es real?** Sí: `async`/`await` hasta MySQL (`OpenAsync`, `BeginTransactionAsync`, `ExecuteReaderAsync`, `CommitAsync`/`RollbackAsync`); sin `Task.Run`.
+7. **¿Cómo se integra con la autenticación del compañero?** A través de `IContextoUsuario`; el adaptador `ContextoUsuarioHttp` es temporal y reemplazable sin tocar Ventas.
