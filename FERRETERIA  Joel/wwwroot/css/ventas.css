@@ -1,0 +1,68 @@
+/* FERRETERÍA JOEL — Historial de ventas. */
+
+.fj-ventas-modal-dlg {
+    width: min(42rem, 100%);
+}
+
+.ventas-detalle-cabecera {
+    margin-bottom: 1rem;
+}
+
+.ventas-detalle-tabla {
+    max-height: 18rem;
+    overflow-y: auto;
+    border: 0.0625rem solid var(--borde-suave);
+    border-radius: var(--radius-sm);
+}
+
+.ventas-detalle-totales {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 0.0625rem solid var(--borde-suave);
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.ventas-detalle-totales > div {
+    display: flex;
+    justify-content: space-between;
+    color: var(--texto-sec);
+}
+
+.ventas-detalle-totales .ventas-detalle-total {
+    color: var(--texto);
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.ventas-detalle-motivo {
+    margin: 0.75rem 0 0;
+    padding: 0.6rem 0.75rem;
+    border-radius: var(--radius-sm);
+    background: #fdecea;
+    color: var(--danger);
+    font-size: 0.85rem;
+}
+
+#ventasDetalleCodigo {
+    color: var(--texto-sec);
+    font-family: var(--ff-mono);
+    font-size: 0.9rem;
+}
+
+#ventasAnularForm textarea {
+    width: 100%;
+    padding: 0.7rem 0.9rem;
+    border: 0.0625rem solid var(--borde);
+    border-radius: var(--radius-sm);
+    background: var(--fondo-elevado);
+    color: var(--texto);
+    font: inherit;
+}
+
+#ventasAnularForm textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 0.1875rem var(--amarillo-bg);
+}

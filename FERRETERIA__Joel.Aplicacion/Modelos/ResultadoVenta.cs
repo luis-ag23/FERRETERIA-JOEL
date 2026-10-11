@@ -41,6 +41,10 @@ namespace FERRETERIA__Joel.Aplicacion.Modelos
 
         public DateTime FechaRegistro { get; private init; }
 
+        public DateTime? FechaAnulacion { get; private init; }
+
+        public string? MotivoAnulacion { get; private init; }
+
         public List<LineaVentaDetalle> Detalles { get; private init; } = new();
 
         public static ResultadoVenta Correcto(
@@ -83,6 +87,8 @@ namespace FERRETERIA__Joel.Aplicacion.Modelos
                 PorcentajeDescuento = venta.PorcentajeDescuento,
                 MontoTotal = venta.MontoTotal,
                 FechaRegistro = venta.FechaRegistro,
+                FechaAnulacion = venta.FechaAnulacion,
+                MotivoAnulacion = venta.MotivoAnulacion,
                 Detalles = detalles.ToList()
             };
         }

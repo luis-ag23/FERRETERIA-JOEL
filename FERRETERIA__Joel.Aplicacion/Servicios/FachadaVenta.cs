@@ -367,6 +367,32 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             return Ventas.ObtenerTodos();
         }
 
+        public List<VentaListado> ListarVentasListado()
+        {
+            List<Venta> ventas = Ventas.ObtenerTodos();
+
+            Dictionary<int, string> nombresCliente = ventas
+                .Select(v => v.IdCliente)
+                .Distinct()
+                .Select(id => Clientes.ObtenerPorId(id))
+                .Where(c => c is not null)
+                .ToDictionary(
+                    c => c!.IdCliente,
+                    c => $"{c!.Nombre} {c.Apellido}".Trim());
+
+            return ventas
+                .Select(v => new VentaListado
+                {
+                    Venta = v,
+                    NombreCliente = nombresCliente.TryGetValue(
+                        v.IdCliente,
+                        out string? nombre)
+                        ? nombre
+                        : "Cliente eliminado"
+                })
+                .ToList();
+        }
+
         public ResultadoVenta? ObtenerVenta(int idVenta)
         {
             Venta? venta = Ventas.ObtenerPorId(idVenta);
@@ -446,16 +472,33 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             }
         }
 
-        private static List<LineaVentaDetalle> MapearDetalles(
+        private List<LineaVentaDetalle> MapearDetalles(
             IEnumerable<DetalleVenta> detalles)
         {
-            return detalles
-                .Select(d => new LineaVentaDetalle
+            List<DetalleVenta> lista = detalles.ToList();
+
+            Dictionary<int, Producto> productoPorId = Productos
+                .ObtenerTodos()
+                .Where(p => lista.Any(d => d.IdProducto == p.IdProducto))
+                .ToDictionary(p => p.IdProducto);
+
+            return lista
+                .Select(d =>
                 {
-                    IdProducto = d.IdProducto,
-                    Cantidad = d.Cantidad,
-                    PrecioUnitario = d.PrecioUnitario,
-                    TotalProducto = d.TotalProducto
+                    Producto? producto = productoPorId.GetValueOrDefault(
+                        d.IdProducto);
+
+                    return new LineaVentaDetalle
+                    {
+                        IdProducto = d.IdProducto,
+                        Codigo = producto?.Codigo ?? string.Empty,
+                        Nombre = producto?.Nombre
+                            ?? $"Producto #{d.IdProducto}",
+                        UnidadMedida = producto?.UnidadMedida ?? string.Empty,
+                        Cantidad = d.Cantidad,
+                        PrecioUnitario = d.PrecioUnitario,
+                        TotalProducto = d.TotalProducto
+                    };
                 })
                 .ToList();
         }
