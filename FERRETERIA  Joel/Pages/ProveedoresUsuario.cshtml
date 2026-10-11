@@ -1,0 +1,128 @@
+@page
+@model FERRETERIA__Joel.Pages.ProveedoresUsuarioModel
+@{
+    ViewData["Title"] = "Proveedores";
+    ViewData["ActiveMenu"] = "ProveedoresUsuario";
+    string accionFiltro = Model.SoloActivos ? "" : "true";
+    string etiquetaFiltro = Model.SoloActivos ? "Mostrar todos" : "Solo activos";
+}
+@section Styles {
+    <link rel="stylesheet" href="~/css/productos.css" asp-append-version="true" />
+}
+
+<div class="fj-container fj-page-products">
+
+    <section class="fj-page-head">
+        <p class="fj-eyebrow">Consulta · Catálogo</p>
+        <h1>Proveedores</h1>
+        <p class="fj-page-sub">Consulta de proveedores registrados.</p>
+    </section>
+
+    @if (TempData["MensajeError"] != null)
+    {
+        <div class="fj-alert" role="alert">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+            <span>@TempData["MensajeError"]</span>
+        </div>
+    }
+
+    <section class="fj-toolbar fj-toolbar-simple">
+        <p class="fj-toolbar-count">
+            <strong>@Model.ListProveedores.Count</strong>
+            @(Model.ListProveedores.Count == 1 ? "proveedor" : "proveedores") registrados
+        </p>
+
+        <div class="fj-toolbar-actions">
+            <a class="fj-btn fj-btn-edit"
+               asp-route-soloActivos="@accionFiltro">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
+                @etiquetaFiltro
+            </a>
+        </div>
+    </section>
+
+    <section class="fj-card fj-table-card" aria-label="Listado de proveedores">
+        <div class="fj-table-wrap">
+            <table class="fj-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Razón Social</th>
+                        <th scope="col">Contacto</th>
+                        <th scope="col">Teléfono</th>
+                        <th scope="col">Correo</th>
+                        <th scope="col" class="fj-td-estado">Estado</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @if (Model.ListProveedores.Count == 0 && TempData["MensajeError"] == null)
+                    {
+                        <tr>
+                            <td colspan="5" class="fj-table-vacio">
+                                <div class="fj-empty">
+                                    <span class="fj-empty-ico" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="1" /><polygon points="16 8 20 8 23 11 23 16 16 16 16 8" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" /></svg>
+                                    </span>
+                                    <p>Sin proveedores registrados</p>
+                                    <span>Cuando existan proveedores en el sistema, aparecerán aquí.</span>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    else if (Model.ListProveedores.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="5" class="fj-table-vacio">
+                                <div class="fj-empty">
+                                    <span class="fj-empty-ico" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
+                                    </span>
+                                    <p>No se pudo cargar el listado</p>
+                                    <span>Revisa la conexión a la base de datos e inténtalo nuevamente.</span>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+
+                    @foreach (var item in Model.ListProveedores)
+                    {
+                        <tr>
+                            <td>
+                                <span class="fj-nombre">@item.RazonSocial</span>
+                                <span class="fj-nombre-sub">@item.NombreComercial</span>
+                            </td>
+
+                            <td class="fj-td-secundario">
+                                @item.NombreContacto
+                            </td>
+
+                            <td class="fj-td-secundario">
+                                @item.Telefono
+                            </td>
+
+                            <td class="fj-td-secundario">
+                                @if (!string.IsNullOrEmpty(item.CorreoElectronico))
+                                {
+                                    <span class="fj-ellipsis" title="@item.CorreoElectronico">
+                                        @item.CorreoElectronico
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span>—</span>
+                                }
+                            </td>
+
+                            <td class="fj-td-estado">
+                                <span class="fj-pill" style="--pill: var(@(item.Estado == 1 ? "--success" : "--texto-ter"));">
+                                    @(item.Estado == 1 ? "Activo" : "Inactivo")
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+</div>

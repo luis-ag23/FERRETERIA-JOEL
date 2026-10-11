@@ -8,20 +8,28 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace FERRETERIA__Joel.Pages
 {
-    // Inicio de sesión de empleados: valida credenciales vía el servicio y,
-    // si son correctas, emite la cookie de autenticación del panel interno.
+    // Inicio de sesión unificado: valida las credenciales (empleados o
+    // clientes) vía el servicio, emite la cookie de autenticación con el rol
+    // correspondiente y registra el evento en la bitácora de sesiones.
     public class LoginModel : PageModel
     {
-        private readonly ServicioInicioSesionEmpleado _servicio;
+        private readonly ServicioInicioSesion _servicio;
+        private readonly ServicioBitacora _bitacora;
+        private readonly ILogger<LoginModel> _logger;
 
         [BindProperty]
         public InicioSesionSolicitud Solicitud { get; set; } = new();
 
         public string? Mensaje { get; set; }
 
-        public LoginModel(ServicioInicioSesionEmpleado servicio)
+        public LoginModel(
+            ServicioInicioSesion servicio,
+            ServicioBitacora bitacora,
+            ILogger<LoginModel> logger)
         {
             _servicio = servicio;
+            _bitacora = bitacora;
+            _logger = logger;
         }
 
         public IActionResult OnGet()
@@ -42,7 +50,7 @@ namespace FERRETERIA__Joel.Pages
 
             ResultadoInicioSesion resultado = _servicio.Iniciar(Solicitud);
 
-            if (!resultado.Exitoso || resultado.Empleado is null)
+            if (!resultado.Exitoso || resultado.Usuario is null)
             {
                 Mensaje = resultado.Mensaje;
                 return Page();
@@ -52,18 +60,16 @@ namespace FERRETERIA__Joel.Pages
             {
                 new(
                     ClaimTypes.NameIdentifier,
-                    resultado.Empleado.IdEmpleado.ToString()),
+                    resultado.Usuario.Id.ToString()),
                 new(
                     ClaimTypes.Name,
-                    $"{resultado.Empleado.Nombre} {resultado.Empleado.Apellido}".Trim()),
+                    resultado.Usuario.NombreCompleto),
                 new(
                     ClaimTypes.Email,
-                    resultado.Empleado.CorreoElectronico ?? string.Empty),
+                    resultado.Usuario.CorreoElectronico),
                 new(
                     ClaimTypes.Role,
-                    string.IsNullOrWhiteSpace(resultado.Empleado.Rol)
-                        ? "Empleado"
-                        : resultado.Empleado.Rol)
+                    resultado.Usuario.Rol)
             };
 
             var identidad = new ClaimsIdentity(
@@ -74,8 +80,10 @@ namespace FERRETERIA__Joel.Pages
                 CookieAuthenticationDefaults.AuthenticationScheme,
                 new ClaimsPrincipal(identidad));
 
+            RegistrarBitacoraLogin(resultado.Usuario);
+
             TempData["Mensaje"] =
-                $"Bienvenido, {resultado.Empleado.Nombre}.";
+                $"Bienvenido, {resultado.Usuario.NombreCompleto}.";
 
             if (!string.IsNullOrWhiteSpace(returnUrl)
                 && Url.IsLocalUrl(returnUrl))
@@ -84,6 +92,23 @@ namespace FERRETERIA__Joel.Pages
             }
 
             return RedirectToPage("/Index");
+        }
+
+        private void RegistrarBitacoraLogin(SesionUsuario usuario)
+        {
+            try
+            {
+                _bitacora.RegistrarLogin(
+                    usuario.Id,
+                    usuario.NombreCompleto,
+                    usuario.Rol);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "No se pudo registrar el inicio de sesión en la bitácora.");
+            }
         }
     }
 }

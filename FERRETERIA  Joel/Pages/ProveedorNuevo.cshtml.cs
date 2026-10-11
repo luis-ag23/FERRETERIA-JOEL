@@ -8,6 +8,7 @@ using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Empleado)]
     public class ProveedorNuevoModel : PageModel
     {
         private readonly ServicioProveedor _servicio;

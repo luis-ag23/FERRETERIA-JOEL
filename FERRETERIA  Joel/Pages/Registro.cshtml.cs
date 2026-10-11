@@ -7,26 +7,33 @@ using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
-    // Página de auto-registro de empleados: valida, hashea la contraseña y
-    // persiste el empleado sin autenticarlo automáticamente.
-    public class RegistroEmpleadoModel : PageModel
+    // Auto-registro unificado: permite crear una cuenta de Usuario (cliente,
+    // solo lectura) o de Empleado (gestión completa). Para el alta de
+    // empleado se exige la clave secreta configurada en el .env.
+    public class RegistroModel : PageModel
     {
-        private readonly ServicioRegistroEmpleado _servicio;
+        private const string MensajeClaveInvalida =
+            "La clave de empleado no es válida.";
+
+        private readonly ServicioRegistroEmpleado _servicioEmpleado;
+        private readonly ServicioRegistroUsuario _servicioUsuario;
         private readonly IConfiguration _configuration;
-        private readonly ILogger<RegistroEmpleadoModel> _logger;
+        private readonly ILogger<RegistroModel> _logger;
 
         [BindProperty]
-        public RegistroEmpleadoSolicitud Solicitud { get; set; } = new();
+        public RegistroSolicitud Solicitud { get; set; } = new();
 
         public List<string> Errores { get; set; } = new();
         public Dictionary<string, string> ErroresCampo { get; set; } = new();
 
-        public RegistroEmpleadoModel(
-            ServicioRegistroEmpleado servicio,
+        public RegistroModel(
+            ServicioRegistroEmpleado servicioEmpleado,
+            ServicioRegistroUsuario servicioUsuario,
             IConfiguration configuration,
-            ILogger<RegistroEmpleadoModel> logger)
+            ILogger<RegistroModel> logger)
         {
-            _servicio = servicio;
+            _servicioEmpleado = servicioEmpleado;
+            _servicioUsuario = servicioUsuario;
             _configuration = configuration;
             _logger = logger;
         }
@@ -38,13 +45,28 @@ namespace FERRETERIA__Joel.Pages
         private string? PaginaLogin =>
             _configuration["Registro:PaginaLogin"];
 
+        private string? ClaveEmpleadoConfigurada =>
+            _configuration["Registro:ClaveEmpleado"];
+
         public IActionResult OnPost()
         {
             NormalizarDatos();
 
+            bool esEmpleado = EsTipoEmpleado();
+
+            if (esEmpleado && !ClaveEmpleadoValida())
+            {
+                ErroresCampo["ClaveEmpleado"] = MensajeClaveInvalida;
+                Errores.Add(
+                    "Revise los campos señalados e inténtelo nuevamente.");
+                return Page();
+            }
+
             try
             {
-                ResultadoRegistro resultado = _servicio.Registrar(Solicitud);
+                ResultadoRegistro resultado = esEmpleado
+                    ? _servicioEmpleado.Registrar(Solicitud)
+                    : _servicioUsuario.Registrar(Solicitud);
 
                 if (!resultado.Exitoso)
                 {
@@ -60,8 +82,9 @@ namespace FERRETERIA__Joel.Pages
                     return Page();
                 }
 
-                TempData["Mensaje"] =
-                    "Empleado registrado con éxito. Ya puede iniciar sesión.";
+                TempData["Mensaje"] = esEmpleado
+                    ? "Empleado registrado con éxito. Ya puede iniciar sesión."
+                    : "Usuario registrado con éxito. Ya puede iniciar sesión.";
 
                 if (!string.IsNullOrWhiteSpace(PaginaLogin)
                     && Url.Page(PaginaLogin) is not null)
@@ -74,20 +97,43 @@ namespace FERRETERIA__Joel.Pages
             catch (MySqlException ex) when (ex.Number == 1062)
             {
                 ErroresCampo[
-                    nameof(RegistroEmpleadoSolicitud.CorreoElectronico)] =
+                    nameof(RegistroSolicitud.CorreoElectronico)] =
                     "El correo ya está registrado.";
 
                 return Page();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al registrar el empleado.");
+                _logger.LogError(ex, "Error al registrar la cuenta.");
 
                 Errores.Add(
                     "No se pudo completar el registro. Inténtalo nuevamente.");
 
                 return Page();
             }
+        }
+
+        private bool EsTipoEmpleado()
+        {
+            return string.Equals(
+                Solicitud.TipoCuenta,
+                TiposCuenta.Empleado,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool ClaveEmpleadoValida()
+        {
+            string claveConfigurada = ClaveEmpleadoConfigurada ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(claveConfigurada))
+            {
+                return false;
+            }
+
+            return string.Equals(
+                Solicitud.ClaveEmpleado ?? string.Empty,
+                claveConfigurada,
+                StringComparison.Ordinal);
         }
 
         private void NormalizarDatos()

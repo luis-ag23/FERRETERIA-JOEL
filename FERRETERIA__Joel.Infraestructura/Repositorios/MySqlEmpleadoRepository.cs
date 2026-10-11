@@ -151,6 +151,30 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
         // ================== Funciones fuera del contrato ==================
 
+        public void ActualizarContrasena(int id, string contrasena)
+        {
+            const string query = @"
+                UPDATE empleado
+                SET
+                    Contrasena = @contrasena,
+                    FechaActualizacion = CURRENT_TIMESTAMP
+                WHERE IdEmpleado = @id";
+
+            using MySqlConnection connection =
+                _connectionFactory.CreateConnection();
+
+            using MySqlCommand command =
+                new MySqlCommand(query, connection);
+
+            command.Parameters.AddWithValue("@id", id);
+
+            command.Parameters.AddWithValue("@contrasena", contrasena);
+
+            connection.Open();
+
+            command.ExecuteNonQuery();
+        }
+
         public List<Empleado> ObtenerActivas()
         {
             List<Empleado> empleados = new();

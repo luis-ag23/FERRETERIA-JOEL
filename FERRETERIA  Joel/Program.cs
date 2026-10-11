@@ -9,6 +9,18 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Carga las variables definidas en el archivo .env (no versionado) y expone
+// la clave de alta de empleados a través de la configuración.
+CargarVariablesEntorno(builder.Environment.ContentRootPath);
+
+string? claveEmpleado =
+    Environment.GetEnvironmentVariable("REGISTRO_CLAVE_EMPLEADO");
+
+if (!string.IsNullOrWhiteSpace(claveEmpleado))
+{
+    builder.Configuration["Registro:ClaveEmpleado"] = claveEmpleado;
+}
+
 builder.Services.AddRazorPages(options =>
 {
     // Páginas de gestión: requieren sesión iniciada. Un visitante que intente
@@ -26,6 +38,12 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizePage("/Proveedores");
     options.Conventions.AuthorizePage("/ProveedorNuevo");
     options.Conventions.AuthorizePage("/ProveedorEditar");
+
+    // Páginas de consulta (rol Usuario): requieren sesión iniciada.
+    options.Conventions.AuthorizePage("/ProductosUsuario");
+    options.Conventions.AuthorizePage("/CategoriasUsuario");
+    options.Conventions.AuthorizePage("/MarcasUsuario");
+    options.Conventions.AuthorizePage("/ProveedoresUsuario");
 });
 
 // Autenticación por cookie: el login (clientes) emite la cookie de sesión
@@ -63,6 +81,7 @@ builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Marca>>, Marca
 builder.Services.AddScoped<RepositoryCreator<IEmpleadoRepository>, EmpleadoRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IHistoricoPrecioRepository>, HistoricoPrecioRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IClienteRepository>, ClienteRepositoryCreator>();
+builder.Services.AddScoped<RepositoryCreator<IBitacoraRepository>, BitacoraRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IRepository<Venta>>, VentaRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IRepository<DetalleVenta>>, DetalleVentaRepositoryCreator>();
 
@@ -76,7 +95,9 @@ builder.Services.AddScoped<ServicioMarca>();
 
 builder.Services.AddSingleton<IHasheadorContrasena, Argon2HasheadorContrasena>();
 builder.Services.AddScoped<ServicioRegistroEmpleado>();
-builder.Services.AddScoped<ServicioInicioSesionEmpleado>();
+builder.Services.AddScoped<ServicioRegistroUsuario>();
+builder.Services.AddScoped<ServicioInicioSesion>();
+builder.Services.AddScoped<ServicioBitacora>();
 
 var app = builder.Build();
 
@@ -99,3 +120,41 @@ app.MapRazorPages()
    .WithStaticAssets();
 
 app.Run();
+
+// Lee un archivo .env (clave=valor por línea) desde el directorio indicado y
+// define cada variable de entorno si aún no existe. Las líneas vacías o que
+// comienzan con '#' se ignoran.
+static void CargarVariablesEntorno(string directorio)
+{
+    string ruta = Path.Combine(directorio, ".env");
+
+    if (!File.Exists(ruta))
+    {
+        return;
+    }
+
+    foreach (string linea in File.ReadAllLines(ruta))
+    {
+        string texto = linea.Trim();
+
+        if (texto.Length == 0 || texto.StartsWith('#'))
+        {
+            continue;
+        }
+
+        int separador = texto.IndexOf('=');
+
+        if (separador <= 0)
+        {
+            continue;
+        }
+
+        string clave = texto[..separador].Trim();
+        string valor = texto[(separador + 1)..].Trim().Trim('"');
+
+        if (Environment.GetEnvironmentVariable(clave) is null)
+        {
+            Environment.SetEnvironmentVariable(clave, valor);
+        }
+    }
+}

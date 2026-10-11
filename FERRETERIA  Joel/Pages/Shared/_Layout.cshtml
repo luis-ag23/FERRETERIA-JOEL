@@ -43,8 +43,10 @@
                             </li>
                         }
 
-                        <!-- Gestión de Productos -->
-                        <li class="fj-menu-item fj-dropdown">
+                        @if (User.IsInRole(RolesSistema.Empleado))
+                        {
+                            <!-- Gestión de Productos -->
+                            <li class="fj-menu-item fj-dropdown">
                             <button class="fj-menu-link fj-dropdown-toggle" type="button"
                                     aria-expanded="false">
                                 <span>Gestión de Productos</span>
@@ -126,6 +128,30 @@
                                 <span class="disabled">Configuración</span>
                             </div>
                         </li>
+                        }
+                        else
+                        {
+                            <!-- Consulta (Usuario / solo lectura) -->
+                            <li class="fj-menu-item fj-dropdown">
+                                <button class="fj-menu-link fj-dropdown-toggle" type="button"
+                                        aria-expanded="false">
+                                    <span>Consulta</span>
+                                    <svg class="fj-dropdown-chevron" viewBox="0 0 24 24"
+                                         fill="none" stroke="currentColor" stroke-width="1.8"
+                                         stroke-linecap="round" stroke-linejoin="round"
+                                         aria-hidden="true">
+                                        <polyline points="6 9 12 15 18 9" />
+                                    </svg>
+                                </button>
+
+                                <div class="fj-dropdown-menu">
+                                    <a asp-page="/ProductosUsuario">Productos</a>
+                                    <a asp-page="/CategoriasUsuario">Categorías</a>
+                                    <a asp-page="/MarcasUsuario">Marcas</a>
+                                    <a asp-page="/ProveedoresUsuario">Proveedores</a>
+                                </div>
+                            </li>
+                        }
                     }
                     else
                     {

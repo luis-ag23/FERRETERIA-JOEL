@@ -1,15 +1,16 @@
 using FERRETERIA__Joel.Aplicacion.Modelos;
+using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
 
 namespace FERRETERIA__Joel.Aplicacion.Servicios
 {
     // Registro de empleados: valida credenciales, verifica el correo único,
-    // hashea la contraseña y persiste el empleado con acceso al panel interno.
+    // hashea la contraseña y persiste el empleado con acceso a la gestión.
     public class ServicioRegistroEmpleado
     {
-        // Los empleados autoregistrados tienen acceso a todas las funciones.
-        private const string RolPorDefecto = "Administrador";
+        // Los empleados autoregistrados tienen acceso a las funciones internas.
+        private const string RolPorDefecto = RolesSistema.Empleado;
 
         private readonly RepositoryCreator<IEmpleadoRepository> _creador;
         private readonly IHasheadorContrasena _hasheador;
@@ -27,18 +28,18 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         private IEmpleadoRepository Repositorio =>
             _repositorio ??= _creador.CreateRepository();
 
-        public ResultadoRegistro Registrar(RegistroEmpleadoSolicitud solicitud)
+        public ResultadoRegistro Registrar(IRegistroCredenciales solicitud)
         {
             Dictionary<string, string> erroresCampo =
                 _validador.Validar(solicitud);
 
             if (!erroresCampo.ContainsKey(
-                    nameof(RegistroEmpleadoSolicitud.CorreoElectronico))
+                    nameof(IRegistroCredenciales.CorreoElectronico))
                 && Repositorio.ObtenerPorCorreo(
                     solicitud.CorreoElectronico.Trim()) is not null)
             {
                 erroresCampo[
-                    nameof(RegistroEmpleadoSolicitud.CorreoElectronico)] =
+                    nameof(IRegistroCredenciales.CorreoElectronico)] =
                     "El correo ya está registrado.";
             }
 

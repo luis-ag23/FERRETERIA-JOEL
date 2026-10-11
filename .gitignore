@@ -3,6 +3,10 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# Variables de entorno locales (secretos, no versionar)
+.env
+.env.local
+
 # User-specific files
 *.rsuser
 *.suo
