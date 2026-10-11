@@ -5,7 +5,7 @@ using MySql.Data.MySqlClient;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
 {
-    public class MySqlClienteRepository : IRepository<Cliente>
+    public class MySqlClienteRepository : IClienteRepository
     {
         private readonly IDbConnectionFactory _connectionFactory;
 
@@ -63,6 +63,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     CorreoElectronico,
                     Contrasena,
                     Estado,
+                    FechaRegistro,
                     IdClienteResponsable
                 )
                 VALUES
@@ -72,7 +73,8 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     @telefono,
                     @correoElectronico,
                     @contrasena,
-                    1,
+                    @estado,
+                    @fechaRegistro,
                     @idClienteResponsable
                 )";
 
@@ -96,6 +98,12 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 "@contrasena",
                 cliente.Contrasena);
 
+            command.Parameters.AddWithValue("@estado", cliente.Estado);
+
+            command.Parameters.AddWithValue(
+                "@fechaRegistro",
+                cliente.FechaRegistro);
+
             command.Parameters.AddWithValue(
                 "@idClienteResponsable",
                 (object?)cliente.IdClienteResponsable ?? DBNull.Value);
@@ -105,6 +113,26 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.ExecuteNonQuery();
 
             return Convert.ToInt32(command.LastInsertedId);
+        }
+
+        public bool ExisteCorreo(string correo)
+        {
+            const string query = @"
+                SELECT COUNT(*)
+                FROM cliente
+                WHERE CorreoElectronico = @correo";
+
+            using MySqlConnection connection =
+                _connectionFactory.CreateConnection();
+
+            using MySqlCommand command =
+                new MySqlCommand(query, connection);
+
+            command.Parameters.AddWithValue("@correo", correo);
+
+            connection.Open();
+
+            return Convert.ToInt32(command.ExecuteScalar()) > 0;
         }
 
         // ================== Funciones fuera del contrato ==================
