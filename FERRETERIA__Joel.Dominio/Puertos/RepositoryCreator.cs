@@ -1,4 +1,4 @@
-namespace FERRETERIA__Joel.Infraestructura.Factories
+namespace FERRETERIA__Joel.Dominio.Puertos
 {
     public abstract class RepositoryCreator<TContrato>
     {

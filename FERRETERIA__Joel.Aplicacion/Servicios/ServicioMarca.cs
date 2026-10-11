@@ -5,44 +5,48 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 {
     public class ServicioMarca
     {
-        private readonly IGestionarRepository<Marca> _repositorio;
+        private readonly RepositoryCreator<IGestionarRepository<Marca>> _creador;
+        private IGestionarRepository<Marca>? _repositorio;
 
         public ServicioMarca(
-            IGestionarRepository<Marca> repositorio)
+            RepositoryCreator<IGestionarRepository<Marca>> creador)
         {
-            _repositorio = repositorio;
+            _creador = creador;
         }
+
+        private IGestionarRepository<Marca> Repositorio =>
+            _repositorio ??= _creador.CreateRepository();
 
         public List<Marca> ObtenerTodas()
         {
-            return _repositorio.ObtenerTodos();
+            return Repositorio.ObtenerTodos();
         }
 
         public List<Marca> ObtenerActivas()
         {
-            return _repositorio.MostrarActivos();
+            return Repositorio.MostrarActivos();
         }
 
         public Marca? ObtenerPorId(int id)
         {
-            return _repositorio
+            return Repositorio
                 .ObtenerTodos()
                 .FirstOrDefault(m => m.IdMarca == id);
         }
 
         public int Insertar(Marca marca)
         {
-            return _repositorio.Insertar(marca);
+            return Repositorio.Insertar(marca);
         }
 
         public void Actualizar(Marca marca)
         {
-            _repositorio.Actualizar(marca);
+            Repositorio.Actualizar(marca);
         }
 
         public void CambiarEstado(int id)
         {
-            _repositorio.CambiarEstado(id);
+            Repositorio.CambiarEstado(id);
         }
     }
 }

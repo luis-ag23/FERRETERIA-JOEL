@@ -5,25 +5,29 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 {
     public class ServicioProducto
     {
-        private readonly IGestionarRepository<Producto> _repositorio;
+        private readonly RepositoryCreator<IGestionarRepository<Producto>> _creador;
         private readonly ServicioHistoricoPrecio _historicoPrecio;
+        private IGestionarRepository<Producto>? _repositorio;
 
         public ServicioProducto(
-            IGestionarRepository<Producto> repositorio,
+            RepositoryCreator<IGestionarRepository<Producto>> creador,
             ServicioHistoricoPrecio historicoPrecio)
         {
-            _repositorio = repositorio;
+            _creador = creador;
             _historicoPrecio = historicoPrecio;
         }
 
+        private IGestionarRepository<Producto> Repositorio =>
+            _repositorio ??= _creador.CreateRepository();
+
         public List<Producto> ObtenerTodos()
         {
-            return _repositorio.ObtenerTodos();
+            return Repositorio.ObtenerTodos();
         }
 
         public List<Producto> ObtenerActivas()
         {
-            return _repositorio.MostrarActivos();
+            return Repositorio.MostrarActivos();
         }
 
         public List<Producto> Listar(bool soloActivos)
@@ -35,19 +39,19 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
         public Producto? ObtenerPorId(int id)
         {
-            return _repositorio
+            return Repositorio
                 .ObtenerTodos()
                 .FirstOrDefault(p => p.IdProducto == id);
         }
 
         public string SiguienteCodigo()
         {
-            return $"PROD-{_repositorio.ObtenerTodos().Count + 1:D3}";
+            return $"PROD-{Repositorio.ObtenerTodos().Count + 1:D3}";
         }
 
         public int Crear(Producto producto)
         {
-            int idProducto = _repositorio.Insertar(producto);
+            int idProducto = Repositorio.Insertar(producto);
 
             HistoricoPrecio historicoPrecio = new()
             {
@@ -68,7 +72,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 _historicoPrecio.ObtenerPrecioVigente(
                     producto.IdProducto);
 
-            _repositorio.Actualizar(producto);
+            Repositorio.Actualizar(producto);
 
             bool cambioPrecio =
                 precioVigente is null ||
@@ -98,7 +102,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
         public void CambiarEstado(int idProducto)
         {
-            _repositorio.CambiarEstado(idProducto);
+            Repositorio.CambiarEstado(idProducto);
         }
     }
 }

@@ -5,22 +5,26 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 {
     public class ServicioProveedor
     {
-        private readonly IGestionarRepository<Proveedor> _repositorio;
+        private readonly RepositoryCreator<IGestionarRepository<Proveedor>> _creador;
+        private IGestionarRepository<Proveedor>? _repositorio;
 
         public ServicioProveedor(
-            IGestionarRepository<Proveedor> repositorio)
+            RepositoryCreator<IGestionarRepository<Proveedor>> creador)
         {
-            _repositorio = repositorio;
+            _creador = creador;
         }
+
+        private IGestionarRepository<Proveedor> Repositorio =>
+            _repositorio ??= _creador.CreateRepository();
 
         public List<Proveedor> ObtenerTodos()
         {
-            return _repositorio.ObtenerTodos();
+            return Repositorio.ObtenerTodos();
         }
 
         public List<Proveedor> ObtenerActivas()
         {
-            return _repositorio.MostrarActivos();
+            return Repositorio.MostrarActivos();
         }
 
         public List<Proveedor> Listar(bool soloActivos)
@@ -32,24 +36,24 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
         public Proveedor? ObtenerPorId(int id)
         {
-            return _repositorio
+            return Repositorio
                 .ObtenerTodos()
                 .FirstOrDefault(p => p.IdProveedor == id);
         }
 
         public int Insertar(Proveedor proveedor)
         {
-            return _repositorio.Insertar(proveedor);
+            return Repositorio.Insertar(proveedor);
         }
 
         public void Actualizar(Proveedor proveedor)
         {
-            _repositorio.Actualizar(proveedor);
+            Repositorio.Actualizar(proveedor);
         }
 
         public void CambiarEstado(int id)
         {
-            _repositorio.CambiarEstado(id);
+            Repositorio.CambiarEstado(id);
         }
     }
 }
