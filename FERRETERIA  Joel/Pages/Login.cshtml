@@ -1,0 +1,119 @@
+@page
+@model FERRETERIA__Joel.Pages.LoginModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Iniciar sesión";
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Iniciar sesión - Ferretería Joel</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="icon" type="image/png" href="~/favicon.png" asp-append-version="true" />
+    <style>
+        .fj-login-wrap {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #1f2733 0%, #2b3a4a 100%);
+        }
+
+        .fj-login-card {
+            width: 100%;
+            max-width: 420px;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 18px 50px rgba(0, 0, 0, .28);
+            padding: 2.25rem 2rem;
+        }
+
+        .fj-login-brand {
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+            font-weight: 700;
+            letter-spacing: .04em;
+            color: #1f2733;
+            font-size: 1.05rem;
+            margin-bottom: .25rem;
+        }
+
+        .fj-login-brand strong {
+            color: #d97706;
+        }
+
+        .fj-login-tag {
+            color: #6b7280;
+            font-size: .9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .fj-login-card label {
+            font-weight: 600;
+            font-size: .85rem;
+            color: #374151;
+            margin-bottom: .3rem;
+        }
+
+        .fj-login-btn {
+            background: #d97706;
+            border-color: #d97706;
+            font-weight: 600;
+        }
+
+        .fj-login-btn:hover,
+        .fj-login-btn:focus {
+            background: #b45309;
+            border-color: #b45309;
+        }
+    </style>
+</head>
+<body>
+    <div class="fj-login-wrap">
+        <div class="fj-login-card">
+            <div class="fj-login-brand">
+                <span>FERRETERÍA <strong>JOEL</strong></span>
+            </div>
+            <p class="fj-login-tag">Sistema administrativo · Acceso de personal</p>
+
+            @if (!string.IsNullOrEmpty(Model.MensajeError))
+            {
+                <div class="alert alert-danger py-2" role="alert">
+                    @Model.MensajeError
+                </div>
+            }
+
+            <form method="post" novalidate>
+                <input type="hidden" asp-for="ReturnUrl" />
+
+                <div class="mb-3">
+                    <label asp-for="Correo">Correo electrónico</label>
+                    <input asp-for="Correo"
+                           type="email"
+                           class="form-control"
+                           autocomplete="username"
+                           autofocus />
+                </div>
+
+                <div class="mb-4">
+                    <label asp-for="Contrasena">Contraseña</label>
+                    <input asp-for="Contrasena"
+                           type="password"
+                           class="form-control"
+                           autocomplete="current-password" />
+                </div>
+
+                <button type="submit"
+                        class="btn fj-login-btn btn-primary w-100">
+                    Ingresar
+                </button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

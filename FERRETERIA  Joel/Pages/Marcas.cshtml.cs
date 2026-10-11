@@ -1,4 +1,5 @@
 using FERRETERIA__Joel.Aplicacion.Servicios;
+using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Helpers;
 using Microsoft.AspNetCore.Mvc;
@@ -49,6 +50,11 @@ namespace FERRETERIA__Joel.Pages
 
         public IActionResult OnPostEliminar(int id)
         {
+            if (!User.IsInRole(RolesSistema.Administrador))
+            {
+                return Forbid();
+            }
+
             try
             {
                 _servicio.CambiarEstado(id);

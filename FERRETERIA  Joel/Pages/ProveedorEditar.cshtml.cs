@@ -1,17 +1,21 @@
 using FERRETERIA__Joel.Aplicacion.Servicios;
+using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
+using FERRETERIA__Joel.Dominio.Puertos;
 using FERRETERIA__Joel.Dominio.Validaciones;
 using FERRETERIA__Joel.Helpers;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
+    [Authorize(Roles = RolesSistema.Administrador)]
     public class ProveedorEditarModel : PageModel
     {
         private readonly ServicioProveedor _servicio;
-        private readonly ServicioEmpleado _servicioEmpleado;
+        private readonly IContextoUsuario _contextoUsuario;
         private readonly ILogger<ProveedorEditarModel> _logger;
 
         private readonly ProveedorValidaciones _validacion = new();
@@ -19,23 +23,23 @@ namespace FERRETERIA__Joel.Pages
         [BindProperty]
         public Proveedor Proveedor { get; set; } = new();
 
-        public List<Empleado> Empleados { get; set; } = new();
+        public string NombreResponsable { get; set; } = string.Empty;
         public List<string> Errores { get; set; } = new();
         public Dictionary<string, string> ErroresCampo { get; set; } = new();
 
         public ProveedorEditarModel(
             ServicioProveedor servicio,
-            ServicioEmpleado servicioEmpleado,
+            IContextoUsuario contextoUsuario,
             ILogger<ProveedorEditarModel> logger)
         {
             _servicio = servicio;
-            _servicioEmpleado = servicioEmpleado;
+            _contextoUsuario = contextoUsuario;
             _logger = logger;
         }
 
         public IActionResult OnGet(string token)
         {
-            CargarEmpleados();
+            AsignarResponsable();
 
             string? texto = UrlProtector.Descifrar(token);
 
@@ -64,12 +68,13 @@ namespace FERRETERIA__Joel.Pages
 
         public IActionResult OnPost()
         {
+            AsignarResponsable();
             NormalizarDatos();
             Validar();
 
             if (Errores.Any() || ErroresCampo.Any())
             {
-                CargarEmpleados();
+                AsignarResponsable();
                 return Page();
             }
 
@@ -87,7 +92,7 @@ namespace FERRETERIA__Joel.Pages
                 Errores.Add(
                     "No se pudo actualizar el proveedor. Inténtalo nuevamente.");
 
-                CargarEmpleados();
+                AsignarResponsable();
                 return Page();
             }
 
@@ -163,14 +168,6 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Proveedor.CorreoElectronico),
                     "El correo debe tener un formato válido: mínimo 6 caracteres antes de la @ y un dominio como correo@ejemplo.com.");
             }
-
-            if (!_validacion.EsEmpleadoValido(
-                Proveedor.IdEmpleadoResponsable))
-            {
-                AgregarErrorCampo(
-                    nameof(Proveedor.IdEmpleadoResponsable),
-                    "Debe seleccionar un empleado responsable.");
-            }
         }
 
         private void AgregarErrorCampo(string campo, string mensaje)
@@ -178,9 +175,11 @@ namespace FERRETERIA__Joel.Pages
             ErroresCampo[campo] = mensaje;
         }
 
-        private void CargarEmpleados()
+        private void AsignarResponsable()
         {
-            Empleados = _servicioEmpleado.ObtenerTodos();
+            Proveedor.IdEmpleadoResponsable = _contextoUsuario.IdEmpleado;
+
+            NombreResponsable = _contextoUsuario.NombreCompleto;
         }
     }
 }
