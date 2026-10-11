@@ -386,5 +386,86 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
             Assert.Equal(60m, resumen.MontoDescuento);
             Assert.Equal(1140m, resumen.MontoTotal);
         }
+
+        [Fact]
+        public void ListarVentasListado_IncluyeNombreCliente()
+        {
+            Escenario escenario = CrearEscenario(CrearProducto(1, 100m, 10));
+
+            escenario.Fachada.RegistrarVenta(
+                new SolicitudVenta
+                {
+                    IdCliente = 1,
+                    MetodoPago = "Efectivo",
+                    Lineas = new List<LineaVentaSolicitada>
+                    {
+                        new() { IdProducto = 1, Cantidad = 2 }
+                    }
+                });
+
+            List<VentaListado> lista = escenario.Fachada.ListarVentasListado();
+
+            Assert.Single(lista);
+            Assert.Equal("Juan Perez", lista[0].NombreCliente);
+            Assert.Equal("V-TEST-000001", lista[0].Venta.CodigoVenta);
+        }
+
+        [Fact]
+        public void ListarVentasListado_ClienteEliminado_CaeEnResguardo()
+        {
+            Escenario escenario = CrearEscenario(CrearProducto(1, 100m, 10));
+
+            VentaRepositorioFake ventasRepo = escenario.Ventas;
+            ventasRepo.Insertar(new Venta
+            {
+                EstadoVenta = EstadoVenta.Registrada,
+                IdCliente = 999,
+                MontoTotal = 50m
+            });
+
+            List<VentaListado> lista = escenario.Fachada.ListarVentasListado();
+
+            Assert.Single(lista);
+            Assert.Equal("Cliente eliminado", lista[0].NombreCliente);
+        }
+
+        [Fact]
+        public void ObtenerComprobante_DevuelveLineasConCatalogo()
+        {
+            Escenario escenario = CrearEscenario(
+                CrearProducto(1, 150m, 10, "Taladro X"));
+
+            ResultadoVenta venta = escenario.Fachada.RegistrarVenta(
+                new SolicitudVenta
+                {
+                    IdCliente = 1,
+                    MetodoPago = "Tarjeta",
+                    EstadoPago = "Pagado",
+                    Lineas = new List<LineaVentaSolicitada>
+                    {
+                        new() { IdProducto = 1, Cantidad = 3 }
+                    }
+                });
+
+            ComprobanteVenta? comprobante =
+                escenario.Fachada.ObtenerComprobante(venta.IdVenta);
+
+            Assert.NotNull(comprobante);
+            Assert.Equal("Juan Perez", comprobante.NombreCliente);
+            Assert.Equal("Tarjeta", comprobante.Venta.MetodoPago);
+            Assert.Equal(450m, comprobante.Venta.MontoTotal);
+            Assert.Single(comprobante.Lineas);
+            Assert.Equal("Taladro X", comprobante.Lineas[0].Nombre);
+            Assert.Equal("COD-001", comprobante.Lineas[0].Codigo);
+            Assert.Equal(3, comprobante.Lineas[0].Cantidad);
+        }
+
+        [Fact]
+        public void ObtenerComprobante_NoExistente_DevuelveNulo()
+        {
+            Escenario escenario = CrearEscenario();
+
+            Assert.Null(escenario.Fachada.ObtenerComprobante(123));
+        }
     }
 }
