@@ -2,8 +2,10 @@ using FERRETERIA__Joel.Dominio.Entidades;
 
 namespace FERRETERIA__Joel.Dominio.Puertos
 {
-    public interface IDetalleVentaRepository : IRepository<DetalleVenta>
+    public interface IDetalleVentaRepository
     {
-        List<DetalleVenta> ObtenerPorVenta(int idVenta);
+        Task<List<DetalleVenta>> ObtenerPorVentaAsync(int idVenta);
+
+        Task<int> InsertarAsync(DetalleVenta detalleVenta);
     }
 }

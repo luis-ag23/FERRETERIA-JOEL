@@ -34,9 +34,11 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             _conexion = conexion;
         }
 
-        private MySqlCommand CrearComando(string query)
+        private async Task<MySqlCommand> CrearComandoAsync(string query)
         {
-            MySqlCommand command = new(query, _conexion.Conexion);
+            MySqlConnection conexion = await _conexion.ObtenerConexionAsync();
+
+            MySqlCommand command = new(query, conexion);
 
             if (_conexion.Transaccion is not null)
             {
@@ -46,7 +48,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return command;
         }
 
-        public List<Venta> ObtenerTodos()
+        public async Task<List<Venta>> ObtenerTodosAsync()
         {
             List<Venta> ventas = new();
 
@@ -55,11 +57,11 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 FROM venta
                 ORDER BY FechaRegistro DESC";
 
-            using MySqlCommand command = CrearComando(query);
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlDataReader reader = command.ExecuteReader();
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            while (reader.Read())
+            while (await reader.ReadAsync())
             {
                 ventas.Add(MapearVenta(reader));
             }
@@ -67,7 +69,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return ventas;
         }
 
-        public int Insertar(Venta venta)
+        public async Task<int> InsertarAsync(Venta venta)
         {
             const string query = @"
                 INSERT INTO venta
@@ -97,7 +99,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     @idEmpleadoResponsable
                 )";
 
-            using MySqlCommand command = CrearComando(query);
+            using MySqlCommand command = await CrearComandoAsync(query);
 
             command.Parameters.AddWithValue("@estadoVenta", venta.EstadoVenta);
             command.Parameters.AddWithValue("@idCliente", venta.IdCliente);
@@ -114,12 +116,12 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 "@idEmpleadoResponsable",
                 venta.IdEmpleadoResponsable);
 
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
 
             return Convert.ToInt32(command.LastInsertedId);
         }
 
-        public void AsignarCodigo(int idVenta)
+        public async Task AsignarCodigoAsync(int idVenta)
         {
             const string query = @"
                 UPDATE venta
@@ -130,14 +132,14 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                         LPAD(IdVenta, 6, '0'))
                 WHERE IdVenta = @idVenta";
 
-            using MySqlCommand command = CrearComando(query);
+            using MySqlCommand command = await CrearComandoAsync(query);
 
             command.Parameters.AddWithValue("@idVenta", idVenta);
 
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
         }
 
-        public Venta? ObtenerPorId(int idVenta)
+        public async Task<Venta?> ObtenerPorIdAsync(int idVenta)
         {
             string query = $@"
                 SELECT {Columnas}
@@ -145,16 +147,17 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 WHERE IdVenta = @idVenta
                 LIMIT 1";
 
-            using MySqlCommand command = CrearComando(query);
+            using MySqlCommand command = await CrearComandoAsync(query);
 
             command.Parameters.AddWithValue("@idVenta", idVenta);
 
-            using MySqlDataReader reader = command.ExecuteReader();
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            return reader.Read() ? MapearVenta(reader) : null;
+            return await reader.ReadAsync() ? MapearVenta(reader) : null;
         }
 
-        public Venta? ObtenerPorClaveIdempotencia(string claveIdempotencia)
+        public async Task<Venta?> ObtenerPorClaveIdempotenciaAsync(
+            string claveIdempotencia)
         {
             string query = $@"
                 SELECT {Columnas}
@@ -162,16 +165,16 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 WHERE ClaveIdempotencia = @clave
                 LIMIT 1";
 
-            using MySqlCommand command = CrearComando(query);
+            using MySqlCommand command = await CrearComandoAsync(query);
 
             command.Parameters.AddWithValue("@clave", claveIdempotencia);
 
-            using MySqlDataReader reader = command.ExecuteReader();
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            return reader.Read() ? MapearVenta(reader) : null;
+            return await reader.ReadAsync() ? MapearVenta(reader) : null;
         }
 
-        public bool MarcarAnulada(
+        public async Task<bool> MarcarAnuladaAsync(
             int idVenta,
             int idEmpleadoAnulacion,
             string motivo)
@@ -187,7 +190,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 WHERE IdVenta = @idVenta
                   AND EstadoVenta = @estadoRegistrada";
 
-            using MySqlCommand command = CrearComando(query);
+            using MySqlCommand command = await CrearComandoAsync(query);
 
             command.Parameters.AddWithValue("@idVenta", idVenta);
             command.Parameters.AddWithValue("@estadoAnulada", EstadoVenta.Anulada);
@@ -195,7 +198,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.Parameters.AddWithValue("@motivo", motivo);
             command.Parameters.AddWithValue("@idEmpleadoAnulacion", idEmpleadoAnulacion);
 
-            return command.ExecuteNonQuery() == 1;
+            return await command.ExecuteNonQueryAsync() == 1;
         }
 
         private static Venta MapearVenta(MySqlDataReader reader)

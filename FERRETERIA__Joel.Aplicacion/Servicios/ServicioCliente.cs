@@ -7,7 +7,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
     /// <summary>
     /// Caso de uso de clientes. Permite dar de alta un cliente desde el
     /// propio flujo de venta (sin abandonar la pantalla) y consultar el
-    /// catálogo de clientes activos.
+    /// catálogo de clientes activos. Todas las operaciones son asíncronas.
     /// </summary>
     public class ServicioCliente
     {
@@ -26,17 +26,17 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         private IClienteRepository Repositorio =>
             _repositorio ??= _creador.CreateRepository();
 
-        public List<Cliente> Listar()
+        public Task<List<Cliente>> ListarAsync()
         {
-            return Repositorio.ObtenerTodos();
+            return Repositorio.ObtenerTodosAsync();
         }
 
-        public List<Cliente> Buscar(string termino)
+        public Task<List<Cliente>> BuscarAsync(string termino)
         {
-            return Repositorio.Buscar(termino);
+            return Repositorio.BuscarAsync(termino);
         }
 
-        public ResultadoCliente Crear(
+        public async Task<ResultadoCliente> CrearAsync(
             string nombre,
             string apellido,
             string telefono,
@@ -87,7 +87,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 IdEmpleadoResponsable = _contextoUsuario.IdEmpleado
             };
 
-            int idCliente = Repositorio.Insertar(cliente);
+            int idCliente = await Repositorio.InsertarAsync(cliente);
             cliente.IdCliente = idCliente;
 
             return new ResultadoCliente

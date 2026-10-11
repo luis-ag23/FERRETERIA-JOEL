@@ -12,6 +12,7 @@ namespace FERRETERIA__Joel.Pages
     /// anulación lógica con motivo. La anulación restaura el stock y
     /// registra el responsable. La anulación queda restringida al rol
     /// Administrador (verificado contra el sistema de autenticación).
+    /// Todos los manejadores son asíncronos.
     /// </summary>
     [Authorize]
     public class VentasModel : PageModel
@@ -37,14 +38,14 @@ namespace FERRETERIA__Joel.Pages
         [TempData]
         public string? MensajeError { get; set; }
 
-        public void OnGet()
+        public async Task OnGetAsync()
         {
-            Ventas = _fachada.ListarVentasListado();
+            Ventas = await _fachada.ListarVentasListadoAsync();
         }
 
-        public JsonResult OnGetDetalle(int idVenta)
+        public async Task<JsonResult> OnGetDetalleAsync(int idVenta)
         {
-            ResultadoVenta? resultado = _fachada.ObtenerVenta(idVenta);
+            ResultadoVenta? resultado = await _fachada.ObtenerVentaAsync(idVenta);
 
             if (resultado is null)
             {
@@ -74,15 +75,16 @@ namespace FERRETERIA__Joel.Pages
             });
         }
 
-        public IActionResult OnPostAnular()
+        public async Task<IActionResult> OnPostAnularAsync()
         {
             if (!User.IsInRole(RolesSistema.Administrador))
             {
                 return Forbid();
             }
 
-            ResultadoVenta resultado =
-                _fachada.AnularVenta(IdVenta, MotivoAnulacion ?? string.Empty);
+            ResultadoVenta resultado = await _fachada.AnularVentaAsync(
+                IdVenta,
+                MotivoAnulacion ?? string.Empty);
 
             if (!resultado.Exito)
             {

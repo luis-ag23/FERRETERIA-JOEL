@@ -68,6 +68,7 @@ builder.Services.AddScoped<RepositoryCreator<IClienteRepository>, ClienteReposit
 builder.Services.AddScoped<RepositoryCreator<IVentaRepository>, VentaRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IDetalleVentaRepository>, DetalleVentaRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IInventarioRepository>, InventarioRepositoryCreator>();
+builder.Services.AddScoped<RepositoryCreator<IEmpleadoVentaRepository>, EmpleadoVentaRepositoryCreator>();
 
 
 builder.Services.AddScoped<ServicioCategoria>();

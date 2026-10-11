@@ -24,7 +24,7 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
             Environment.GetEnvironmentVariable(VariableConexion);
 
         [Fact]
-        public void RegistrarVenta_Real_DescuentaStockYAnulacionRestaura()
+        public async Task RegistrarVenta_Real_DescuentaStockYAnulacionRestauraAsync()
         {
             string? cadena = CadenaConexion;
 
@@ -52,7 +52,7 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
 
                 using (conexion)
                 {
-                    ResultadoVenta venta = fachada.RegistrarVenta(
+                    ResultadoVenta venta = await fachada.RegistrarVentaAsync(
                         new SolicitudVenta
                         {
                             IdCliente = idCliente,
@@ -73,7 +73,7 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
                         EstadoVenta.Registrada,
                         LeerEstadoVenta(cadena, venta.IdVenta));
 
-                    ResultadoVenta anulada = fachada.AnularVenta(
+                    ResultadoVenta anulada = await fachada.AnularVentaAsync(
                         venta.IdVenta,
                         "Prueba de integración");
 
@@ -91,7 +91,7 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
         }
 
         [Fact]
-        public void RegistrarVenta_Real_StockInsuficiente_NoPersiste()
+        public async Task RegistrarVenta_Real_StockInsuficiente_NoPersisteAsync()
         {
             string? cadena = CadenaConexion;
 
@@ -119,7 +119,7 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
 
                 using (conexion)
                 {
-                    ResultadoVenta venta = fachada.RegistrarVenta(
+                    ResultadoVenta venta = await fachada.RegistrarVentaAsync(
                         new SolicitudVenta
                         {
                             IdCliente = idCliente,
@@ -142,7 +142,7 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
         }
 
         [Fact]
-        public void RegistrarVenta_Real_Idempotente_NoDuplica()
+        public async Task RegistrarVenta_Real_Idempotente_NoDuplicaAsync()
         {
             string? cadena = CadenaConexion;
 
@@ -181,8 +181,8 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
                         }
                     };
 
-                    ResultadoVenta primero = fachada.RegistrarVenta(solicitud);
-                    ResultadoVenta segundo = fachada.RegistrarVenta(solicitud);
+                    ResultadoVenta primero = await fachada.RegistrarVentaAsync(solicitud);
+                    ResultadoVenta segundo = await fachada.RegistrarVentaAsync(solicitud);
 
                     Assert.True(primero.Exito);
                     Assert.True(segundo.Exito);
@@ -240,10 +240,8 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
                         }
                     };
 
-                    Task<ResultadoVenta> tareaA =
-                        Task.Run(() => fachadaA.RegistrarVenta(solicitud));
-                    Task<ResultadoVenta> tareaB =
-                        Task.Run(() => fachadaB.RegistrarVenta(solicitud));
+                    Task<ResultadoVenta> tareaA = fachadaA.RegistrarVentaAsync(solicitud);
+                    Task<ResultadoVenta> tareaB = fachadaB.RegistrarVentaAsync(solicitud);
 
                     ResultadoVenta[] resultados =
                         await Task.WhenAll(tareaA, tareaB);
@@ -275,12 +273,11 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
             });
 
             FachadaVenta fachada = new(
-                new ProductoRepositoryCreator(fabrica),
                 new ClienteRepositoryCreator(conexion),
                 new VentaRepositoryCreator(conexion),
                 new DetalleVentaRepositoryCreator(conexion),
                 new InventarioRepositoryCreator(conexion),
-                new EmpleadoRepositoryCreator(fabrica),
+                new EmpleadoVentaRepositoryCreator(conexion),
                 new MySqlUnidadDeTrabajo(conexion),
                 selector,
                 new ContextoUsuarioFake(idEmpleado));

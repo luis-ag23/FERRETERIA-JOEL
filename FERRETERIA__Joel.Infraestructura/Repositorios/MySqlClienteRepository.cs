@@ -27,9 +27,11 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             _conexion = conexion;
         }
 
-        private MySqlCommand CrearComando(string query)
+        private async Task<MySqlCommand> CrearComandoAsync(string query)
         {
-            MySqlCommand command = new(query, _conexion.Conexion);
+            MySqlConnection conexion = await _conexion.ObtenerConexionAsync();
+
+            MySqlCommand command = new(query, conexion);
 
             if (_conexion.Transaccion is not null)
             {
@@ -39,7 +41,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return command;
         }
 
-        public List<Cliente> ObtenerTodos()
+        public async Task<List<Cliente>> ObtenerTodosAsync()
         {
             List<Cliente> clientes = new();
 
@@ -48,11 +50,11 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 FROM cliente
                 ORDER BY Nombre ASC";
 
-            using MySqlCommand command = CrearComando(query);
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlDataReader reader = command.ExecuteReader();
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            while (reader.Read())
+            while (await reader.ReadAsync())
             {
                 clientes.Add(MapearCliente(reader));
             }
@@ -60,7 +62,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return clientes;
         }
 
-        public List<Cliente> Buscar(string termino)
+        public async Task<List<Cliente>> BuscarAsync(string termino)
         {
             List<Cliente> clientes = new();
 
@@ -77,13 +79,13 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 ORDER BY Nombre ASC
                 LIMIT 20";
 
-            using MySqlCommand command = CrearComando(query);
+            using MySqlCommand command = await CrearComandoAsync(query);
 
             command.Parameters.AddWithValue("@termino", $"%{termino}%");
 
-            using MySqlDataReader reader = command.ExecuteReader();
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            while (reader.Read())
+            while (await reader.ReadAsync())
             {
                 clientes.Add(MapearCliente(reader));
             }
@@ -91,7 +93,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return clientes;
         }
 
-        public Cliente? ObtenerPorId(int idCliente)
+        public async Task<Cliente?> ObtenerPorIdAsync(int idCliente)
         {
             string query = $@"
                 SELECT {Columnas}
@@ -99,16 +101,16 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 WHERE IdCliente = @idCliente
                 LIMIT 1";
 
-            using MySqlCommand command = CrearComando(query);
+            using MySqlCommand command = await CrearComandoAsync(query);
 
             command.Parameters.AddWithValue("@idCliente", idCliente);
 
-            using MySqlDataReader reader = command.ExecuteReader();
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            return reader.Read() ? MapearCliente(reader) : null;
+            return await reader.ReadAsync() ? MapearCliente(reader) : null;
         }
 
-        public int Insertar(Cliente cliente)
+        public async Task<int> InsertarAsync(Cliente cliente)
         {
             const string query = @"
                 INSERT INTO cliente
@@ -134,7 +136,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     @idEmpleadoResponsable
                 )";
 
-            using MySqlCommand command = CrearComando(query);
+            using MySqlCommand command = await CrearComandoAsync(query);
 
             command.Parameters.AddWithValue("@nombre", cliente.Nombre);
             command.Parameters.AddWithValue("@apellido", cliente.Apellido);
@@ -152,7 +154,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 "@idEmpleadoResponsable",
                 (object?)cliente.IdEmpleadoResponsable ?? DBNull.Value);
 
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
 
             return Convert.ToInt32(command.LastInsertedId);
         }

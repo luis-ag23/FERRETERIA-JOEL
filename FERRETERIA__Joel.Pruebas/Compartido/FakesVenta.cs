@@ -26,29 +26,29 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
     public sealed class UnidadDeTrabajoFake : IUnidadDeTrabajo
     {
         public int VecesIniciar { get; private set; }
-
         public int VecesConfirmar { get; private set; }
-
         public int VecesRevertir { get; private set; }
-
         public bool Activa { get; private set; }
 
-        public void Iniciar()
+        public Task IniciarAsync()
         {
             VecesIniciar++;
             Activa = true;
+            return Task.CompletedTask;
         }
 
-        public void Confirmar()
+        public Task ConfirmarAsync()
         {
             VecesConfirmar++;
             Activa = false;
+            return Task.CompletedTask;
         }
 
-        public void Revertir()
+        public Task RevertirAsync()
         {
             VecesRevertir++;
             Activa = false;
+            return Task.CompletedTask;
         }
     }
 
@@ -60,57 +60,8 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
         }
 
         public int IdEmpleado { get; }
-
         public string NombreCompleto => "Usuario de prueba";
-
         public string Rol => RolesSistema.Vendedor;
-    }
-
-    public sealed class ProductoRepositorioFake : IGestionarRepository<Producto>
-    {
-        private readonly List<Producto> _productos = new();
-
-        public void Agregar(Producto producto)
-        {
-            _productos.Add(producto);
-        }
-
-        public List<Producto> ObtenerTodos()
-        {
-            return _productos.ToList();
-        }
-
-        public List<Producto> MostrarActivos()
-        {
-            return _productos.Where(p => p.Estado == 1).ToList();
-        }
-
-        public int Insertar(Producto entidad)
-        {
-            entidad.IdProducto = _productos.Count + 1;
-            _productos.Add(entidad);
-            return entidad.IdProducto;
-        }
-
-        public void Actualizar(Producto entidad)
-        {
-            int indice = _productos.FindIndex(p => p.IdProducto == entidad.IdProducto);
-
-            if (indice >= 0)
-            {
-                _productos[indice] = entidad;
-            }
-        }
-
-        public void CambiarEstado(int id)
-        {
-            Producto? producto = _productos.FirstOrDefault(p => p.IdProducto == id);
-
-            if (producto is not null)
-            {
-                producto.Estado = (byte)(producto.Estado == 1 ? 0 : 1);
-            }
-        }
     }
 
     public sealed class ClienteRepositorioFake : IClienteRepository
@@ -123,30 +74,32 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
             _clientes.Add(cliente);
         }
 
-        public List<Cliente> ObtenerTodos()
+        public Task<List<Cliente>> ObtenerTodosAsync()
         {
-            return _clientes.ToList();
+            return Task.FromResult(_clientes.ToList());
         }
 
-        public int Insertar(Cliente entidad)
+        public Task<int> InsertarAsync(Cliente entidad)
         {
             entidad.IdCliente = _clientes.Count + 1;
             _clientes.Add(entidad);
-            return entidad.IdCliente;
+            return Task.FromResult(entidad.IdCliente);
         }
 
-        public Cliente? ObtenerPorId(int idCliente)
+        public Task<Cliente?> ObtenerPorIdAsync(int idCliente)
         {
-            return _clientes.FirstOrDefault(c => c.IdCliente == idCliente);
+            return Task.FromResult(
+                _clientes.FirstOrDefault(c => c.IdCliente == idCliente));
         }
 
-        public List<Cliente> Buscar(string termino)
+        public Task<List<Cliente>> BuscarAsync(string termino)
         {
-            return _clientes
+            List<Cliente> resultado = _clientes
                 .Where(c => c.Estado == 1 &&
                     (c.Nombre.Contains(termino, StringComparison.OrdinalIgnoreCase) ||
                      c.Apellido.Contains(termino, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
+            return Task.FromResult(resultado);
         }
     }
 
@@ -157,49 +110,54 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
 
         public int VecesInsertar { get; private set; }
 
-        public List<Venta> ObtenerTodos()
+        public Task<List<Venta>> ObtenerTodosAsync()
         {
-            return _ventas.ToList();
+            return Task.FromResult(_ventas.ToList());
         }
 
-        public int Insertar(Venta entidad)
+        public Task<int> InsertarAsync(Venta entidad)
         {
             entidad.IdVenta = ++_secuencia;
             entidad.FechaRegistro = DateTime.Now;
             _ventas.Add(entidad);
             VecesInsertar++;
-            return entidad.IdVenta;
+            return Task.FromResult(entidad.IdVenta);
         }
 
-        public void AsignarCodigo(int idVenta)
+        public Task AsignarCodigoAsync(int idVenta)
         {
             Venta? venta = _ventas.FirstOrDefault(v => v.IdVenta == idVenta);
-
             if (venta is not null)
             {
                 venta.CodigoVenta = $"V-TEST-{idVenta:D6}";
             }
+            return Task.CompletedTask;
         }
 
-        public Venta? ObtenerPorId(int idVenta)
+        public Task<Venta?> ObtenerPorIdAsync(int idVenta)
         {
-            return _ventas.FirstOrDefault(v => v.IdVenta == idVenta);
+            return Task.FromResult(
+                _ventas.FirstOrDefault(v => v.IdVenta == idVenta));
         }
 
-        public Venta? ObtenerPorClaveIdempotencia(string claveIdempotencia)
+        public Task<Venta?> ObtenerPorClaveIdempotenciaAsync(string claveIdempotencia)
         {
-            return _ventas.FirstOrDefault(v =>
-                v.ClaveIdempotencia == claveIdempotencia);
+            return Task.FromResult(
+                _ventas.FirstOrDefault(v =>
+                    v.ClaveIdempotencia == claveIdempotencia));
         }
 
-        public bool MarcarAnulada(int idVenta, int idEmpleadoAnulacion, string motivo)
+        public Task<bool> MarcarAnuladaAsync(
+            int idVenta,
+            int idEmpleadoAnulacion,
+            string motivo)
         {
             Venta? venta = _ventas.FirstOrDefault(v => v.IdVenta == idVenta);
 
             if (venta is null ||
                 venta.EstadoVenta != EstadoVenta.Registrada)
             {
-                return false;
+                return Task.FromResult(false);
             }
 
             venta.EstadoVenta = EstadoVenta.Anulada;
@@ -207,7 +165,7 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
             venta.IdEmpleadoAnulacion = idEmpleadoAnulacion;
             venta.FechaAnulacion = DateTime.Now;
 
-            return true;
+            return Task.FromResult(true);
         }
     }
 
@@ -216,25 +174,23 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
         private readonly List<DetalleVenta> _detalles = new();
         private int _secuencia;
 
-        public List<DetalleVenta> ObtenerTodos()
+        public Task<List<DetalleVenta>> ObtenerPorVentaAsync(int idVenta)
         {
-            return _detalles.ToList();
+            List<DetalleVenta> resultado = _detalles
+                .Where(d => d.IdVenta == idVenta)
+                .ToList();
+            return Task.FromResult(resultado);
         }
 
-        public List<DetalleVenta> ObtenerPorVenta(int idVenta)
-        {
-            return _detalles.Where(d => d.IdVenta == idVenta).ToList();
-        }
-
-        public int Insertar(DetalleVenta entidad)
+        public Task<int> InsertarAsync(DetalleVenta entidad)
         {
             entidad.IdDetalleVenta = ++_secuencia;
             _detalles.Add(entidad);
-            return entidad.IdDetalleVenta;
+            return Task.FromResult(entidad.IdDetalleVenta);
         }
     }
 
-    public sealed class EmpleadoRepositorioFake : IRepository<Empleado>
+    public sealed class EmpleadoVentaRepositorioFake : IEmpleadoVentaRepository
     {
         private readonly List<Empleado> _empleados = new();
 
@@ -243,16 +199,9 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
             _empleados.Add(empleado);
         }
 
-        public List<Empleado> ObtenerTodos()
+        public Task<List<Empleado>> ListarAsync()
         {
-            return _empleados.ToList();
-        }
-
-        public int Insertar(Empleado entidad)
-        {
-            entidad.IdEmpleado = _empleados.Count + 1;
-            _empleados.Add(entidad);
-            return entidad.IdEmpleado;
+            return Task.FromResult(_empleados.ToList());
         }
     }
 
@@ -265,33 +214,52 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
             _productos[producto.IdProducto] = producto;
         }
 
-        public Producto? ObtenerParaVenta(int idProducto)
+        public Task<Producto?> ObtenerParaVentaAsync(int idProducto)
         {
-            return _productos.TryGetValue(idProducto, out Producto? producto) &&
-                   producto.Estado == 1
+            Producto? resultado = _productos.TryGetValue(idProducto, out Producto? producto) &&
+                                   producto.Estado == 1
                 ? producto
                 : null;
+            return Task.FromResult(resultado);
         }
 
-        public bool Descontar(int idProducto, int cantidad)
+        public Task<bool> DescontarAsync(int idProducto, int cantidad)
         {
             if (!_productos.TryGetValue(idProducto, out Producto? producto) ||
                 producto.Estado != 1 ||
                 producto.CantidadStock < cantidad)
             {
-                return false;
+                return Task.FromResult(false);
             }
 
             producto.CantidadStock -= cantidad;
-            return true;
+            return Task.FromResult(true);
         }
 
-        public void Reponer(int idProducto, int cantidad)
+        public Task ReponerAsync(int idProducto, int cantidad)
         {
             if (_productos.TryGetValue(idProducto, out Producto? producto))
             {
                 producto.CantidadStock += cantidad;
             }
+            return Task.CompletedTask;
+        }
+
+        public Task<List<Producto>> ListarActivosAsync()
+        {
+            List<Producto> resultado = _productos.Values
+                .Where(p => p.Estado == 1)
+                .ToList();
+            return Task.FromResult(resultado);
+        }
+
+        public Task<List<Producto>> ObtenerPorIdsAsync(IReadOnlyCollection<int> ids)
+        {
+            HashSet<int> conjunto = new(ids);
+            List<Producto> resultado = _productos.Values
+                .Where(p => conjunto.Contains(p.IdProducto))
+                .ToList();
+            return Task.FromResult(resultado);
         }
 
         public int Stock(int idProducto)

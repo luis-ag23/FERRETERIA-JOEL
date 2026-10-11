@@ -26,7 +26,7 @@ namespace FERRETERIA__Joel.Pages
 
         public bool NoEncontrado { get; private set; }
 
-        public void OnGet(string token)
+        public async Task OnGetAsync(string token)
         {
             string? texto = UrlProtector.Descifrar(token);
 
@@ -38,7 +38,7 @@ namespace FERRETERIA__Joel.Pages
                 return;
             }
 
-            Comprobante = _fachada.ObtenerComprobante(idVenta);
+            Comprobante = await _fachada.ObtenerComprobanteAsync(idVenta);
 
             if (Comprobante is null)
             {

@@ -14,23 +14,20 @@ namespace FERRETERIA__Joel.Infraestructura.Conexion
             _connectionFactory = connectionFactory;
         }
 
-        public MySqlConnection Conexion
-        {
-            get
-            {
-                if (_conexion is null)
-                {
-                    _conexion = _connectionFactory.CreateConnection();
-                    _conexion.Open();
-                }
-
-                return _conexion;
-            }
-        }
-
         public MySqlTransaction? Transaccion => _transaccion;
 
-        public void IniciarTransaccion()
+        public async Task<MySqlConnection> ObtenerConexionAsync()
+        {
+            if (_conexion is null)
+            {
+                _conexion = _connectionFactory.CreateConnection();
+                await _conexion.OpenAsync();
+            }
+
+            return _conexion;
+        }
+
+        public async Task IniciarTransaccionAsync()
         {
             if (_transaccion is not null)
             {
@@ -38,30 +35,31 @@ namespace FERRETERIA__Joel.Infraestructura.Conexion
                     "Ya existe una transacción activa en esta conexión.");
             }
 
-            _transaccion = Conexion.BeginTransaction();
+            MySqlConnection conexion = await ObtenerConexionAsync();
+            _transaccion = await conexion.BeginTransactionAsync();
         }
 
-        public void Commit()
+        public async Task ConfirmarAsync()
         {
             if (_transaccion is null)
             {
                 return;
             }
 
-            _transaccion.Commit();
-            _transaccion.Dispose();
+            await _transaccion.CommitAsync();
+            await _transaccion.DisposeAsync();
             _transaccion = null;
         }
 
-        public void Rollback()
+        public async Task RevertirAsync()
         {
             if (_transaccion is null)
             {
                 return;
             }
 
-            _transaccion.Rollback();
-            _transaccion.Dispose();
+            await _transaccion.RollbackAsync();
+            await _transaccion.DisposeAsync();
             _transaccion = null;
         }
 
@@ -76,6 +74,28 @@ namespace FERRETERIA__Joel.Infraestructura.Conexion
             _conexion?.Dispose();
             _transaccion = null;
             _conexion = null;
+            _disposed = true;
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (_transaccion is not null)
+            {
+                await _transaccion.DisposeAsync();
+                _transaccion = null;
+            }
+
+            if (_conexion is not null)
+            {
+                await _conexion.DisposeAsync();
+                _conexion = null;
+            }
+
             _disposed = true;
         }
     }

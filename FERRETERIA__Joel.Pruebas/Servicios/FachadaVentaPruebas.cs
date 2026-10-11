@@ -1,4 +1,4 @@
-using FERRETERIA__Joel.Aplicacion.Modelos;
+﻿using FERRETERIA__Joel.Aplicacion.Modelos;
 using FERRETERIA__Joel.Aplicacion.Politicas;
 using FERRETERIA__Joel.Aplicacion.Servicios;
 using FERRETERIA__Joel.Dominio.Constantes;
@@ -12,27 +12,20 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         private sealed class Escenario
         {
             public required FachadaVenta Fachada { get; init; }
-
             public required InventarioRepositorioFake Inventario { get; init; }
-
             public required VentaRepositorioFake Ventas { get; init; }
-
             public required DetalleVentaRepositorioFake Detalles { get; init; }
-
             public required UnidadDeTrabajoFake UnidadDeTrabajo { get; init; }
-
             public required ClienteRepositorioFake Clientes { get; init; }
-
-            public required ProductoRepositorioFake Productos { get; init; }
         }
 
         private static Escenario CrearEscenario(params Producto[] productos)
         {
-            ProductoRepositorioFake productosRepo = new();
             ClienteRepositorioFake clientesRepo = new();
             VentaRepositorioFake ventasRepo = new();
             DetalleVentaRepositorioFake detallesRepo = new();
             InventarioRepositorioFake inventarioRepo = new();
+            EmpleadoVentaRepositorioFake empleadosRepo = new();
             UnidadDeTrabajoFake unidadDeTrabajo = new();
 
             clientesRepo.Agregar(new Cliente
@@ -43,7 +36,6 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                 Estado = 1
             });
 
-            EmpleadoRepositorioFake empleadosRepo = new();
             empleadosRepo.Agregar(new Empleado
             {
                 IdEmpleado = 42,
@@ -54,7 +46,6 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
 
             foreach (Producto producto in productos)
             {
-                productosRepo.Agregar(producto);
                 inventarioRepo.Agregar(producto);
             }
 
@@ -65,12 +56,11 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
             });
 
             FachadaVenta fachada = new(
-                new CreadorFake<Dominio.Puertos.IGestionarRepository<Producto>>(productosRepo),
-                new CreadorFake<Dominio.Puertos.IClienteRepository>(clientesRepo),
-                new CreadorFake<Dominio.Puertos.IVentaRepository>(ventasRepo),
-                new CreadorFake<Dominio.Puertos.IDetalleVentaRepository>(detallesRepo),
-                new CreadorFake<Dominio.Puertos.IInventarioRepository>(inventarioRepo),
-                new CreadorFake<Dominio.Puertos.IRepository<Empleado>>(empleadosRepo),
+                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IClienteRepository>(clientesRepo),
+                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IVentaRepository>(ventasRepo),
+                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IDetalleVentaRepository>(detallesRepo),
+                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IInventarioRepository>(inventarioRepo),
+                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IEmpleadoVentaRepository>(empleadosRepo),
                 unidadDeTrabajo,
                 selector,
                 new ContextoUsuarioFake());
@@ -82,16 +72,11 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                 Ventas = ventasRepo,
                 Detalles = detallesRepo,
                 UnidadDeTrabajo = unidadDeTrabajo,
-                Clientes = clientesRepo,
-                Productos = productosRepo
+                Clientes = clientesRepo
             };
         }
 
-        private static Producto CrearProducto(
-            int id,
-            decimal precio,
-            int stock,
-            string nombre = "Producto")
+        private static Producto CrearProducto(int id, decimal precio, int stock, string nombre = "Producto")
         {
             return new Producto
             {
@@ -109,11 +94,11 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         }
 
         [Fact]
-        public void RegistrarVenta_SinCliente_Falla()
+        public async Task RegistrarVenta_SinCliente_FallaAsync()
         {
             Escenario escenario = CrearEscenario();
 
-            ResultadoVenta resultado = escenario.Fachada.RegistrarVenta(
+            ResultadoVenta resultado = await escenario.Fachada.RegistrarVentaAsync(
                 new SolicitudVenta
                 {
                     IdCliente = 0,
@@ -129,11 +114,11 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         }
 
         [Fact]
-        public void RegistrarVenta_SinLineas_Falla()
+        public async Task RegistrarVenta_SinLineas_FallaAsync()
         {
             Escenario escenario = CrearEscenario();
 
-            ResultadoVenta resultado = escenario.Fachada.RegistrarVenta(
+            ResultadoVenta resultado = await escenario.Fachada.RegistrarVentaAsync(
                 new SolicitudVenta
                 {
                     IdCliente = 1,
@@ -145,11 +130,11 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         }
 
         [Fact]
-        public void RegistrarVenta_CantidadInvalida_Falla()
+        public async Task RegistrarVenta_CantidadInvalida_FallaAsync()
         {
             Escenario escenario = CrearEscenario(CrearProducto(1, 100m, 10));
 
-            ResultadoVenta resultado = escenario.Fachada.RegistrarVenta(
+            ResultadoVenta resultado = await escenario.Fachada.RegistrarVentaAsync(
                 new SolicitudVenta
                 {
                     IdCliente = 1,
@@ -164,11 +149,11 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         }
 
         [Fact]
-        public void RegistrarVenta_Exitosa_DescuentaStockYRegistra()
+        public async Task RegistrarVenta_Exitosa_DescuentaStockYRegistraAsync()
         {
             Escenario escenario = CrearEscenario(CrearProducto(1, 100m, 10));
 
-            ResultadoVenta resultado = escenario.Fachada.RegistrarVenta(
+            ResultadoVenta resultado = await escenario.Fachada.RegistrarVentaAsync(
                 new SolicitudVenta
                 {
                     IdCliente = 1,
@@ -193,11 +178,11 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         }
 
         [Fact]
-        public void RegistrarVenta_AplicaDescuentoPorMonto()
+        public async Task RegistrarVenta_AplicaDescuentoPorMontoAsync()
         {
             Escenario escenario = CrearEscenario(CrearProducto(1, 600m, 10));
 
-            ResultadoVenta resultado = escenario.Fachada.RegistrarVenta(
+            ResultadoVenta resultado = await escenario.Fachada.RegistrarVentaAsync(
                 new SolicitudVenta
                 {
                     IdCliente = 1,
@@ -216,11 +201,11 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         }
 
         [Fact]
-        public void RegistrarVenta_AplicaDescuentoPorCantidad()
+        public async Task RegistrarVenta_AplicaDescuentoPorCantidadAsync()
         {
             Escenario escenario = CrearEscenario(CrearProducto(1, 50m, 50));
 
-            ResultadoVenta resultado = escenario.Fachada.RegistrarVenta(
+            ResultadoVenta resultado = await escenario.Fachada.RegistrarVentaAsync(
                 new SolicitudVenta
                 {
                     IdCliente = 1,
@@ -238,11 +223,11 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         }
 
         [Fact]
-        public void RegistrarVenta_StockInsuficiente_RevierteYNoRegistra()
+        public async Task RegistrarVenta_StockInsuficiente_RevierteYNoRegistraAsync()
         {
             Escenario escenario = CrearEscenario(CrearProducto(1, 100m, 3));
 
-            ResultadoVenta resultado = escenario.Fachada.RegistrarVenta(
+            ResultadoVenta resultado = await escenario.Fachada.RegistrarVentaAsync(
                 new SolicitudVenta
                 {
                     IdCliente = 1,
@@ -261,7 +246,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         }
 
         [Fact]
-        public void RegistrarVenta_Idempotente_NoDuplica()
+        public async Task RegistrarVenta_Idempotente_NoDuplicaAsync()
         {
             Escenario escenario = CrearEscenario(CrearProducto(1, 100m, 10));
 
@@ -276,8 +261,8 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                 }
             };
 
-            ResultadoVenta primero = escenario.Fachada.RegistrarVenta(solicitud);
-            ResultadoVenta segundo = escenario.Fachada.RegistrarVenta(solicitud);
+            ResultadoVenta primero = await escenario.Fachada.RegistrarVentaAsync(solicitud);
+            ResultadoVenta segundo = await escenario.Fachada.RegistrarVentaAsync(solicitud);
 
             Assert.True(primero.Exito);
             Assert.True(segundo.Exito);
@@ -288,11 +273,11 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         }
 
         [Fact]
-        public void RegistrarVenta_AgrupaLineasDuplicadas()
+        public async Task RegistrarVenta_AgrupaLineasDuplicadasAsync()
         {
             Escenario escenario = CrearEscenario(CrearProducto(1, 100m, 10));
 
-            ResultadoVenta resultado = escenario.Fachada.RegistrarVenta(
+            ResultadoVenta resultado = await escenario.Fachada.RegistrarVentaAsync(
                 new SolicitudVenta
                 {
                     IdCliente = 1,
@@ -312,11 +297,60 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         }
 
         [Fact]
-        public void AnularVenta_RestauraStock()
+        public async Task RegistrarVenta_EmpleadoInvalido_FallaAsync()
+        {
+            ClienteRepositorioFake clientesRepo = new();
+            VentaRepositorioFake ventasRepo = new();
+            DetalleVentaRepositorioFake detallesRepo = new();
+            InventarioRepositorioFake inventarioRepo = new();
+            EmpleadoVentaRepositorioFake empleadosRepo = new();
+            inventarioRepo.Agregar(CrearProducto(1, 100m, 10));
+
+            clientesRepo.Agregar(new Cliente
+            {
+                Nombre = "Juan",
+                Apellido = "Perez",
+                Telefono = "7777-0000",
+                Estado = 1
+            });
+
+            SelectorDescuento selector = new(new IPoliticaDescuento[]
+            {
+                new DescuentoPorMonto(montoMinimo: 1000m, porcentaje: 5m)
+            });
+
+            FachadaVenta fachada = new(
+                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IClienteRepository>(clientesRepo),
+                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IVentaRepository>(ventasRepo),
+                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IDetalleVentaRepository>(detallesRepo),
+                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IInventarioRepository>(inventarioRepo),
+                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IEmpleadoVentaRepository>(empleadosRepo),
+                new UnidadDeTrabajoFake(),
+                selector,
+                new ContextoUsuarioFake(idEmpleado: 0));
+
+            ResultadoVenta resultado = await fachada.RegistrarVentaAsync(
+                new SolicitudVenta
+                {
+                    IdCliente = 1,
+                    MetodoPago = "Efectivo",
+                    Lineas = new List<LineaVentaSolicitada>
+                    {
+                        new() { IdProducto = 1, Cantidad = 1 }
+                    }
+                });
+
+            Assert.False(resultado.Exito);
+            Assert.Equal(0, ventasRepo.VecesInsertar);
+            Assert.Equal(10, inventarioRepo.Stock(1));
+        }
+
+        [Fact]
+        public async Task AnularVenta_RestauraStockAsync()
         {
             Escenario escenario = CrearEscenario(CrearProducto(1, 100m, 10));
 
-            ResultadoVenta venta = escenario.Fachada.RegistrarVenta(
+            ResultadoVenta venta = await escenario.Fachada.RegistrarVentaAsync(
                 new SolicitudVenta
                 {
                     IdCliente = 1,
@@ -329,7 +363,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
 
             Assert.Equal(6, escenario.Inventario.Stock(1));
 
-            ResultadoVenta anulada = escenario.Fachada.AnularVenta(
+            ResultadoVenta anulada = await escenario.Fachada.AnularVentaAsync(
                 venta.IdVenta,
                 "Producto defectuoso");
 
@@ -340,11 +374,11 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         }
 
         [Fact]
-        public void AnularVenta_ConEstadoNoRegistrada_Falla()
+        public async Task AnularVenta_ConEstadoNoRegistrada_FallaAsync()
         {
             Escenario escenario = CrearEscenario(CrearProducto(1, 100m, 10));
 
-            ResultadoVenta venta = escenario.Fachada.RegistrarVenta(
+            ResultadoVenta venta = await escenario.Fachada.RegistrarVentaAsync(
                 new SolicitudVenta
                 {
                     IdCliente = 1,
@@ -355,8 +389,8 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                     }
                 });
 
-            escenario.Fachada.AnularVenta(venta.IdVenta, "Primera anulación");
-            ResultadoVenta segunda = escenario.Fachada.AnularVenta(
+            await escenario.Fachada.AnularVentaAsync(venta.IdVenta, "Primera anulación");
+            ResultadoVenta segunda = await escenario.Fachada.AnularVentaAsync(
                 venta.IdVenta,
                 "Segunda anulación");
 
@@ -364,12 +398,49 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         }
 
         [Fact]
-        public void CalcularLinea_StockInsuficiente_DevuelveError()
+        public async Task AnularVenta_EmpleadoInvalido_FallaAsync()
+        {
+            ClienteRepositorioFake clientesRepo = new();
+            VentaRepositorioFake ventasRepo = new();
+            DetalleVentaRepositorioFake detallesRepo = new();
+            InventarioRepositorioFake inventarioRepo = new();
+            EmpleadoVentaRepositorioFake empleadosRepo = new();
+            inventarioRepo.Agregar(CrearProducto(1, 100m, 10));
+
+            clientesRepo.Agregar(new Cliente
+            {
+                Nombre = "Juan",
+                Apellido = "Perez",
+                Telefono = "7777-0000",
+                Estado = 1
+            });
+
+            SelectorDescuento selector = new(new IPoliticaDescuento[]
+            {
+                new DescuentoPorMonto(montoMinimo: 1000m, porcentaje: 5m)
+            });
+
+            FachadaVenta fachada = new(
+                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IClienteRepository>(clientesRepo),
+                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IVentaRepository>(ventasRepo),
+                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IDetalleVentaRepository>(detallesRepo),
+                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IInventarioRepository>(inventarioRepo),
+                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IEmpleadoVentaRepository>(empleadosRepo),
+                new UnidadDeTrabajoFake(),
+                selector,
+                new ContextoUsuarioFake(idEmpleado: 0));
+
+            ResultadoVenta resultado = await fachada.AnularVentaAsync(1, "Intento anónimo");
+
+            Assert.False(resultado.Exito);
+        }
+
+        [Fact]
+        public async Task CalcularLinea_StockInsuficiente_DevuelveErrorAsync()
         {
             Escenario escenario = CrearEscenario(CrearProducto(1, 100m, 2));
 
-            LineaVentaDetalle? linea =
-                escenario.Fachada.CalcularLinea(1, 5, out string? error);
+            var (linea, error) = await escenario.Fachada.CalcularLineaAsync(1, 5);
 
             Assert.Null(linea);
             Assert.NotNull(error);
@@ -398,11 +469,11 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         }
 
         [Fact]
-        public void ListarVentasListado_IncluyeNombreCliente()
+        public async Task ListarVentasListado_IncluyeNombreClienteAsync()
         {
             Escenario escenario = CrearEscenario(CrearProducto(1, 100m, 10));
 
-            escenario.Fachada.RegistrarVenta(
+            await escenario.Fachada.RegistrarVentaAsync(
                 new SolicitudVenta
                 {
                     IdCliente = 1,
@@ -413,7 +484,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                     }
                 });
 
-            List<VentaListado> lista = escenario.Fachada.ListarVentasListado();
+            List<VentaListado> lista = await escenario.Fachada.ListarVentasListadoAsync();
 
             Assert.Single(lista);
             Assert.Equal("Juan Perez", lista[0].NombreCliente);
@@ -421,31 +492,30 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         }
 
         [Fact]
-        public void ListarVentasListado_ClienteEliminado_CaeEnResguardo()
+        public async Task ListarVentasListado_ClienteEliminado_CaeEnResguardoAsync()
         {
             Escenario escenario = CrearEscenario(CrearProducto(1, 100m, 10));
 
-            VentaRepositorioFake ventasRepo = escenario.Ventas;
-            ventasRepo.Insertar(new Venta
+            await escenario.Ventas.InsertarAsync(new Venta
             {
                 EstadoVenta = EstadoVenta.Registrada,
                 IdCliente = 999,
                 MontoTotal = 50m
             });
 
-            List<VentaListado> lista = escenario.Fachada.ListarVentasListado();
+            List<VentaListado> lista = await escenario.Fachada.ListarVentasListadoAsync();
 
             Assert.Single(lista);
             Assert.Equal("Cliente eliminado", lista[0].NombreCliente);
         }
 
         [Fact]
-        public void ObtenerComprobante_DevuelveLineasConCatalogo()
+        public async Task ObtenerComprobante_DevuelveLineasConCatalogoAsync()
         {
             Escenario escenario = CrearEscenario(
                 CrearProducto(1, 150m, 10, "Taladro X"));
 
-            ResultadoVenta venta = escenario.Fachada.RegistrarVenta(
+            ResultadoVenta venta = await escenario.Fachada.RegistrarVentaAsync(
                 new SolicitudVenta
                 {
                     IdCliente = 1,
@@ -458,7 +528,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                 });
 
             ComprobanteVenta? comprobante =
-                escenario.Fachada.ObtenerComprobante(venta.IdVenta);
+                await escenario.Fachada.ObtenerComprobanteAsync(venta.IdVenta);
 
             Assert.NotNull(comprobante);
             Assert.Equal("Juan Perez", comprobante.NombreCliente);
@@ -472,11 +542,11 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         }
 
         [Fact]
-        public void ObtenerComprobante_NoExistente_DevuelveNulo()
+        public async Task ObtenerComprobante_NoExistente_DevuelveNuloAsync()
         {
             Escenario escenario = CrearEscenario();
 
-            Assert.Null(escenario.Fachada.ObtenerComprobante(123));
+            Assert.Null(await escenario.Fachada.ObtenerComprobanteAsync(123));
         }
     }
 }

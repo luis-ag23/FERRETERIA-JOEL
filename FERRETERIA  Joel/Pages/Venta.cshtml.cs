@@ -11,6 +11,7 @@ namespace FERRETERIA__Joel.Pages
     /// Pantalla de registro de venta. La presentación solo consume la
     /// fachada de ventas: nunca accede a repositorios ni transacciones.
     /// El precio y los totales siempre se resuelven en el dominio.
+    /// Todos los manejadores son asíncronos.
     /// </summary>
     [Authorize]
     public class VentaModel : PageModel
@@ -67,9 +68,9 @@ namespace FERRETERIA__Joel.Pages
             ClaveIdempotencia = NuevaClave();
         }
 
-        public JsonResult OnGetBuscarClientes(string? termino)
+        public async Task<JsonResult> OnGetBuscarClientesAsync(string? termino)
         {
-            var clientes = _fachada.BuscarClientes(termino ?? string.Empty)
+            var clientes = (await _fachada.BuscarClientesAsync(termino ?? string.Empty))
                 .Select(c => new
                 {
                     id = c.IdCliente,
@@ -80,9 +81,9 @@ namespace FERRETERIA__Joel.Pages
             return new JsonResult(clientes);
         }
 
-        public JsonResult OnGetBuscarProductos(string? termino)
+        public async Task<JsonResult> OnGetBuscarProductosAsync(string? termino)
         {
-            var productos = _fachada.BuscarProductos(termino ?? string.Empty)
+            var productos = (await _fachada.BuscarProductosAsync(termino ?? string.Empty))
                 .Select(p => new
                 {
                     id = p.IdProducto,
@@ -101,13 +102,13 @@ namespace FERRETERIA__Joel.Pages
         /// propia pantalla de venta. Al ser una llamada AJAX la página
         /// nunca se recarga y las líneas seleccionadas se conservan.
         /// </summary>
-        public JsonResult OnPostCrearCliente(
+        public async Task<JsonResult> OnPostCrearClienteAsync(
             string? nuevoClienteNombre,
             string? nuevoClienteApellido,
             string? nuevoClienteTelefono,
             string? nuevoClienteCorreo)
         {
-            ResultadoCliente resultado = _servicioCliente.Crear(
+            ResultadoCliente resultado = await _servicioCliente.CrearAsync(
                 nuevoClienteNombre ?? string.Empty,
                 nuevoClienteApellido ?? string.Empty,
                 nuevoClienteTelefono ?? string.Empty,
@@ -131,12 +132,11 @@ namespace FERRETERIA__Joel.Pages
             });
         }
 
-        public IActionResult OnPostRegistrar()
+        public async Task<IActionResult> OnPostRegistrarAsync()
         {
             if (IdCliente <= 0 && !string.IsNullOrWhiteSpace(NombreCliente))
             {
-                IdCliente = _fachada
-                    .BuscarClientes(NombreCliente!)
+                IdCliente = (await _fachada.BuscarClientesAsync(NombreCliente!))
                     .FirstOrDefault()?.IdCliente ?? 0;
             }
 
@@ -149,7 +149,7 @@ namespace FERRETERIA__Joel.Pages
                 Lineas = Lineas
             };
 
-            ResultadoVenta resultado = _fachada.RegistrarVenta(solicitud);
+            ResultadoVenta resultado = await _fachada.RegistrarVentaAsync(solicitud);
 
             if (!resultado.Exito)
             {

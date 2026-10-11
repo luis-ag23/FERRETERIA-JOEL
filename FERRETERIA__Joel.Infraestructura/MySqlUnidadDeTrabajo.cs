@@ -12,19 +12,19 @@ namespace FERRETERIA__Joel.Infraestructura
             _conexionTransaccional = conexionTransaccional;
         }
 
-        public void Iniciar()
+        public Task IniciarAsync()
         {
-            _conexionTransaccional.IniciarTransaccion();
+            return _conexionTransaccional.IniciarTransaccionAsync();
         }
 
-        public void Confirmar()
+        public Task ConfirmarAsync()
         {
-            _conexionTransaccional.Commit();
+            return _conexionTransaccional.ConfirmarAsync();
         }
 
-        public void Revertir()
+        public Task RevertirAsync()
         {
-            _conexionTransaccional.Rollback();
+            return _conexionTransaccional.RevertirAsync();
         }
     }
 }

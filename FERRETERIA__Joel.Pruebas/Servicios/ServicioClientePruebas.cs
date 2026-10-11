@@ -19,9 +19,9 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         }
 
         [Fact]
-        public void Crear_ConDatosValidos_RegistraCliente()
+        public async Task Crear_ConDatosValidos_DevuelveClienteAsync()
         {
-            var resultado = _servicio.Crear(
+            var resultado = await _servicio.CrearAsync(
                 "Ana",
                 "Mamani",
                 "7111-2222",
@@ -34,13 +34,13 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
             Assert.Equal("7111-2222", resultado.Cliente.Telefono);
             Assert.Equal("ana@correo.com", resultado.Cliente.CorreoElectronico);
             Assert.Equal(42, resultado.Cliente.IdEmpleadoResponsable);
-            Assert.Single(_repositorio.ObtenerTodos());
+            Assert.Single(await _repositorio.ObtenerTodosAsync());
         }
 
         [Fact]
-        public void Crear_SinNombre_Falla()
+        public async Task Crear_SinNombre_FallaAsync()
         {
-            var resultado = _servicio.Crear(
+            var resultado = await _servicio.CrearAsync(
                 "   ",
                 "Mamani",
                 "7111-2222",
@@ -48,37 +48,37 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
 
             Assert.False(resultado.Exito);
             Assert.Null(resultado.Cliente);
-            Assert.Empty(_repositorio.ObtenerTodos());
+            Assert.Empty(await _repositorio.ObtenerTodosAsync());
         }
 
         [Fact]
-        public void Crear_SinApellido_Falla()
+        public async Task Crear_SinApellido_FallaAsync()
         {
-            var resultado = _servicio.Crear(
+            var resultado = await _servicio.CrearAsync(
                 "Ana",
                 " ",
                 "7111-2222",
                 null);
 
             Assert.False(resultado.Exito);
-            Assert.Empty(_repositorio.ObtenerTodos());
+            Assert.Empty(await _repositorio.ObtenerTodosAsync());
         }
 
         [Fact]
-        public void Crear_SinTelefono_Falla()
+        public async Task Crear_SinTelefono_FallaAsync()
         {
-            var resultado = _servicio.Crear(
+            var resultado = await _servicio.CrearAsync(
                 "Ana",
                 "Mamani",
                 "",
                 null);
 
             Assert.False(resultado.Exito);
-            Assert.Empty(_repositorio.ObtenerTodos());
+            Assert.Empty(await _repositorio.ObtenerTodosAsync());
         }
 
         [Fact]
-        public void Buscar_SoloDevuelveActivos()
+        public async Task Buscar_SoloDevuelveActivosAsync()
         {
             _repositorio.Agregar(new Cliente
             {
@@ -95,7 +95,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                 Estado = 0
             });
 
-            var encontrados = _servicio.Buscar("perez");
+            var encontrados = await _servicio.BuscarAsync("perez");
 
             Assert.Single(encontrados);
             Assert.Equal("Juan", encontrados[0].Nombre);

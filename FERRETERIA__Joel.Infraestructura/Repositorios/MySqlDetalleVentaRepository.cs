@@ -24,9 +24,11 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             _conexion = conexion;
         }
 
-        private MySqlCommand CrearComando(string query)
+        private async Task<MySqlCommand> CrearComandoAsync(string query)
         {
-            MySqlCommand command = new(query, _conexion.Conexion);
+            MySqlConnection conexion = await _conexion.ObtenerConexionAsync();
+
+            MySqlCommand command = new(query, conexion);
 
             if (_conexion.Transaccion is not null)
             {
@@ -36,28 +38,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return command;
         }
 
-        public List<DetalleVenta> ObtenerTodos()
-        {
-            List<DetalleVenta> detalles = new();
-
-            string query = $@"
-                SELECT {Columnas}
-                FROM detalle_venta
-                ORDER BY IdDetalleVenta ASC";
-
-            using MySqlCommand command = CrearComando(query);
-
-            using MySqlDataReader reader = command.ExecuteReader();
-
-            while (reader.Read())
-            {
-                detalles.Add(MapearDetalleVenta(reader));
-            }
-
-            return detalles;
-        }
-
-        public List<DetalleVenta> ObtenerPorVenta(int idVenta)
+        public async Task<List<DetalleVenta>> ObtenerPorVentaAsync(int idVenta)
         {
             List<DetalleVenta> detalles = new();
 
@@ -67,13 +48,13 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 WHERE IdVenta = @idVenta
                 ORDER BY IdDetalleVenta ASC";
 
-            using MySqlCommand command = CrearComando(query);
+            using MySqlCommand command = await CrearComandoAsync(query);
 
             command.Parameters.AddWithValue("@idVenta", idVenta);
 
-            using MySqlDataReader reader = command.ExecuteReader();
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            while (reader.Read())
+            while (await reader.ReadAsync())
             {
                 detalles.Add(MapearDetalleVenta(reader));
             }
@@ -81,7 +62,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return detalles;
         }
 
-        public int Insertar(DetalleVenta detalleVenta)
+        public async Task<int> InsertarAsync(DetalleVenta detalleVenta)
         {
             const string query = @"
                 INSERT INTO detalle_venta
@@ -103,7 +84,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     @idEmpleadoResponsable
                 )";
 
-            using MySqlCommand command = CrearComando(query);
+            using MySqlCommand command = await CrearComandoAsync(query);
 
             command.Parameters.AddWithValue("@idVenta", detalleVenta.IdVenta);
             command.Parameters.AddWithValue("@idProducto", detalleVenta.IdProducto);
@@ -114,7 +95,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 "@idEmpleadoResponsable",
                 detalleVenta.IdEmpleadoResponsable);
 
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
 
             return Convert.ToInt32(command.LastInsertedId);
         }

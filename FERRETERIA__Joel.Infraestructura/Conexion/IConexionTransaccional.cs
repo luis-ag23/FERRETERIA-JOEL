@@ -4,20 +4,24 @@ namespace FERRETERIA__Joel.Infraestructura.Conexion
 {
     /// <summary>
     /// Contexto de conexión compartido por request. Permite que varios
-    /// repositorios ejecuten sus comandos sobre la MISMA conexión y la
-    /// MISMA transacción MySQL. La unidad de trabajo abre, confirma o
-    /// revierte; los repositorios solo la consumen.
+    /// repositorios ejecuten sus comandos de forma asíncrona sobre la
+    /// MISMA conexión y la MISMA transacción MySQL. La unidad de trabajo
+    /// abre, confirma o revierte; los repositorios solo la consumen.
+    ///
+    /// Todas las operaciones de E/S son asíncronas (OpenAsync,
+    /// BeginTransactionAsync, CommitAsync, RollbackAsync) para no
+    /// bloquear el hilo durante la venta.
     /// </summary>
-    public interface IConexionTransaccional : IDisposable
+    public interface IConexionTransaccional : IAsyncDisposable, IDisposable
     {
-        MySqlConnection Conexion { get; }
-
         MySqlTransaction? Transaccion { get; }
 
-        void IniciarTransaccion();
+        Task<MySqlConnection> ObtenerConexionAsync();
 
-        void Commit();
+        Task IniciarTransaccionAsync();
 
-        void Rollback();
+        Task ConfirmarAsync();
+
+        Task RevertirAsync();
     }
 }
