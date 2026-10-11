@@ -1,3 +1,4 @@
+using FERRETERIA__Joel.Aplicacion.Politicas;
 using FERRETERIA__Joel.Aplicacion.Servicios;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
@@ -79,6 +80,14 @@ builder.Services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddScoped<IContextoUsuario, ContextoUsuarioHttp>();
 builder.Services.AddScoped<ServicioAutenticacion>();
 builder.Services.AddScoped<ServicioSesion>();
+
+
+builder.Services.AddSingleton<IPoliticaDescuento>(
+    new DescuentoPorMonto(montoMinimo: 1000m, porcentaje: 5m));
+builder.Services.AddSingleton<IPoliticaDescuento>(
+    new DescuentoPorCantidad(cantidadMinima: 12, porcentaje: 3m));
+builder.Services.AddScoped<SelectorDescuento>();
+builder.Services.AddScoped<FachadaVenta>();
 
 var app = builder.Build();
 
