@@ -81,19 +81,10 @@
                 }
             </div>
 
-            <div class="fj-form-field fj-form-field--full @(Model.ErroresCampo.ContainsKey("IdEmpleadoResponsable") ? "fj-form-field-error" : "")">
-                <label class="fj-form-label" asp-for="Proveedor.IdEmpleadoResponsable">Empleado responsable</label>
-                <select class="fj-input fj-select" asp-for="Proveedor.IdEmpleadoResponsable" required>
-                    <option value="">-- Seleccione --</option>
-                    @foreach (var empleado in Model.Empleados)
-                    {
-                        <option value="@empleado.IdEmpleado">@empleado.Nombre</option>
-                    }
-                </select>
-                @if (Model.ErroresCampo.TryGetValue("IdEmpleadoResponsable", out var errorEmpleado))
-                {
-                    <p class="fj-form-error" role="alert">@errorEmpleado</p>
-                }
+            <div class="fj-form-field fj-form-field--full">
+                <label class="fj-form-label">Empleado responsable</label>
+                <input class="fj-input" value="@User.Identity?.Name" readonly />
+                <span class="fj-form-hint">Se registra automáticamente con el empleado en sesión.</span>
             </div>
 
             <div class="fj-form-field fj-form-field--full">

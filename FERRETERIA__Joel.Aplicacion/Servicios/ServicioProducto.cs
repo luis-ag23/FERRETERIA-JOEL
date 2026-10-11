@@ -100,9 +100,9 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             _historicoPrecio.Registrar(nuevoHistorico);
         }
 
-        public void CambiarEstado(int idProducto)
+        public void CambiarEstado(int idProducto, int idEmpleadoResponsable)
         {
-            Repositorio.CambiarEstado(idProducto);
+            Repositorio.CambiarEstado(idProducto, idEmpleadoResponsable);
         }
     }
 }

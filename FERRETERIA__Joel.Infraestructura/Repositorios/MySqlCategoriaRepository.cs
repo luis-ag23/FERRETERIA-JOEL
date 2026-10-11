@@ -85,7 +85,8 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                                       Descripcion = @Descripcion, 
                                       PorcentajeGanancia = @PorcentajeGanancia,
                                       Estado = @Estado, 
-                                      FechaActualizacion = CURRENT_TIMESTAMP 
+                                      FechaActualizacion = CURRENT_TIMESTAMP,
+                                      IdEmpleadoResponsable = @IdEmpleadoResponsable 
                                   WHERE IdCategoria = @IdCategoria;";
 
             using MySqlConnection connection =
@@ -99,20 +100,22 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.Parameters.AddWithValue("@Descripcion", string.IsNullOrWhiteSpace(categoria.Descripcion) ? (object)DBNull.Value : categoria.Descripcion.Trim());
             command.Parameters.AddWithValue("@PorcentajeGanancia", categoria.PorcentajeGanancia);
             command.Parameters.AddWithValue("@Estado", categoria.Estado);
+            command.Parameters.AddWithValue("@IdEmpleadoResponsable", categoria.IdEmpleadoResponsable);
             command.Parameters.AddWithValue("@IdCategoria", categoria.IdCategoria);
 
             connection.Open();
             command.ExecuteNonQuery();
         }
 
-        public void CambiarEstado(int id)
+        public void CambiarEstado(int id, int idEmpleadoResponsable)
         {
             const string query = @"UPDATE categoria 
                                   SET Estado = CASE
                                       WHEN Estado = 1 THEN 0
                                       ELSE 1
                                   END,
-                                  FechaActualizacion = CURRENT_TIMESTAMP 
+                                  FechaActualizacion = CURRENT_TIMESTAMP,
+                                  IdEmpleadoResponsable = @IdEmpleadoResponsable 
                                   WHERE IdCategoria = @IdCategoria;";
 
             using MySqlConnection connection =
@@ -122,6 +125,10 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 new MySqlCommand(query, connection);
 
             command.Parameters.AddWithValue("@IdCategoria", id);
+
+            command.Parameters.AddWithValue(
+                "@IdEmpleadoResponsable",
+                idEmpleadoResponsable);
 
             connection.Open();
             command.ExecuteNonQuery();

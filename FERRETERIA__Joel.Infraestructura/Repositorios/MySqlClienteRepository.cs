@@ -135,6 +135,66 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return Convert.ToInt32(command.ExecuteScalar()) > 0;
         }
 
+        public Cliente? ObtenerPorCorreo(string correo)
+        {
+            const string query = @"
+                SELECT
+                    IdCliente,
+                    Nombre,
+                    Apellido,
+                    Telefono,
+                    CorreoElectronico,
+                    Contrasena,
+                    Estado,
+                    FechaRegistro,
+                    FechaActualizacion,
+                    IdClienteResponsable
+                FROM cliente
+                WHERE CorreoElectronico = @correo
+                LIMIT 1";
+
+            using MySqlConnection connection =
+                _connectionFactory.CreateConnection();
+
+            using MySqlCommand command =
+                new MySqlCommand(query, connection);
+
+            command.Parameters.AddWithValue("@correo", correo);
+
+            connection.Open();
+
+            using MySqlDataReader reader =
+                command.ExecuteReader();
+
+            return reader.Read()
+                ? MapearCliente(reader)
+                : null;
+        }
+
+        public void ActualizarContrasena(int id, string contrasena)
+        {
+            const string query = @"
+                UPDATE cliente
+                SET
+                    Contrasena = @contrasena,
+                    FechaActualizacion = CURRENT_TIMESTAMP
+                WHERE IdCliente = @id";
+
+            using MySqlConnection connection =
+                _connectionFactory.CreateConnection();
+
+            using MySqlCommand command =
+                new MySqlCommand(query, connection);
+
+            command.Parameters.AddWithValue("@id", id);
+
+            command.Parameters.AddWithValue("@contrasena", contrasena);
+
+            connection.Open();
+
+            command.ExecuteNonQuery();
+        }
+
         // ================== Funciones fuera del contrato ==================
 
         public List<Cliente> ObtenerActivas()

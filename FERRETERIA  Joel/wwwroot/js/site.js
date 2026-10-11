@@ -267,3 +267,34 @@ document.addEventListener('DOMContentLoaded', function () {
         if (event.key === 'Escape') cerrar();
     });
 })();
+
+// ---------------------------------------------------------
+// Mostrar / ocultar contraseña.
+// Cualquier input envuelto en .fj-password con un botón
+// [data-fj-toggle-password] alterna entre tipo password y text.
+// ---------------------------------------------------------
+(function () {
+    document.addEventListener('click', function (event) {
+        var boton = event.target.closest('[data-fj-toggle-password]');
+        if (!boton) return;
+
+        event.preventDefault();
+
+        var contenedor = boton.closest('.fj-password');
+        if (!contenedor) return;
+
+        var campo = contenedor.querySelector('input');
+        if (!campo) return;
+
+        var estabaVisible = campo.type === 'text';
+        campo.type = estabaVisible ? 'password' : 'text';
+
+        contenedor.classList.toggle('is-visible', !estabaVisible);
+        boton.setAttribute('aria-pressed', (!estabaVisible).toString());
+        boton.setAttribute(
+            'aria-label',
+            estabaVisible ? 'Mostrar contraseña' : 'Ocultar contraseña');
+
+        campo.focus({ preventScroll: true });
+    });
+})();

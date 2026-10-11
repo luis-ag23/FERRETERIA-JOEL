@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace FERRETERIA__Joel.Pages
 {
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Empleado)]
     public class CategoriasModel : PageModel
     {
         private readonly ServicioCategoria _servicio;
@@ -51,7 +52,9 @@ namespace FERRETERIA__Joel.Pages
         {
             try
             {
-                _servicio.CambiarEstado(id);
+                _servicio.CambiarEstado(
+                    id,
+                    EmpleadoSesion.ObtenerIdEmpleado(User));
                 TempData["Mensaje"] = "Categoría desactivada correctamente.";
             }
             catch (Exception ex)

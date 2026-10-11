@@ -1,6 +1,7 @@
 using FERRETERIA__Joel.Aplicacion.Servicios;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Validaciones;
+using FERRETERIA__Joel.Helpers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using MySql.Data.MySqlClient;
@@ -9,11 +10,11 @@ using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Empleado)]
     public class ProductoNuevoModel : PageModel
     {
         private readonly ServicioProducto _servicio;
         private readonly ServicioCategoria _servicioCategoria;
-        private readonly ServicioEmpleado _servicioEmpleado;
         private readonly ServicioMarca _servicioMarca;
         private readonly ILogger<ProductoNuevoModel> _logger;
 
@@ -24,7 +25,6 @@ namespace FERRETERIA__Joel.Pages
 
         public List<Categoria> Categorias { get; set; } = new();
         public List<Marca> Marcas { get; set; } = new();
-        public List<Empleado> Empleados { get; set; } = new();
         public List<string> Errores { get; set; } = new();
         public Dictionary<string, string> ErroresCampo { get; set; } = new();
 
@@ -34,13 +34,11 @@ namespace FERRETERIA__Joel.Pages
         public ProductoNuevoModel(
             ServicioProducto servicio,
             ServicioCategoria servicioCategoria,
-            ServicioEmpleado servicioEmpleado,
             ServicioMarca servicioMarca,
             ILogger<ProductoNuevoModel> logger)
         {
             _servicio = servicio;
             _servicioCategoria = servicioCategoria;
-            _servicioEmpleado = servicioEmpleado;
             _servicioMarca = servicioMarca;
             _logger = logger;
         }
@@ -55,6 +53,8 @@ namespace FERRETERIA__Joel.Pages
         public IActionResult OnPost()
         {
             Producto.Codigo = _servicio.SiguienteCodigo();
+            Producto.IdEmpleadoResponsable =
+                EmpleadoSesion.ObtenerIdEmpleado(User);
             NormalizarPrecio();
             NormalizarDatos();
             Validar();
@@ -206,14 +206,6 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Producto.IdCategoria),
                     "La categoría seleccionada no existe o está inactiva.");
             }
-
-            if (!_validacion.EsEmpleadoValido(
-                Producto.IdEmpleadoResponsable))
-            {
-                AgregarErrorCampo(
-                    nameof(Producto.IdEmpleadoResponsable),
-                    "Debe seleccionar un empleado responsable.");
-            }
         }
 
         private void AgregarErrorCampo(string campo, string mensaje)
@@ -228,9 +220,6 @@ namespace FERRETERIA__Joel.Pages
 
             Marcas =
                 _servicioMarca.ObtenerActivas();
-
-            Empleados =
-                _servicioEmpleado.ObtenerTodos();
         }
 
         private void Insertar()

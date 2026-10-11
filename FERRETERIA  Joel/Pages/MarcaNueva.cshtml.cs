@@ -1,6 +1,7 @@
 using FERRETERIA__Joel.Aplicacion.Servicios;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Validaciones;
+using FERRETERIA__Joel.Helpers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using MySql.Data.MySqlClient;
@@ -8,10 +9,10 @@ using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Empleado)]
     public class MarcaNuevaModel : PageModel
     {
         private readonly ServicioMarca _servicio;
-        private readonly ServicioEmpleado _servicioEmpleado;
         private readonly ILogger<MarcaNuevaModel> _logger;
 
         private readonly MarcaValidaciones _validador = new();
@@ -19,7 +20,6 @@ namespace FERRETERIA__Joel.Pages
         [BindProperty]
         public Marca NuevaMarca { get; set; } = new();
 
-        public List<Empleado> Empleados { get; set; } = new();
         public List<string> Errores { get; set; } = new();
         public Dictionary<string, string> ErroresCampo { get; set; } = new();
 
@@ -28,28 +28,26 @@ namespace FERRETERIA__Joel.Pages
 
         public MarcaNuevaModel(
             ServicioMarca servicio,
-            ServicioEmpleado servicioEmpleado,
             ILogger<MarcaNuevaModel> logger)
         {
             _servicio = servicio;
-            _servicioEmpleado = servicioEmpleado;
             _logger = logger;
         }
 
         public void OnGet()
         {
             NuevaMarca.Estado = 1;
-            CargarEmpleados();
         }
 
         public IActionResult OnPost()
         {
+            NuevaMarca.IdEmpleadoResponsable =
+                EmpleadoSesion.ObtenerIdEmpleado(User);
             NormalizarDatos();
             Validar();
 
             if (Errores.Any() || ErroresCampo.Any())
             {
-                CargarEmpleados();
                 return Page();
             }
 
@@ -68,7 +66,6 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Marca.Nombre),
                     $"Ya existe una marca con el nombre '{NuevaMarca.Nombre}'.");
 
-                CargarEmpleados();
                 return Page();
             }
             catch (Exception ex)
@@ -80,7 +77,6 @@ namespace FERRETERIA__Joel.Pages
                 Errores.Add(
                     "No se pudo registrar la marca. Inténtalo nuevamente.");
 
-                CargarEmpleados();
                 return Page();
             }
         }
@@ -136,24 +132,11 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Marca.Descripcion),
                     "La descripción no debe superar los 255 caracteres.");
             }
-
-            if (!_validador.EsEmpleadoValido(
-                NuevaMarca.IdEmpleadoResponsable))
-            {
-                AgregarErrorCampo(
-                    nameof(Marca.IdEmpleadoResponsable),
-                    "Debe seleccionar un empleado responsable.");
-            }
         }
 
         private void AgregarErrorCampo(string campo, string mensaje)
         {
             ErroresCampo[campo] = mensaje;
-        }
-
-        private void CargarEmpleados()
-        {
-            Empleados = _servicioEmpleado.ObtenerTodos();
         }
     }
 }

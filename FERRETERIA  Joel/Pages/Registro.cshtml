@@ -1,10 +1,14 @@
 @page
-@model FERRETERIA__Joel.Pages.RegistroClienteModel
+@model FERRETERIA__Joel.Pages.RegistroModel
 @inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
-    ViewData["Title"] = "Registro de Cliente";
-    ViewData["ActiveMenu"] = "RegistroCliente";
+    ViewData["Title"] = "Crear cuenta";
+    ViewData["ActiveMenu"] = "Registro";
     string paginaLogin = Configuration["Registro:PaginaLogin"] ?? "/Login";
+    bool esEmpleado = string.Equals(
+        Model.Solicitud.TipoCuenta,
+        "Empleado",
+        System.StringComparison.OrdinalIgnoreCase);
 }
 @section Styles {
     <link rel="stylesheet" href="~/css/productos.css" asp-append-version="true" />
@@ -13,9 +17,9 @@
 <div class="fj-container fj-page-products">
 
     <section class="fj-page-head">
-        <p class="fj-eyebrow">Cuenta · Cliente</p>
+        <p class="fj-eyebrow">Cuenta</p>
         <h1>Crear cuenta</h1>
-        <p class="fj-page-sub">Regístrate para cononcer mas de Ferretería Joel.</p>
+        <p class="fj-page-sub">Elija el tipo de cuenta y complete sus datos.</p>
     </section>
 
     @if (TempData["Mensaje"] != null)
@@ -24,7 +28,6 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
             <div>
                 <span>@TempData["Mensaje"]</span>
-                @* TODO (login): la página la implementa otro compañero; apunta a "Registro:PaginaLogin". *@
                 <a href="@paginaLogin">Iniciar sesión</a>
             </div>
         </div>
@@ -48,6 +51,25 @@
 
     <form method="post" class="fj-card fj-form" novalidate>
         <div class="fj-form-grid">
+            <div class="fj-form-field">
+                <label class="fj-form-label" asp-for="Solicitud.TipoCuenta">Tipo de cuenta</label>
+                <select class="fj-input" asp-for="Solicitud.TipoCuenta" id="tipoCuenta" required>
+                    <option value="Usuario">Usuario (consulta / solo lectura)</option>
+                    <option value="Empleado">Empleado (gestión completa)</option>
+                </select>
+                <span class="fj-form-hint">Los usuarios solo pueden consultar el catálogo. Los empleados gestionan el sistema.</span>
+            </div>
+
+            <div class="fj-form-field" id="campoClaveEmpleado" @(esEmpleado ? "" : "hidden")>
+                <label class="fj-form-label" asp-for="Solicitud.ClaveEmpleado">Clave de empleado</label>
+                <input class="fj-input" asp-for="Solicitud.ClaveEmpleado" type="password" maxlength="100" placeholder="Clave entregada por la ferretería" autocomplete="off" />
+                <span class="fj-form-hint">Requerida únicamente para crear una cuenta de empleado.</span>
+                @if (Model.ErroresCampo.TryGetValue("ClaveEmpleado", out var errorClave))
+                {
+                    <p class="fj-form-error" role="alert">@errorClave</p>
+                }
+            </div>
+
             <div class="fj-form-field @(Model.ErroresCampo.ContainsKey("Nombre") ? "fj-form-field-error" : "")">
                 <label class="fj-form-label" asp-for="Solicitud.Nombre">Nombre</label>
                 <input class="fj-input" asp-for="Solicitud.Nombre" maxlength="100" placeholder="Ej: María" required />
@@ -114,3 +136,24 @@
     </form>
 
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const select = document.getElementById('tipoCuenta');
+            const campoClave = document.getElementById('campoClaveEmpleado');
+
+            if (!select || !campoClave) {
+                return;
+            }
+
+            const actualizar = function () {
+                const esEmpleado = select.value === 'Empleado';
+                campoClave.hidden = !esEmpleado;
+            };
+
+            select.addEventListener('change', actualizar);
+            actualizar();
+        })();
+    </script>
+}

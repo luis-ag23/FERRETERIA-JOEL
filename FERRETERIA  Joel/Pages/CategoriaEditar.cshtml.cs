@@ -9,34 +9,29 @@ using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Empleado)]
     public class CategoriaEditarModel : PageModel
     {
         private readonly ServicioCategoria _servicio;
-        private readonly ServicioEmpleado _servicioEmpleado;
         private readonly ILogger<CategoriaEditarModel> _logger;
         private readonly CategoriaValidaciones _validador = new();
 
         [BindProperty]
         public Categoria CategoriaEdit { get; set; } = new();
 
-        public List<Empleado> Empleados { get; set; } = new();
         public List<string> Errores { get; set; } = new();
         public Dictionary<string, string> ErroresCampo { get; set; } = new();
 
         public CategoriaEditarModel(
             ServicioCategoria servicio,
-            ServicioEmpleado servicioEmpleado,
             ILogger<CategoriaEditarModel> logger)
         {
             _servicio = servicio;
-            _servicioEmpleado = servicioEmpleado;
             _logger = logger;
         }
 
         public IActionResult OnGet(string token)
         {
-            CargarEmpleados();
-
             string? texto = UrlProtector.Descifrar(token);
 
             if (!int.TryParse(texto, out int id))
@@ -67,12 +62,13 @@ namespace FERRETERIA__Joel.Pages
 
             CategoriaEdit.Codigo = categoriaActual.Codigo;
             CategoriaEdit.PorcentajeGanancia = 0;
+            CategoriaEdit.IdEmpleadoResponsable =
+                EmpleadoSesion.ObtenerIdEmpleado(User);
             NormalizarDatos();
             Validar();
 
             if (Errores.Any() || ErroresCampo.Any())
             {
-                CargarEmpleados();
                 return Page();
             }
 
@@ -87,14 +83,12 @@ namespace FERRETERIA__Joel.Pages
                 AgregarErrorCampo(
                     nameof(Categoria.Codigo),
                     $"El código '{CategoriaEdit.Codigo}' ya pertenece a otra categoría.");
-                CargarEmpleados();
                 return Page();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al actualizar la categoría {Id}.", CategoriaEdit.IdCategoria);
                 Errores.Add("No se pudo actualizar la categoría. Inténtalo nuevamente.");
-                CargarEmpleados();
                 return Page();
             }
         }
@@ -148,24 +142,11 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Categoria.PorcentajeGanancia),
                     "El porcentaje de ganancia debe estar entre 0 y 100.");
             }
-
-            if (!_validador.EsEmpleadoValido(
-                CategoriaEdit.IdEmpleadoResponsable))
-            {
-                AgregarErrorCampo(
-                    nameof(Categoria.IdEmpleadoResponsable),
-                    "Debe seleccionar un empleado responsable.");
-            }
         }
 
         private void AgregarErrorCampo(string campo, string mensaje)
         {
             ErroresCampo[campo] = mensaje;
-        }
-
-        private void CargarEmpleados()
-        {
-            Empleados = _servicioEmpleado.ObtenerTodos();
         }
     }
 }
