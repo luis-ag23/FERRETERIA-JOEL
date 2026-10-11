@@ -13,6 +13,7 @@ SET NAMES utf8mb4;
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS sesion_usuario;
 DROP TABLE IF EXISTS historico_precio;
 DROP TABLE IF EXISTS detalle_venta;
 DROP TABLE IF EXISTS venta;
@@ -158,14 +159,17 @@ CREATE TABLE cliente
     Apellido              VARCHAR(100) NOT NULL,
     Telefono              VARCHAR(20)  NOT NULL,
     CorreoElectronico     VARCHAR(150) NULL DEFAULT NULL,
-    Contrasena            VARCHAR(255) NOT NULL,
+    Contrasena            VARCHAR(255) NULL DEFAULT NULL,
     Estado                TINYINT      NOT NULL DEFAULT 1,
     FechaRegistro         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FechaActualizacion    DATETIME     NULL DEFAULT NULL,
     IdClienteResponsable  INT          NULL DEFAULT NULL,
+    IdEmpleadoResponsable INT          NULL DEFAULT NULL,
     PRIMARY KEY (IdCliente),
     CONSTRAINT FK_cliente_responsable
-        FOREIGN KEY (IdClienteResponsable) REFERENCES cliente (IdCliente)
+        FOREIGN KEY (IdClienteResponsable) REFERENCES cliente (IdCliente),
+    CONSTRAINT FK_cliente_empleado
+        FOREIGN KEY (IdEmpleadoResponsable) REFERENCES empleado (IdEmpleado)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_unicode_ci;
@@ -176,20 +180,31 @@ CREATE TABLE cliente
 CREATE TABLE venta
 (
     IdVenta               INT           NOT NULL AUTO_INCREMENT,
-    CodigoVenta           VARCHAR(50)   NOT NULL,
+    CodigoVenta           VARCHAR(50)   NULL DEFAULT NULL,
+    EstadoVenta           VARCHAR(20)   NOT NULL DEFAULT 'Registrada',
     IdCliente             INT           NOT NULL,
     MetodoPago            VARCHAR(50)   NOT NULL,
     EstadoPago            VARCHAR(50)   NOT NULL,
     MontoTotal            DECIMAL(12,2) NOT NULL DEFAULT 0,
+    Subtotal              DECIMAL(12,2) NOT NULL DEFAULT 0,
+    MontoDescuento        DECIMAL(12,2) NOT NULL DEFAULT 0,
+    PorcentajeDescuento   DECIMAL(5,2)  NOT NULL DEFAULT 0,
+    ClaveIdempotencia     VARCHAR(64)   NULL DEFAULT NULL,
     FechaRegistro         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FechaActualizacion    DATETIME      NULL DEFAULT NULL,
+    FechaAnulacion        DATETIME      NULL DEFAULT NULL,
+    MotivoAnulacion       VARCHAR(255)  NULL DEFAULT NULL,
+    IdEmpleadoAnulacion   INT           NULL DEFAULT NULL,
     IdEmpleadoResponsable INT           NOT NULL,
     PRIMARY KEY (IdVenta),
     UNIQUE KEY UNIQUE_CODIGO_VENTA (CodigoVenta),
+    UNIQUE KEY UNIQUE_VENTA_IDEMPOTENCIA (ClaveIdempotencia),
     CONSTRAINT FK_venta_cliente
         FOREIGN KEY (IdCliente) REFERENCES cliente (IdCliente),
     CONSTRAINT FK_venta_empleado
-        FOREIGN KEY (IdEmpleadoResponsable) REFERENCES empleado (IdEmpleado)
+        FOREIGN KEY (IdEmpleadoResponsable) REFERENCES empleado (IdEmpleado),
+    CONSTRAINT FK_venta_empleado_anulacion
+        FOREIGN KEY (IdEmpleadoAnulacion) REFERENCES empleado (IdEmpleado)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_unicode_ci;
@@ -215,6 +230,23 @@ CREATE TABLE detalle_venta
         FOREIGN KEY (IdProducto) REFERENCES producto (IdProducto),
     CONSTRAINT FK_detalleventa_empleado
         FOREIGN KEY (IdEmpleadoResponsable) REFERENCES empleado (IdEmpleado)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci;
+
+-- ============================================================
+-- SESION_USUARIO (IdEmpleado -> empleado)  [auditoria de sesiones]
+-- ============================================================
+CREATE TABLE sesion_usuario
+(
+    IdSesion       INT         NOT NULL AUTO_INCREMENT,
+    IdEmpleado     INT         NOT NULL,
+    Accion         VARCHAR(50) NOT NULL,
+    FechaInicio    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FechaFin       DATETIME    NULL DEFAULT NULL,
+    PRIMARY KEY (IdSesion),
+    CONSTRAINT FK_sesion_empleado
+        FOREIGN KEY (IdEmpleado) REFERENCES empleado (IdEmpleado)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_unicode_ci;
