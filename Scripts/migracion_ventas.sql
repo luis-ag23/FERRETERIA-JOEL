@@ -7,7 +7,6 @@
 --   venta    : estado de venta, auditoria de anulacion, idempotencia,
 --              snapshot de descuento y CodigoVenta diferido (NULL + UPDATE)
 --   cliente  : Contrasena opcional + auditoria del empleado que lo registra
---   sesion_usuario : bitacora de inicio/cierre de sesion (auditoria)
 -- ============================================================
 
 USE bdferreteria_dev;
@@ -63,21 +62,3 @@ ALTER TABLE cliente
 ALTER TABLE cliente
     ADD CONSTRAINT FK_cliente_empleado
         FOREIGN KEY (IdEmpleadoResponsable) REFERENCES empleado (IdEmpleado);
-
--- ------------------------------------------------------------
--- SESION_USUARIO (auditoria de sesiones)
--- ------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS sesion_usuario
-(
-    IdSesion       INT         NOT NULL AUTO_INCREMENT,
-    IdEmpleado     INT         NOT NULL,
-    Accion         VARCHAR(50) NOT NULL,
-    FechaInicio    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FechaFin       DATETIME    NULL DEFAULT NULL,
-    PRIMARY KEY (IdSesion),
-    CONSTRAINT FK_sesion_empleado
-        FOREIGN KEY (IdEmpleado) REFERENCES empleado (IdEmpleado)
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_unicode_ci;

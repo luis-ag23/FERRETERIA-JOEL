@@ -1,10 +1,7 @@
 using FERRETERIA__Joel.Aplicacion.Servicios;
-using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
-using FERRETERIA__Joel.Dominio.Puertos;
 using FERRETERIA__Joel.Dominio.Validaciones;
 using FERRETERIA__Joel.Helpers;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using MySql.Data.MySqlClient;
@@ -12,11 +9,10 @@ using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
-    [Authorize(Roles = RolesSistema.Administrador)]
     public class MarcaEditarModel : PageModel
     {
         private readonly ServicioMarca _servicio;
-        private readonly IContextoUsuario _contextoUsuario;
+        private readonly ServicioEmpleado _servicioEmpleado;
         private readonly ILogger<MarcaEditarModel> _logger;
 
         private readonly MarcaValidaciones _validador = new();
@@ -24,23 +20,23 @@ namespace FERRETERIA__Joel.Pages
         [BindProperty]
         public Marca MarcaEdit { get; set; } = new();
 
-        public string NombreResponsable { get; set; } = string.Empty;
+        public List<Empleado> Empleados { get; set; } = new();
         public List<string> Errores { get; set; } = new();
         public Dictionary<string, string> ErroresCampo { get; set; } = new();
 
         public MarcaEditarModel(
             ServicioMarca servicio,
-            IContextoUsuario contextoUsuario,
+            ServicioEmpleado servicioEmpleado,
             ILogger<MarcaEditarModel> logger)
         {
             _servicio = servicio;
-            _contextoUsuario = contextoUsuario;
+            _servicioEmpleado = servicioEmpleado;
             _logger = logger;
         }
 
         public IActionResult OnGet(string token)
         {
-            AsignarResponsable();
+            CargarEmpleados();
 
             string? texto = UrlProtector.Descifrar(token);
 
@@ -63,7 +59,6 @@ namespace FERRETERIA__Joel.Pages
 
         public IActionResult OnPost()
         {
-            AsignarResponsable();
             Marca? marcaActual = _servicio.ObtenerPorId(MarcaEdit.IdMarca);
             if (marcaActual is null)
             {
@@ -76,7 +71,7 @@ namespace FERRETERIA__Joel.Pages
 
             if (Errores.Any() || ErroresCampo.Any())
             {
-                AsignarResponsable();
+                CargarEmpleados();
                 return Page();
             }
 
@@ -91,14 +86,14 @@ namespace FERRETERIA__Joel.Pages
                 AgregarErrorCampo(
                     nameof(Marca.Nombre),
                     $"Ya existe otra marca con el nombre '{MarcaEdit.Nombre}'.");
-                AsignarResponsable();
+                CargarEmpleados();
                 return Page();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al actualizar la marca {Id}.", MarcaEdit.IdMarca);
                 Errores.Add("No se pudo actualizar la marca. Inténtalo nuevamente.");
-                AsignarResponsable();
+                CargarEmpleados();
                 return Page();
             }
         }
@@ -154,6 +149,14 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Marca.Descripcion),
                     "La descripción no debe superar los 255 caracteres.");
             }
+
+            if (!_validador.EsEmpleadoValido(
+                MarcaEdit.IdEmpleadoResponsable))
+            {
+                AgregarErrorCampo(
+                    nameof(Marca.IdEmpleadoResponsable),
+                    "Debe seleccionar un empleado responsable.");
+            }
         }
 
         private void AgregarErrorCampo(string campo, string mensaje)
@@ -161,11 +164,9 @@ namespace FERRETERIA__Joel.Pages
             ErroresCampo[campo] = mensaje;
         }
 
-        private void AsignarResponsable()
+        private void CargarEmpleados()
         {
-            MarcaEdit.IdEmpleadoResponsable = _contextoUsuario.IdEmpleado;
-
-            NombreResponsable = _contextoUsuario.NombreCompleto;
+            Empleados = _servicioEmpleado.ObtenerTodos();
         }
     }
 }

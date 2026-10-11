@@ -6,47 +6,19 @@ using FERRETERIA__Joel.Helpers;
 using FERRETERIA__Joel.Infraestructura;
 using FERRETERIA__Joel.Infraestructura.Conexion;
 using FERRETERIA__Joel.Infraestructura.Factories;
-using FERRETERIA__Joel.Infraestructura.Seguridad;
 using FERRETERIA__Joel.Servicios;
-using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddRazorPages(options =>
-{
-    options.Conventions.AuthorizeFolder("/");
-});
-
-builder.Services
-    .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
-    {
-        options.LoginPath = "/Login";
-        options.LogoutPath = "/Logout";
-        options.AccessDeniedPath = "/Login";
-        options.ExpireTimeSpan = TimeSpan.FromHours(8);
-        options.SlidingExpiration = true;
-        options.Events = new CookieAuthenticationEvents
-        {
-            OnRedirectToAccessDenied = context =>
-            {
-                context.Response.Redirect("/");
-                return Task.CompletedTask;
-            }
-        };
-    });
-
-builder.Services.AddAuthorization();
-
-builder.Services.AddHttpContextAccessor();
-builder.Services.AddDistributedMemoryCache();
-builder.Services.AddSession();
+builder.Services.AddRazorPages();
 
 UrlProtector.Inicializar(
     builder.Configuration["UrlProteccion:Clave"]
         ?? throw new InvalidOperationException(
             "Falta la clave 'UrlProteccion:Clave' en la configuración."));
 
+
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddSingleton<IDbConnectionFactory, MySqlConnectionFactory>();
 
@@ -65,8 +37,6 @@ builder.Services.AddScoped<RepositoryCreator<IClienteRepository>, ClienteReposit
 builder.Services.AddScoped<RepositoryCreator<IVentaRepository>, VentaRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IDetalleVentaRepository>, DetalleVentaRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IInventarioRepository>, InventarioRepositoryCreator>();
-builder.Services.AddScoped<RepositoryCreator<IAutenticacionRepository>, AutenticacionRepositoryCreator>();
-builder.Services.AddScoped<RepositoryCreator<ISesionRepository>, SesionRepositoryCreator>();
 
 
 builder.Services.AddScoped<ServicioCategoria>();
@@ -77,10 +47,8 @@ builder.Services.AddScoped<ServicioHistoricoPrecio>();
 builder.Services.AddScoped<ServicioMarca>();
 builder.Services.AddScoped<ServicioCliente>();
 
-builder.Services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
+
 builder.Services.AddScoped<IContextoUsuario, ContextoUsuarioHttp>();
-builder.Services.AddScoped<ServicioAutenticacion>();
-builder.Services.AddScoped<ServicioSesion>();
 
 
 var descuentos = new ConfiguracionDescuentos();
@@ -109,11 +77,6 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseRouting();
-
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.UseSession();
 
 app.MapStaticAssets();
 app.MapRazorPages()

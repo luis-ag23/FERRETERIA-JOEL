@@ -13,7 +13,6 @@ SET NAMES utf8mb4;
 
 SET FOREIGN_KEY_CHECKS = 0;
 
-DROP TABLE IF EXISTS sesion_usuario;
 DROP TABLE IF EXISTS historico_precio;
 DROP TABLE IF EXISTS detalle_venta;
 DROP TABLE IF EXISTS venta;
@@ -230,23 +229,6 @@ CREATE TABLE detalle_venta
         FOREIGN KEY (IdProducto) REFERENCES producto (IdProducto),
     CONSTRAINT FK_detalleventa_empleado
         FOREIGN KEY (IdEmpleadoResponsable) REFERENCES empleado (IdEmpleado)
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_unicode_ci;
-
--- ============================================================
--- SESION_USUARIO (IdEmpleado -> empleado)  [auditoria de sesiones]
--- ============================================================
-CREATE TABLE sesion_usuario
-(
-    IdSesion       INT         NOT NULL AUTO_INCREMENT,
-    IdEmpleado     INT         NOT NULL,
-    Accion         VARCHAR(50) NOT NULL,
-    FechaInicio    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FechaFin       DATETIME    NULL DEFAULT NULL,
-    PRIMARY KEY (IdSesion),
-    CONSTRAINT FK_sesion_empleado
-        FOREIGN KEY (IdEmpleado) REFERENCES empleado (IdEmpleado)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_unicode_ci;

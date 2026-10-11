@@ -1,9 +1,6 @@
 using FERRETERIA__Joel.Aplicacion.Servicios;
-using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
-using FERRETERIA__Joel.Dominio.Puertos;
 using FERRETERIA__Joel.Dominio.Validaciones;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using MySql.Data.MySqlClient;
@@ -11,11 +8,10 @@ using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
-    [Authorize(Roles = RolesSistema.Administrador)]
     public class CategoriaNuevaModel : PageModel
     {
         private readonly ServicioCategoria _servicio;
-        private readonly IContextoUsuario _contextoUsuario;
+        private readonly ServicioEmpleado _servicioEmpleado;
         private readonly ILogger<CategoriaNuevaModel> _logger;
 
         private readonly CategoriaValidaciones _validador = new();
@@ -23,17 +19,17 @@ namespace FERRETERIA__Joel.Pages
         [BindProperty]
         public Categoria NuevaCategoria { get; set; } = new();
 
-        public string NombreResponsable { get; set; } = string.Empty;
+        public List<Empleado> Empleados { get; set; } = new();
         public List<string> Errores { get; set; } = new();
         public Dictionary<string, string> ErroresCampo { get; set; } = new();
 
         public CategoriaNuevaModel(
             ServicioCategoria servicio,
-            IContextoUsuario contextoUsuario,
+            ServicioEmpleado servicioEmpleado,
             ILogger<CategoriaNuevaModel> logger)
         {
             _servicio = servicio;
-            _contextoUsuario = contextoUsuario;
+            _servicioEmpleado = servicioEmpleado;
             _logger = logger;
         }
 
@@ -41,12 +37,11 @@ namespace FERRETERIA__Joel.Pages
         {
             NuevaCategoria.Estado = 1;
             NuevaCategoria.Codigo = _servicio.SiguienteCodigo();
-            AsignarResponsable();
+            CargarEmpleados();
         }
 
         public IActionResult OnPost()
         {
-            AsignarResponsable();
             NuevaCategoria.Codigo = _servicio.SiguienteCodigo();
             NuevaCategoria.PorcentajeGanancia = 0;
             NormalizarDatos();
@@ -54,7 +49,7 @@ namespace FERRETERIA__Joel.Pages
 
             if (Errores.Any() || ErroresCampo.Any())
             {
-                AsignarResponsable();
+                CargarEmpleados();
                 return Page();
             }
 
@@ -73,7 +68,7 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Categoria.Codigo),
                     $"El código '{NuevaCategoria.Codigo}' ya existe en el sistema.");
 
-                AsignarResponsable();
+                CargarEmpleados();
                 return Page();
             }
             catch (Exception ex)
@@ -85,7 +80,7 @@ namespace FERRETERIA__Joel.Pages
                 Errores.Add(
                     "No se pudo registrar la categoría. Inténtalo nuevamente.");
 
-                AsignarResponsable();
+                CargarEmpleados();
                 return Page();
             }
         }
@@ -139,6 +134,14 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Categoria.PorcentajeGanancia),
                     "El porcentaje de ganancia debe estar entre 0 y 100.");
             }
+
+            if (!_validador.EsEmpleadoValido(
+                NuevaCategoria.IdEmpleadoResponsable))
+            {
+                AgregarErrorCampo(
+                    nameof(Categoria.IdEmpleadoResponsable),
+                    "Debe seleccionar un empleado responsable.");
+            }
         }
 
         private void AgregarErrorCampo(string campo, string mensaje)
@@ -146,11 +149,9 @@ namespace FERRETERIA__Joel.Pages
             ErroresCampo[campo] = mensaje;
         }
 
-        private void AsignarResponsable()
+        private void CargarEmpleados()
         {
-            NuevaCategoria.IdEmpleadoResponsable = _contextoUsuario.IdEmpleado;
-
-            NombreResponsable = _contextoUsuario.NombreCompleto;
+            Empleados = _servicioEmpleado.ObtenerTodos();
         }
     }
 }

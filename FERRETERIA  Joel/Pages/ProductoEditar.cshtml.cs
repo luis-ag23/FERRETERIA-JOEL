@@ -1,10 +1,7 @@
 using FERRETERIA__Joel.Aplicacion.Servicios;
-using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
-using FERRETERIA__Joel.Dominio.Puertos;
 using FERRETERIA__Joel.Dominio.Validaciones;
 using FERRETERIA__Joel.Helpers;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using MySql.Data.MySqlClient;
@@ -13,12 +10,11 @@ using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
-    [Authorize(Roles = RolesSistema.Administrador)]
     public class ProductoEditarModel : PageModel
     {
         private readonly ServicioProducto _servicio;
         private readonly ServicioCategoria _servicioCategoria;
-        private readonly IContextoUsuario _contextoUsuario;
+        private readonly ServicioEmpleado _servicioEmpleado;
         private readonly ServicioMarca _servicioMarca;
         private readonly ILogger<ProductoEditarModel> _logger;
 
@@ -29,20 +25,20 @@ namespace FERRETERIA__Joel.Pages
 
         public List<Categoria> Categorias { get; set; } = new();
         public List<Marca> Marcas { get; set; } = new();
-        public string NombreResponsable { get; set; } = string.Empty;
+        public List<Empleado> Empleados { get; set; } = new();
         public List<string> Errores { get; set; } = new();
         public Dictionary<string, string> ErroresCampo { get; set; } = new();
 
         public ProductoEditarModel(
             ServicioProducto servicio,
             ServicioCategoria servicioCategoria,
-            IContextoUsuario contextoUsuario,
+            ServicioEmpleado servicioEmpleado,
             ServicioMarca servicioMarca,
             ILogger<ProductoEditarModel> logger)
         {
             _servicio = servicio;
             _servicioCategoria = servicioCategoria;
-            _contextoUsuario = contextoUsuario;
+            _servicioEmpleado = servicioEmpleado;
             _servicioMarca = servicioMarca;
             _logger = logger;
         }
@@ -72,13 +68,11 @@ namespace FERRETERIA__Joel.Pages
             }
 
             Producto = producto;
-            AsignarResponsable();
             return Page();
         }
 
         public IActionResult OnPost()
         {
-            AsignarResponsable();
             Producto? productoActual = _servicio.ObtenerPorId(Producto.IdProducto);
             if (productoActual is null)
             {
@@ -216,6 +210,14 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Producto.IdCategoria),
                     "La categoría seleccionada no existe o está inactiva.");
             }
+
+            if (!_validacion.EsEmpleadoValido(
+                Producto.IdEmpleadoResponsable))
+            {
+                AgregarErrorCampo(
+                    nameof(Producto.IdEmpleadoResponsable),
+                    "Debe seleccionar un empleado responsable.");
+            }
         }
 
         private void AgregarErrorCampo(string campo, string mensaje)
@@ -249,13 +251,9 @@ namespace FERRETERIA__Joel.Pages
 
             Marcas =
                 _servicioMarca.ObtenerActivas();
-        }
 
-        private void AsignarResponsable()
-        {
-            Producto.IdEmpleadoResponsable = _contextoUsuario.IdEmpleado;
-
-            NombreResponsable = _contextoUsuario.NombreCompleto;
+            Empleados =
+                _servicioEmpleado.ObtenerTodos();
         }
 
         private void Actualizar()

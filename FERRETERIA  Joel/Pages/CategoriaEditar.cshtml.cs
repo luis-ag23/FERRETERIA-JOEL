@@ -1,10 +1,7 @@
 using FERRETERIA__Joel.Aplicacion.Servicios;
-using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
-using FERRETERIA__Joel.Dominio.Puertos;
 using FERRETERIA__Joel.Dominio.Validaciones;
 using FERRETERIA__Joel.Helpers;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using MySql.Data.MySqlClient;
@@ -12,34 +9,33 @@ using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
-    [Authorize(Roles = RolesSistema.Administrador)]
     public class CategoriaEditarModel : PageModel
     {
         private readonly ServicioCategoria _servicio;
-        private readonly IContextoUsuario _contextoUsuario;
+        private readonly ServicioEmpleado _servicioEmpleado;
         private readonly ILogger<CategoriaEditarModel> _logger;
         private readonly CategoriaValidaciones _validador = new();
 
         [BindProperty]
         public Categoria CategoriaEdit { get; set; } = new();
 
-        public string NombreResponsable { get; set; } = string.Empty;
+        public List<Empleado> Empleados { get; set; } = new();
         public List<string> Errores { get; set; } = new();
         public Dictionary<string, string> ErroresCampo { get; set; } = new();
 
         public CategoriaEditarModel(
             ServicioCategoria servicio,
-            IContextoUsuario contextoUsuario,
+            ServicioEmpleado servicioEmpleado,
             ILogger<CategoriaEditarModel> logger)
         {
             _servicio = servicio;
-            _contextoUsuario = contextoUsuario;
+            _servicioEmpleado = servicioEmpleado;
             _logger = logger;
         }
 
         public IActionResult OnGet(string token)
         {
-            AsignarResponsable();
+            CargarEmpleados();
 
             string? texto = UrlProtector.Descifrar(token);
 
@@ -62,7 +58,6 @@ namespace FERRETERIA__Joel.Pages
 
         public IActionResult OnPost()
         {
-            AsignarResponsable();
             Categoria? categoriaActual = _servicio.ObtenerPorId(CategoriaEdit.IdCategoria);
             if (categoriaActual is null)
             {
@@ -77,7 +72,7 @@ namespace FERRETERIA__Joel.Pages
 
             if (Errores.Any() || ErroresCampo.Any())
             {
-                AsignarResponsable();
+                CargarEmpleados();
                 return Page();
             }
 
@@ -92,14 +87,14 @@ namespace FERRETERIA__Joel.Pages
                 AgregarErrorCampo(
                     nameof(Categoria.Codigo),
                     $"El código '{CategoriaEdit.Codigo}' ya pertenece a otra categoría.");
-                AsignarResponsable();
+                CargarEmpleados();
                 return Page();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al actualizar la categoría {Id}.", CategoriaEdit.IdCategoria);
                 Errores.Add("No se pudo actualizar la categoría. Inténtalo nuevamente.");
-                AsignarResponsable();
+                CargarEmpleados();
                 return Page();
             }
         }
@@ -153,6 +148,14 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Categoria.PorcentajeGanancia),
                     "El porcentaje de ganancia debe estar entre 0 y 100.");
             }
+
+            if (!_validador.EsEmpleadoValido(
+                CategoriaEdit.IdEmpleadoResponsable))
+            {
+                AgregarErrorCampo(
+                    nameof(Categoria.IdEmpleadoResponsable),
+                    "Debe seleccionar un empleado responsable.");
+            }
         }
 
         private void AgregarErrorCampo(string campo, string mensaje)
@@ -160,11 +163,9 @@ namespace FERRETERIA__Joel.Pages
             ErroresCampo[campo] = mensaje;
         }
 
-        private void AsignarResponsable()
+        private void CargarEmpleados()
         {
-            CategoriaEdit.IdEmpleadoResponsable = _contextoUsuario.IdEmpleado;
-
-            NombreResponsable = _contextoUsuario.NombreCompleto;
+            Empleados = _servicioEmpleado.ObtenerTodos();
         }
     }
 }
