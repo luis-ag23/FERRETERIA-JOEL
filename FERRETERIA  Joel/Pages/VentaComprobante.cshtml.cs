@@ -2,6 +2,7 @@ using FERRETERIA__Joel.Aplicacion.Modelos;
 using FERRETERIA__Joel.Aplicacion.Servicios;
 using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Helpers;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace FERRETERIA__Joel.Pages
@@ -11,6 +12,7 @@ namespace FERRETERIA__Joel.Pages
     /// en la ruta (token) para no exponer el id; el descifrado está
     /// delegado en <see cref="FERRETERIA__Joel.Helpers.UrlProtector"/>.
     /// </summary>
+    [Authorize]
     public class VentaComprobanteModel : PageModel
     {
         private readonly FachadaVenta _fachada;

@@ -1,5 +1,7 @@
 using FERRETERIA__Joel.Aplicacion.Modelos;
 using FERRETERIA__Joel.Aplicacion.Servicios;
+using FERRETERIA__Joel.Dominio.Constantes;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -8,8 +10,10 @@ namespace FERRETERIA__Joel.Pages
     /// <summary>
     /// Listado de ventas con modal de detalle (solo lectura) y
     /// anulación lógica con motivo. La anulación restaura el stock y
-    /// registra el responsable.
+    /// registra el responsable. La anulación queda restringida al rol
+    /// Administrador (verificado contra el sistema de autenticación).
     /// </summary>
+    [Authorize]
     public class VentasModel : PageModel
     {
         private readonly FachadaVenta _fachada;
@@ -72,6 +76,11 @@ namespace FERRETERIA__Joel.Pages
 
         public IActionResult OnPostAnular()
         {
+            if (!User.IsInRole(RolesSistema.Administrador))
+            {
+                return Forbid();
+            }
+
             ResultadoVenta resultado =
                 _fachada.AnularVenta(IdVenta, MotivoAnulacion ?? string.Empty);
 

@@ -7,10 +7,41 @@ using FERRETERIA__Joel.Infraestructura;
 using FERRETERIA__Joel.Infraestructura.Conexion;
 using FERRETERIA__Joel.Infraestructura.Factories;
 using FERRETERIA__Joel.Servicios;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
+
+// ------------------------------------------------------------------
+// Punto de integracion con el modulo de autenticacion del equipo.
+// Ventas NO implementa login: solo declara la proteccion ([Authorize] /
+// rol Administrador). Hasta que exista el modulo externo, la cookie no
+// se emite y las operaciones protegidas rechazan el acceso (401/403);
+// nunca se ejecutan acciones anonimas.
+// ------------------------------------------------------------------
+builder.Services
+    .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/Login";
+        options.AccessDeniedPath = "/Login";
+        options.Events = new CookieAuthenticationEvents
+        {
+            OnRedirectToLogin = context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return Task.CompletedTask;
+            },
+            OnRedirectToAccessDenied = context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+builder.Services.AddAuthorization();
 
 UrlProtector.Inicializar(
     builder.Configuration["UrlProteccion:Clave"]
@@ -77,6 +108,9 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseRouting();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapStaticAssets();
 app.MapRazorPages()
