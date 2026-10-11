@@ -361,3 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Configuracion local con credenciales de base de datos (no subir al repositorio)
+FERRETERIA  Joel/appsettings.json
