@@ -1,7 +1,6 @@
 using FERRETERIA__Joel.Aplicacion.Modelos;
 using FERRETERIA__Joel.Aplicacion.Politicas;
 using FERRETERIA__Joel.Aplicacion.Servicios;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -12,7 +11,6 @@ namespace FERRETERIA__Joel.Pages
     /// fachada de ventas: nunca accede a repositorios ni transacciones.
     /// El precio y los totales siempre se resuelven en el dominio.
     /// </summary>
-    [Authorize]
     public class VentaModel : PageModel
     {
         private readonly FachadaVenta _fachada;
