@@ -299,6 +299,18 @@ VALUES
     ('Elena',    'Rojas',     'Vendedor', '70000010', 'elena.rojas@ferreteria.com',    'pbkdf2$100000$271ELSu8jKyojeVGCV5b3w==$+cyOdhoBHX5E4XGFZBOWZoEjFvNhibHGJsBrXOQ0z9U=', 1, 1);
 
 -- ============================================================
+-- DATOS: 5 clientes (IdEmpleadoResponsable -> empleado)
+-- ============================================================
+INSERT INTO cliente
+    (Nombre, Apellido, Telefono, CorreoElectronico, Estado, IdEmpleadoResponsable)
+VALUES
+    ('Juan',   'Perez',    '71234567', 'juan.perez@example.com',    1, 1),
+    ('Maria',  'Quispe',   '72345678', 'maria.quispe@example.com',  1, 1),
+    ('Carlos', 'Ticona',   '73456789', 'carlos.ticona@example.com', 1, 1),
+    ('Ana',    'Mamani',   '74567890', 'ana.mamani@example.com',    1, 1),
+    ('Luis',   'Choque',   '75678901', 'luis.choque@example.com',   1, 1);
+
+-- ============================================================
 -- DATOS: 10 marcas
 -- ============================================================
 INSERT INTO marca

@@ -82,10 +82,17 @@ builder.Services.AddScoped<ServicioAutenticacion>();
 builder.Services.AddScoped<ServicioSesion>();
 
 
+var descuentos = new ConfiguracionDescuentos();
+
+builder.Services.AddSingleton(descuentos);
 builder.Services.AddSingleton<IPoliticaDescuento>(
-    new DescuentoPorMonto(montoMinimo: 1000m, porcentaje: 5m));
+    new DescuentoPorMonto(
+        montoMinimo: descuentos.MontoMinimo,
+        porcentaje: descuentos.PorcentajePorMonto));
 builder.Services.AddSingleton<IPoliticaDescuento>(
-    new DescuentoPorCantidad(cantidadMinima: 12, porcentaje: 3m));
+    new DescuentoPorCantidad(
+        cantidadMinima: descuentos.CantidadMinima,
+        porcentaje: descuentos.PorcentajePorCantidad));
 builder.Services.AddScoped<SelectorDescuento>();
 builder.Services.AddScoped<FachadaVenta>();
 
