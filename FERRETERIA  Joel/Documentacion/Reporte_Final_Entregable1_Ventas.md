@@ -106,6 +106,19 @@ Se levantó la aplicación real (`http://localhost:5199`), se inició sesión co
 - **I – Segregación de Interfaces:** interfaces pequeñas y específicas (`IClienteRepository` añade solo `ObtenerPorId` y `Buscar` sobre `IRepository<T>`), evitando métodos que el cliente no usa.
 - **D – Inversión de Dependencias:** la aplicación depende de abstracciones (`IRepository<T>`, `IUnidadDeTrabajo`, `IContextoUsuario`) y la infraestructura las implementa. Todo se inyecta con `AddScoped`.
 
+### 5.3 Evidencia transversal: roles, sesiones y auditoría de los CRUD anteriores
+
+La rúbrica exige que las funcionalidades nuevas convivan con el sistema existente. Se verificó el respaldo real de estos puntos:
+
+- **Dos roles (sesiones diferenciadas):** `RolesSistema` normaliza todos los roles operativos a `Administrador` o `Vendedor`. Las operaciones de alto riesgo están restringidas con `[Authorize(Roles = RolesSistema.Administrador)]` (alta/edición de Categorías, Marcas, Productos y Proveedores) y con `User.IsInRole(RolesSistema.Administrador)` + `Forbid()` (desactivaciones y **anulación de ventas**). El menú de `_Layout.cshtml` oculta las secciones de administración al rol Vendedor. En `bdferreteria_dev` conviven las cuentas `joel.rios@ferreteria.com` (Administrador) y `maria.lopez@ferreteria.com` (Vendedor), entre otras.
+- **Sesiones:** el login registra la bitácora con `ServicioSesion.Registrar(...)` y genera el id de sesión en la cookie de autenticación; el logout lo cierra con `ServicioSesion.Cerrar(...)`. La tabla `sesion_usuario` almacena `Accion`, `FechaInicio` y `FechaFin`.
+- **Auditoría de los CRUD anteriores:** los ocho formularios de catálogo asignan el responsable desde `IContextoUsuario`:
+  - `CategoriaNueva`/`CategoriaEditar` → `IdEmpleadoResponsable`
+  - `MarcaNueva`/`MarcaEditar` → `IdEmpleadoResponsable`
+  - `ProductoNuevo`/`ProductoEditar` → `IdEmpleadoResponsable` (además, `ServicioHistoricoPrecio` registra el cambio de precio con su autor)
+  - `ProveedorNuevo`/`ProveedorEditar` → `IdEmpleadoResponsable`
+  - Y en ventas: `Venta.IdEmpleadoResponsable` (emisor) e `IdEmpleadoAnulacion` (autor de la anulación).
+
 ---
 
 ## 6. Resultados de pruebas
@@ -182,9 +195,9 @@ Limpieza: ventas restantes en BD = 0
 
 ## 8. Revisión de ortografía de las interfaces
 
-Se extrajeron y revisaron 394 cadenas visibles de todas las páginas Razor. Resultado: **sin errores ortográficos**. Se verificaron acentos y caracteres especiales (`Contraseña`, `Correo electrónico`, `Teléfono`, `Dirección`, `Razón Social`, `Gestión`, `Categorías`, `automáticamente`, `Módulo · Catálogo`). Los textos del módulo de ventas son correctos: "Seleccione el cliente, agregue productos y confirme la venta.", "Complete los datos del cliente...", "Indique el motivo de la anulación.", "El comprobante no existe o el enlace es inválido."
+Se extrajeron y revisaron 393 cadenas visibles de todas las páginas Razor. Resultado: **sin errores ortográficos**. Se verificaron acentos y caracteres especiales (`Contraseña`, `Correo electrónico`, `Teléfono`, `Dirección`, `Razón Social`, `Gestión`, `Categorías`, `automáticamente`, `Módulo · Catálogo`). Los textos del módulo de ventas son correctos: "Seleccione el cliente, agregue productos y confirme la venta.", "Complete los datos del cliente...", "Indique el motivo de la anulación.", "El comprobante no existe o el enlace es inválido."
 
-> Nota: las páginas `Error.cshtml` y `Privacy.cshtml` conservan el texto en inglés de la plantilla de ASP.NET Core; no forman parte de la interfaz operativa. Se recomienda traducirlas o retirarlas de cara al usuario final.
+Además se tradujeron al español las páginas heredadas de la plantilla `Error.cshtml` ("Ocurrió un error al procesar su solicitud.", "Id. de solicitud", "Modo de desarrollo") y `Privacy.cshtml` ("Política de privacidad"), sin alterar su lógica. La única palabra en inglés que permanece es `Development`, por ser el **valor literal** de la variable de entorno `ASPNETCORE_ENVIRONMENT` (no un texto traducible). Con esto, **toda la interfaz visible queda en español**.
 
 ---
 
