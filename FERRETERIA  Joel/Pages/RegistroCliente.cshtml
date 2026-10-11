@@ -1,0 +1,116 @@
+@page
+@model FERRETERIA__Joel.Pages.RegistroClienteModel
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@{
+    ViewData["Title"] = "Registro de Cliente";
+    ViewData["ActiveMenu"] = "RegistroCliente";
+    string paginaLogin = Configuration["Registro:PaginaLogin"] ?? "/Login";
+}
+@section Styles {
+    <link rel="stylesheet" href="~/css/productos.css" asp-append-version="true" />
+}
+
+<div class="fj-container fj-page-products">
+
+    <section class="fj-page-head">
+        <p class="fj-eyebrow">Cuenta · Cliente</p>
+        <h1>Crear cuenta</h1>
+        <p class="fj-page-sub">Regístrate para cononcer mas de Ferretería Joel.</p>
+    </section>
+
+    @if (TempData["Mensaje"] != null)
+    {
+        <div class="fj-alert fj-alert-success" role="status">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+            <div>
+                <span>@TempData["Mensaje"]</span>
+                @* TODO (login): la página la implementa otro compañero; apunta a "Registro:PaginaLogin". *@
+                <a href="@paginaLogin">Iniciar sesión</a>
+            </div>
+        </div>
+    }
+
+    @if (Model.Errores.Any())
+    {
+        <div class="fj-alert" role="alert">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+            <div>
+                <strong>No se pudo completar el registro:</strong>
+                <ul class="fj-alert-lista">
+                    @foreach (var error in Model.Errores)
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    }
+
+    <form method="post" class="fj-card fj-form" novalidate>
+        <div class="fj-form-grid">
+            <div class="fj-form-field @(Model.ErroresCampo.ContainsKey("Nombre") ? "fj-form-field-error" : "")">
+                <label class="fj-form-label" asp-for="Solicitud.Nombre">Nombre</label>
+                <input class="fj-input" asp-for="Solicitud.Nombre" maxlength="100" placeholder="Ej: María" required />
+                @if (Model.ErroresCampo.TryGetValue("Nombre", out var errorNombre))
+                {
+                    <p class="fj-form-error" role="alert">@errorNombre</p>
+                }
+            </div>
+
+            <div class="fj-form-field @(Model.ErroresCampo.ContainsKey("Apellido") ? "fj-form-field-error" : "")">
+                <label class="fj-form-label" asp-for="Solicitud.Apellido">Apellido</label>
+                <input class="fj-input" asp-for="Solicitud.Apellido" maxlength="100" placeholder="Ej: Gómez" required />
+                @if (Model.ErroresCampo.TryGetValue("Apellido", out var errorApellido))
+                {
+                    <p class="fj-form-error" role="alert">@errorApellido</p>
+                }
+            </div>
+
+            <div class="fj-form-field @(Model.ErroresCampo.ContainsKey("Telefono") ? "fj-form-field-error" : "")">
+                <label class="fj-form-label" asp-for="Solicitud.Telefono">Teléfono</label>
+                <input class="fj-input" asp-for="Solicitud.Telefono" maxlength="8" inputmode="numeric" placeholder="Ej: 71234567" required />
+                @if (Model.ErroresCampo.TryGetValue("Telefono", out var errorTelefono))
+                {
+                    <p class="fj-form-error" role="alert">@errorTelefono</p>
+                }
+            </div>
+
+            <div class="fj-form-field @(Model.ErroresCampo.ContainsKey("CorreoElectronico") ? "fj-form-field-error" : "")">
+                <label class="fj-form-label" asp-for="Solicitud.CorreoElectronico">Correo electrónico</label>
+                <input class="fj-input" asp-for="Solicitud.CorreoElectronico" type="email" maxlength="150" placeholder="correo@ejemplo.com" required />
+                @if (Model.ErroresCampo.TryGetValue("CorreoElectronico", out var errorCorreo))
+                {
+                    <p class="fj-form-error" role="alert">@errorCorreo</p>
+                }
+            </div>
+
+            <div class="fj-form-field @(Model.ErroresCampo.ContainsKey("Contrasena") ? "fj-form-field-error" : "")">
+                <label class="fj-form-label" asp-for="Solicitud.Contrasena">Contraseña</label>
+                <input class="fj-input" asp-for="Solicitud.Contrasena" type="password" maxlength="64" placeholder="Mínimo 8 caracteres" required />
+                <span class="fj-form-hint">Debe incluir mayúscula, minúscula, número y símbolo.</span>
+                @if (Model.ErroresCampo.TryGetValue("Contrasena", out var errorContrasena))
+                {
+                    <p class="fj-form-error" role="alert">@errorContrasena</p>
+                }
+            </div>
+
+            <div class="fj-form-field @(Model.ErroresCampo.ContainsKey("ConfirmarContrasena") ? "fj-form-field-error" : "")">
+                <label class="fj-form-label" asp-for="Solicitud.ConfirmarContrasena">Confirmar contraseña</label>
+                <input class="fj-input" asp-for="Solicitud.ConfirmarContrasena" type="password" maxlength="64" placeholder="Repita la contraseña" required />
+                @if (Model.ErroresCampo.TryGetValue("ConfirmarContrasena", out var errorConfirmacion))
+                {
+                    <p class="fj-form-error" role="alert">@errorConfirmacion</p>
+                }
+            </div>
+        </div>
+
+        <div class="fj-form-actions">
+            <a asp-page="/Index" class="fj-btn fj-btn-ghost">Cancelar</a>
+            <button type="submit" class="fj-btn fj-btn-primary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
+                Crear cuenta
+            </button>
+        </div>
+    </form>
+
+</div>
