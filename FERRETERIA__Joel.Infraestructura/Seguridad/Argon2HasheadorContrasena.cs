@@ -49,7 +49,16 @@ namespace FERRETERIA__Joel.Infraestructura.Seguridad
                 return false;
             }
 
-            return Argon2.Verify(hash, contrasena);
+            try
+            {
+                return Argon2.Verify(hash, contrasena);
+            }
+            catch
+            {
+                // Hash almacenado con formato inválido o no generado con
+                // Argon2: se trata como credencial no válida.
+                return false;
+            }
         }
     }
 }

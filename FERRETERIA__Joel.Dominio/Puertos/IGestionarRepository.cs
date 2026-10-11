@@ -4,7 +4,7 @@ namespace FERRETERIA__Joel.Dominio.Puertos
     {
         void Actualizar(T entidad);
 
-        void CambiarEstado(int id);
+        void CambiarEstado(int id, int idEmpleadoResponsable);
 
         List<T> MostrarActivos();
     }

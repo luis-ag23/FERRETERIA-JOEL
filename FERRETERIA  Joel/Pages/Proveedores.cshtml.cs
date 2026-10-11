@@ -52,7 +52,9 @@ namespace FERRETERIA__Joel.Pages
         {
             try
             {
-                _servicio.CambiarEstado(idProveedor);
+                _servicio.CambiarEstado(
+                    idProveedor,
+                    EmpleadoSesion.ObtenerIdEmpleado(User));
 
                 TempData["Mensaje"] =
                     "Proveedor eliminado correctamente.";

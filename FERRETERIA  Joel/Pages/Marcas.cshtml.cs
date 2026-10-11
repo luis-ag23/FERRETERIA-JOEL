@@ -51,7 +51,9 @@ namespace FERRETERIA__Joel.Pages
         {
             try
             {
-                _servicio.CambiarEstado(id);
+                _servicio.CambiarEstado(
+                    id,
+                    EmpleadoSesion.ObtenerIdEmpleado(User));
                 TempData["Mensaje"] = "Marca desactivada correctamente.";
             }
             catch (Exception ex)

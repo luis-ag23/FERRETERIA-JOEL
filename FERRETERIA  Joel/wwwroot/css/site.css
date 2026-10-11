@@ -2462,3 +2462,64 @@ body.fj-modal-open {
     }
 }
 
+/* ============================================================
+   Campo de contraseña con botón mostrar/ocultar
+   ============================================================ */
+
+.fj-password {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+    .fj-password .fj-input {
+        padding-right: 2.75rem;
+    }
+
+.fj-password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 0.3125rem;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: none;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--texto-ter);
+    cursor: pointer;
+    transition: color 0.16s ease, background 0.16s ease;
+}
+
+    .fj-password-toggle:hover {
+        color: var(--texto);
+        background: var(--fondo);
+    }
+
+    .fj-password-toggle:focus-visible {
+        outline: none;
+        color: var(--amarillo);
+        box-shadow: 0 0 0 0.1875rem rgba(255, 200, 36, 0.14);
+    }
+
+    .fj-password-toggle svg {
+        width: 1.125rem;
+        height: 1.125rem;
+    }
+
+    .fj-password-toggle .fj-eye-off {
+        display: none;
+    }
+
+.fj-password.is-visible .fj-password-toggle .fj-eye-open {
+    display: none;
+}
+
+.fj-password.is-visible .fj-password-toggle .fj-eye-off {
+    display: block;
+}
+

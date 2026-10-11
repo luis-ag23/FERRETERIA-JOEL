@@ -7,23 +7,24 @@ using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
-    // Página de auto-registro público de clientes: valida, hashea la contraseña y persiste sin autenticar al usuario.
-    public class RegistroClienteModel : PageModel
+    // Página de auto-registro de empleados: valida, hashea la contraseña y
+    // persiste el empleado sin autenticarlo automáticamente.
+    public class RegistroEmpleadoModel : PageModel
     {
-        private readonly ServicioRegistroCliente _servicio;
+        private readonly ServicioRegistroEmpleado _servicio;
         private readonly IConfiguration _configuration;
-        private readonly ILogger<RegistroClienteModel> _logger;
+        private readonly ILogger<RegistroEmpleadoModel> _logger;
 
         [BindProperty]
-        public RegistroClienteSolicitud Solicitud { get; set; } = new();
+        public RegistroEmpleadoSolicitud Solicitud { get; set; } = new();
 
         public List<string> Errores { get; set; } = new();
         public Dictionary<string, string> ErroresCampo { get; set; } = new();
 
-        public RegistroClienteModel(
-            ServicioRegistroCliente servicio,
+        public RegistroEmpleadoModel(
+            ServicioRegistroEmpleado servicio,
             IConfiguration configuration,
-            ILogger<RegistroClienteModel> logger)
+            ILogger<RegistroEmpleadoModel> logger)
         {
             _servicio = servicio;
             _configuration = configuration;
@@ -60,30 +61,27 @@ namespace FERRETERIA__Joel.Pages
                 }
 
                 TempData["Mensaje"] =
-                    "Cliente registrado con éxito. Ya puede iniciar sesión.";
+                    "Empleado registrado con éxito. Ya puede iniciar sesión.";
 
-                // TODO (login): mientras la página de inicio de sesión no
-                // exista se muestra el mensaje; al crearla, la redirección a
-                // la ruta configurada se activará automáticamente.
                 if (!string.IsNullOrWhiteSpace(PaginaLogin)
                     && Url.Page(PaginaLogin) is not null)
                 {
                     return Redirect(PaginaLogin);
                 }
 
-                return RedirectToPage("RegistroCliente");
+                return RedirectToPage("Login");
             }
             catch (MySqlException ex) when (ex.Number == 1062)
             {
                 ErroresCampo[
-                    nameof(RegistroClienteSolicitud.CorreoElectronico)] =
+                    nameof(RegistroEmpleadoSolicitud.CorreoElectronico)] =
                     "El correo ya está registrado.";
 
                 return Page();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al registrar el cliente.");
+                _logger.LogError(ex, "Error al registrar el empleado.");
 
                 Errores.Add(
                     "No se pudo completar el registro. Inténtalo nuevamente.");

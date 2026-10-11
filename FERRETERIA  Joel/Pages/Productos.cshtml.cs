@@ -47,7 +47,9 @@ namespace FERRETERIA__Joel.Pages
         {
             try
             {
-                _servicio.CambiarEstado(idProducto);
+                _servicio.CambiarEstado(
+                    idProducto,
+                    EmpleadoSesion.ObtenerIdEmpleado(User));
 
                 TempData["Mensaje"] =
                     "Producto eliminado correctamente.";

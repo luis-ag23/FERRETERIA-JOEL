@@ -12,7 +12,6 @@ namespace FERRETERIA__Joel.Pages
     public class MarcaEditarModel : PageModel
     {
         private readonly ServicioMarca _servicio;
-        private readonly ServicioEmpleado _servicioEmpleado;
         private readonly ILogger<MarcaEditarModel> _logger;
 
         private readonly MarcaValidaciones _validador = new();
@@ -20,24 +19,19 @@ namespace FERRETERIA__Joel.Pages
         [BindProperty]
         public Marca MarcaEdit { get; set; } = new();
 
-        public List<Empleado> Empleados { get; set; } = new();
         public List<string> Errores { get; set; } = new();
         public Dictionary<string, string> ErroresCampo { get; set; } = new();
 
         public MarcaEditarModel(
             ServicioMarca servicio,
-            ServicioEmpleado servicioEmpleado,
             ILogger<MarcaEditarModel> logger)
         {
             _servicio = servicio;
-            _servicioEmpleado = servicioEmpleado;
             _logger = logger;
         }
 
         public IActionResult OnGet(string token)
         {
-            CargarEmpleados();
-
             string? texto = UrlProtector.Descifrar(token);
 
             if (!int.TryParse(texto, out int id))
@@ -66,12 +60,13 @@ namespace FERRETERIA__Joel.Pages
                 return RedirectToPage("Marcas");
             }
 
+            MarcaEdit.IdEmpleadoResponsable =
+                EmpleadoSesion.ObtenerIdEmpleado(User);
             NormalizarDatos();
             Validar();
 
             if (Errores.Any() || ErroresCampo.Any())
             {
-                CargarEmpleados();
                 return Page();
             }
 
@@ -86,14 +81,12 @@ namespace FERRETERIA__Joel.Pages
                 AgregarErrorCampo(
                     nameof(Marca.Nombre),
                     $"Ya existe otra marca con el nombre '{MarcaEdit.Nombre}'.");
-                CargarEmpleados();
                 return Page();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al actualizar la marca {Id}.", MarcaEdit.IdMarca);
                 Errores.Add("No se pudo actualizar la marca. Inténtalo nuevamente.");
-                CargarEmpleados();
                 return Page();
             }
         }
@@ -149,24 +142,11 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Marca.Descripcion),
                     "La descripción no debe superar los 255 caracteres.");
             }
-
-            if (!_validador.EsEmpleadoValido(
-                MarcaEdit.IdEmpleadoResponsable))
-            {
-                AgregarErrorCampo(
-                    nameof(Marca.IdEmpleadoResponsable),
-                    "Debe seleccionar un empleado responsable.");
-            }
         }
 
         private void AgregarErrorCampo(string campo, string mensaje)
         {
             ErroresCampo[campo] = mensaje;
-        }
-
-        private void CargarEmpleados()
-        {
-            Empleados = _servicioEmpleado.ObtenerTodos();
         }
     }
 }

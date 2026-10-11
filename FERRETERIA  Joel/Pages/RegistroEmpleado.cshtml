@@ -1,9 +1,9 @@
 @page
-@model FERRETERIA__Joel.Pages.RegistroClienteModel
+@model FERRETERIA__Joel.Pages.RegistroEmpleadoModel
 @inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
-    ViewData["Title"] = "Registro de Cliente";
-    ViewData["ActiveMenu"] = "RegistroCliente";
+    ViewData["Title"] = "Registro de Empleado";
+    ViewData["ActiveMenu"] = "RegistroEmpleado";
     string paginaLogin = Configuration["Registro:PaginaLogin"] ?? "/Login";
 }
 @section Styles {
@@ -13,9 +13,9 @@
 <div class="fj-container fj-page-products">
 
     <section class="fj-page-head">
-        <p class="fj-eyebrow">Cuenta · Cliente</p>
+        <p class="fj-eyebrow">Cuenta · Empleado</p>
         <h1>Crear cuenta</h1>
-        <p class="fj-page-sub">Regístrate para cononcer mas de Ferretería Joel.</p>
+        <p class="fj-page-sub">Regístrese para acceder a las funciones del panel interno.</p>
     </section>
 
     @if (TempData["Mensaje"] != null)
@@ -24,7 +24,6 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
             <div>
                 <span>@TempData["Mensaje"]</span>
-                @* TODO (login): la página la implementa otro compañero; apunta a "Registro:PaginaLogin". *@
                 <a href="@paginaLogin">Iniciar sesión</a>
             </div>
         </div>
