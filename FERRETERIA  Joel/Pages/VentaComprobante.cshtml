@@ -1,0 +1,134 @@
+@page "{token}"
+@model FERRETERIA__Joel.Pages.VentaComprobanteModel
+@{
+    ViewData["Title"] = "Comprobante de venta";
+    ViewData["ActiveMenu"] = "Ventas";
+}
+@section Styles {
+    <link rel="stylesheet" href="~/css/comprobante.css" asp-append-version="true" />
+}
+
+<div class="fj-container fj-page-comprobante">
+
+    <section class="fj-page-head">
+        <p class="fj-eyebrow">Módulo · Ventas</p>
+        <h1>Comprobante de venta</h1>
+        <p class="fj-page-sub">Recibo oficial de la transacción.</p>
+    </section>
+
+    @if (Model.NoEncontrado)
+    {
+        <div class="fj-alert" role="alert">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span>El comprobante no existe o el enlace es inválido.</span>
+        </div>
+
+        <a class="fj-btn fj-btn-primary" asp-page="Ventas">Ir al historial de ventas</a>
+    }
+
+    @if (Model.Comprobante is not null)
+    {
+        var venta = Model.Comprobante.Venta;
+        var registrada = venta.EstadoVenta == FERRETERIA__Joel.Dominio.Constantes.EstadoVenta.Registrada;
+
+        <section class="comprobante" aria-label="Comprobante de la venta">
+            <div class="comprobante-cabecera">
+                <div class="comprobante-titulo">
+                    <strong>FERRETERÍA <span>JOEL</span></strong>
+                    <small>Av. Central N.º 123, El Alto · La Paz</small>
+                </div>
+                <div class="comprobante-datos">
+                    <span>Comprobante @venta.CodigoVenta</span>
+                    <span>@venta.FechaRegistro.ToString("dd/MM/yyyy HH:mm")</span>
+                    <span class="comprobante-estado @(registrada ? "es-registrada" : "es-anulada")">
+                        @VentaComprobanteModel.ImprimirEstado(venta.EstadoVenta)
+                    </span>
+                </div>
+            </div>
+
+            <dl class="comprobante-cliente">
+                <div>
+                    <dt>Cliente</dt>
+                    <dd>@Model.Comprobante.NombreCliente</dd>
+                </div>
+                <div>
+                    <dt>Método de pago</dt>
+                    <dd>@venta.MetodoPago</dd>
+                </div>
+                <div>
+                    <dt>Estado del pago</dt>
+                    <dd>@venta.EstadoPago</dd>
+                </div>
+            </dl>
+
+            <table class="comprobante-tabla">
+                <thead>
+                    <tr>
+                        <th scope="col">Producto</th>
+                        <th scope="col">Und.</th>
+                        <th scope="col" class="comprobante-num">Precio</th>
+                        <th scope="col" class="comprobante-num">Importe</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var linea in Model.Comprobante.Lineas)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@linea.Nombre</strong>
+                                <small>@linea.Codigo</small>
+                            </td>
+                            <td>@linea.Cantidad @linea.UnidadMedida</td>
+                            <td class="comprobante-num">@linea.PrecioUnitario.ToString("N2") Bs</td>
+                            <td class="comprobante-num">@linea.TotalProducto.ToString("N2") Bs</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <div class="comprobante-totales">
+                <div><span>Subtotal</span><span>@venta.Subtotal.ToString("N2") Bs</span></div>
+                <div>
+                    <span>Descuento
+                        @if (venta.PorcentajeDescuento > 0)
+                        {
+                            <small>(@venta.PorcentajeDescuento.ToString("N2")%)</small>
+                        }
+                    </span>
+                    <span>- @venta.MontoDescuento.ToString("N2") Bs</span>
+                </div>
+                <div class="comprobante-total"><span>TOTAL</span><span>@venta.MontoTotal.ToString("N2") Bs</span></div>
+            </div>
+
+            @if (!registrada)
+            {
+                <div class="comprobante-anulada">
+                    <strong>VENTA ANULADA</strong>
+                    <span>@venta.MotivoAnulacion</span>
+                </div>
+            }
+
+            <p class="comprobante-pie">
+                Documento generado por el sistema de Ferretería Joel.
+                @if (!registrada)
+                {
+                    @:Venta anulada el @venta.FechaAnulacion?.ToString("dd/MM/yyyy HH:mm").
+                }
+            </p>
+        </section>
+
+        <div class="comprobante-acciones">
+            <a class="fj-btn fj-btn-ghost" asp-page="Ventas">Volver al historial</a>
+            <button type="button" class="fj-btn fj-btn-primary" onclick="window.print()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" />
+                </svg>
+                Imprimir
+            </button>
+        </div>
+    }
+
+</div>

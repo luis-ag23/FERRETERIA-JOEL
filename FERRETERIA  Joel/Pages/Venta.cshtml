@@ -27,6 +27,9 @@
 
     @if (Model.VentaRegistrada is not null)
     {
+        var tokenComprobante = FERRETERIA__Joel.Helpers.UrlProtector
+            .Cifrar(Model.VentaRegistrada.IdVenta.ToString());
+
         <div class="fj-alert fj-alert-success" role="status">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
@@ -42,6 +45,9 @@
                 {
                     <span class="venta-exito-nota">No se generó una venta nueva (reenvío detectado).</span>
                 }
+                <a class="fj-btn fj-btn-primary venta-exito-accion"
+                   asp-page="VentaComprobante"
+                   asp-route-token="@tokenComprobante">Ver comprobante</a>
             </div>
         </div>
     }

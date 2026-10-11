@@ -408,6 +408,30 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 idempotente: false);
         }
 
+        public ComprobanteVenta? ObtenerComprobante(int idVenta)
+        {
+            Venta? venta = Ventas.ObtenerPorId(idVenta);
+
+            if (venta is null)
+            {
+                return null;
+            }
+
+            Cliente? cliente = Clientes.ObtenerPorId(venta.IdCliente);
+
+            string nombreCliente = cliente is null
+                ? "Cliente eliminado"
+                : $"{cliente.Nombre} {cliente.Apellido}".Trim();
+
+            return new ComprobanteVenta
+            {
+                Venta = venta,
+                NombreCliente = nombreCliente,
+                Lineas = MapearDetalles(
+                    Detalles.ObtenerPorVenta(idVenta))
+            };
+        }
+
         public ResultadoVenta AnularVenta(int idVenta, string motivo)
         {
             if (string.IsNullOrWhiteSpace(motivo))
