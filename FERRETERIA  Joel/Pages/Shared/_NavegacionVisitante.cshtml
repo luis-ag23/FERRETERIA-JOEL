@@ -1,0 +1,18 @@
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@{
+    string activo = (string?)ViewData["ActiveMenu"] ?? "";
+    string paginaLogin = Configuration["Registro:PaginaLogin"] ?? "/Login";
+}
+
+<li class="fj-menu-item @(activo == "Home" ? "is-active" : "")">
+    <a class="fj-menu-link" asp-page="/Index" aria-current="@(activo == "Home" ? "page" : null)">Home</a>
+</li>
+
+<li class="fj-menu-item @(activo == "RegistroCliente" ? "is-active" : "")">
+    <a class="fj-menu-link" asp-page="/RegistroCliente" aria-current="@(activo == "RegistroCliente" ? "page" : null)">Registrarse</a>
+</li>
+
+@* TODO (login): la página de inicio de sesión la implementa otro compañero. Enlaza a "Registro:PaginaLogin". *@
+<li class="fj-menu-item @(activo == "Login" ? "is-active" : "")">
+    <a class="fj-menu-link" href="@paginaLogin" aria-current="@(activo == "Login" ? "page" : null)">Iniciar sesión</a>
+</li>
