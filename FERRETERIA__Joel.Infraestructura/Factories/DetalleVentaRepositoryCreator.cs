@@ -1,22 +1,22 @@
-using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
 using FERRETERIA__Joel.Infraestructura.Conexion;
 using FERRETERIA__Joel.Infraestructura.Repositorios;
 
 namespace FERRETERIA__Joel.Infraestructura.Factories
 {
-    public class DetalleVentaRepositoryCreator : RepositoryCreator<IRepository<DetalleVenta>>
+    public class DetalleVentaRepositoryCreator
+        : RepositoryCreator<IDetalleVentaRepository>
     {
-        private readonly IDbConnectionFactory _connectionFactory;
+        private readonly IConexionTransaccional _conexion;
 
-        public DetalleVentaRepositoryCreator(IDbConnectionFactory connectionFactory)
+        public DetalleVentaRepositoryCreator(IConexionTransaccional conexion)
         {
-            _connectionFactory = connectionFactory;
+            _conexion = conexion;
         }
 
-        public override IRepository<DetalleVenta> CreateRepository()
+        public override IDetalleVentaRepository CreateRepository()
         {
-            return new MySqlDetalleVentaRepository(_connectionFactory);
+            return new MySqlDetalleVentaRepository(_conexion);
         }
     }
 }

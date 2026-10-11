@@ -2,6 +2,7 @@ using FERRETERIA__Joel.Aplicacion.Servicios;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
 using FERRETERIA__Joel.Helpers;
+using FERRETERIA__Joel.Infraestructura;
 using FERRETERIA__Joel.Infraestructura.Conexion;
 using FERRETERIA__Joel.Infraestructura.Factories;
 
@@ -18,15 +19,22 @@ UrlProtector.Inicializar(
 builder.Services.AddSingleton<IDbConnectionFactory, MySqlConnectionFactory>();
 
 
+builder.Services.AddScoped<IConexionTransaccional, MySqlConexionTransaccional>();
+builder.Services.AddScoped<IUnidadDeTrabajo, MySqlUnidadDeTrabajo>();
+
+
 builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Producto>>, ProductoRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Categoria>>, CategoriaRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Proveedor>>, ProveedorRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Marca>>, MarcaRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IRepository<Empleado>>, EmpleadoRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IHistoricoPrecioRepository>, HistoricoPrecioRepositoryCreator>();
-builder.Services.AddScoped<RepositoryCreator<IRepository<Cliente>>, ClienteRepositoryCreator>();
-builder.Services.AddScoped<RepositoryCreator<IRepository<Venta>>, VentaRepositoryCreator>();
-builder.Services.AddScoped<RepositoryCreator<IRepository<DetalleVenta>>, DetalleVentaRepositoryCreator>();
+builder.Services.AddScoped<RepositoryCreator<IClienteRepository>, ClienteRepositoryCreator>();
+builder.Services.AddScoped<RepositoryCreator<IVentaRepository>, VentaRepositoryCreator>();
+builder.Services.AddScoped<RepositoryCreator<IDetalleVentaRepository>, DetalleVentaRepositoryCreator>();
+builder.Services.AddScoped<RepositoryCreator<IInventarioRepository>, InventarioRepositoryCreator>();
+builder.Services.AddScoped<RepositoryCreator<IAutenticacionRepository>, AutenticacionRepositoryCreator>();
+builder.Services.AddScoped<RepositoryCreator<ISesionRepository>, SesionRepositoryCreator>();
 
 
 builder.Services.AddScoped<ServicioCategoria>();
