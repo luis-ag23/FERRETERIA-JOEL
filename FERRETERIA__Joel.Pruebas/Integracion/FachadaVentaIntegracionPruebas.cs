@@ -259,6 +259,159 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
             }
         }
 
+        [Fact]
+        public async Task RegistrarVenta_Real_Concurrente_CodigosUnicosAsync()
+        {
+            string? cadena = CadenaConexion;
+
+            if (string.IsNullOrWhiteSpace(cadena))
+            {
+                return;
+            }
+
+            int idCategoria = ObtenerPrimerId(cadena, "categoria", "IdCategoria");
+            int idMarca = ObtenerPrimerId(cadena, "marca", "IdMarca");
+
+            if (idCategoria == 0 || idMarca == 0)
+            {
+                return;
+            }
+
+            int idProducto = CrearProducto(
+                cadena, idCategoria, idMarca, precio: 100m, stock: 2);
+            int idCliente = CrearCliente(cadena);
+
+            try
+            {
+                (FachadaVenta fachadaA, MySqlConexionTransaccional conexionA) =
+                    CrearFachada(cadena, idEmpleado: 1);
+                (FachadaVenta fachadaB, MySqlConexionTransaccional conexionB) =
+                    CrearFachada(cadena, idEmpleado: 1);
+
+                using (conexionA)
+                using (conexionB)
+                {
+                    SolicitudVenta solicitudA = new()
+                    {
+                        IdCliente = idCliente,
+                        MetodoPago = "Efectivo",
+                        Lineas = new List<LineaVentaSolicitada>
+                        {
+                            new() { IdProducto = idProducto, Cantidad = 1 }
+                        }
+                    };
+
+                    SolicitudVenta solicitudB = new()
+                    {
+                        IdCliente = idCliente,
+                        MetodoPago = "Efectivo",
+                        Lineas = new List<LineaVentaSolicitada>
+                        {
+                            new() { IdProducto = idProducto, Cantidad = 1 }
+                        }
+                    };
+
+                    Task<ResultadoVenta> tareaA = fachadaA.RegistrarVentaAsync(solicitudA);
+                    Task<ResultadoVenta> tareaB = fachadaB.RegistrarVentaAsync(solicitudB);
+
+                    ResultadoVenta[] resultados =
+                        await Task.WhenAll(tareaA, tareaB);
+
+                    Assert.Equal(2, resultados.Count(r => r.Exito));
+                    Assert.Equal(0, LeerStock(cadena, idProducto));
+
+                    List<int> ids = resultados.Select(r => r.IdVenta).ToList();
+                    List<string?> codigos = resultados
+                        .Select(r => r.CodigoVenta)
+                        .ToList();
+
+                    Assert.Equal(2, ids.Distinct().Count());
+                    Assert.All(codigos, c => Assert.False(string.IsNullOrWhiteSpace(c)));
+                    Assert.Equal(2, codigos.Distinct().Count());
+                }
+            }
+            finally
+            {
+                Limpiar(cadena, idProducto, idCliente);
+            }
+        }
+
+        [Fact]
+        public async Task AnularVenta_Real_Concurrente_RestauraStockUnaVezAsync()
+        {
+            string? cadena = CadenaConexion;
+
+            if (string.IsNullOrWhiteSpace(cadena))
+            {
+                return;
+            }
+
+            int idCategoria = ObtenerPrimerId(cadena, "categoria", "IdCategoria");
+            int idMarca = ObtenerPrimerId(cadena, "marca", "IdMarca");
+
+            if (idCategoria == 0 || idMarca == 0)
+            {
+                return;
+            }
+
+            int idProducto = CrearProducto(
+                cadena, idCategoria, idMarca, precio: 100m, stock: 10);
+            int idCliente = CrearCliente(cadena);
+
+            try
+            {
+                int idVenta;
+
+                (FachadaVenta fachadaRegistro, MySqlConexionTransaccional conexionRegistro) =
+                    CrearFachada(cadena, idEmpleado: 1);
+
+                using (conexionRegistro)
+                {
+                    ResultadoVenta venta = await fachadaRegistro.RegistrarVentaAsync(
+                        new SolicitudVenta
+                        {
+                            IdCliente = idCliente,
+                            MetodoPago = "Efectivo",
+                            Lineas = new List<LineaVentaSolicitada>
+                            {
+                                new() { IdProducto = idProducto, Cantidad = 4 }
+                            }
+                        });
+
+                    Assert.True(venta.Exito);
+                    idVenta = venta.IdVenta;
+                    Assert.Equal(6, LeerStock(cadena, idProducto));
+                }
+
+                (FachadaVenta fachadaA, MySqlConexionTransaccional conexionA) =
+                    CrearFachada(cadena, idEmpleado: 1);
+                (FachadaVenta fachadaB, MySqlConexionTransaccional conexionB) =
+                    CrearFachada(cadena, idEmpleado: 1);
+
+                using (conexionA)
+                using (conexionB)
+                {
+                    Task<ResultadoVenta> tareaA =
+                        fachadaA.AnularVentaAsync(idVenta, "Anulación concurrente A");
+                    Task<ResultadoVenta> tareaB =
+                        fachadaB.AnularVentaAsync(idVenta, "Anulación concurrente B");
+
+                    ResultadoVenta[] resultados =
+                        await Task.WhenAll(tareaA, tareaB);
+
+                    Assert.Equal(1, resultados.Count(r => r.Exito));
+                    Assert.Equal(10, LeerStock(cadena, idProducto));
+                    Assert.Equal(
+                        EstadoVenta.Anulada,
+                        LeerEstadoVenta(cadena, idVenta));
+                }
+            }
+            finally
+            {
+                Limpiar(cadena, idProducto, idCliente);
+            }
+        }
+
         private static (FachadaVenta, MySqlConexionTransaccional) CrearFachada(
             string cadena,
             int idEmpleado)
