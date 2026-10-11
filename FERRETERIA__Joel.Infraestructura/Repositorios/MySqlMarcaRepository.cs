@@ -5,7 +5,7 @@ using FERRETERIA__Joel.Dominio.Puertos;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
 {
-    public class MySqlMarcaRepository : IMarcaRepository
+    public class MySqlMarcaRepository : IGestionarRepository<Marca>
     {
         private readonly IDbConnectionFactory _connectionFactory;
 
@@ -14,7 +14,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             _connectionFactory = connectionFactory;
         }
 
-        public List<Marca> ObtenerTodas()
+        public List<Marca> ObtenerTodos()
         {
             List<Marca> marcas = new();
 
@@ -22,9 +22,13 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 SELECT
                     IdMarca,
                     Nombre,
+                    Descripcion,
+                    PaisOrigen,
+                    Calidad,
                     Estado,
                     FechaRegistro,
-                    FechaActualizacion
+                    FechaActualizacion,
+                    IdEmpleadoResponsable
                 FROM marca
                 ORDER BY Nombre ASC";
 
@@ -47,7 +51,140 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return marcas;
         }
 
-        public List<Marca> ObtenerActivas()
+        public int Insertar(Marca marca)
+        {
+            const string query = @"
+                INSERT INTO marca
+                (
+                    Nombre,
+                    Descripcion,
+                    PaisOrigen,
+                    Calidad,
+                    Estado,
+                    IdEmpleadoResponsable
+                )
+                VALUES
+                (
+                    @nombre,
+                    @descripcion,
+                    @paisOrigen,
+                    @calidad,
+                    1,
+                    @idEmpleadoResponsable
+                )";
+
+            using MySqlConnection connection =
+                _connectionFactory.CreateConnection();
+
+            using MySqlCommand command =
+                new MySqlCommand(query, connection);
+
+            command.Parameters.AddWithValue(
+                "@nombre",
+                marca.Nombre.Trim());
+
+            command.Parameters.AddWithValue(
+                "@descripcion",
+                (object?)marca.Descripcion ?? DBNull.Value);
+
+            command.Parameters.AddWithValue(
+                "@paisOrigen",
+                marca.PaisOrigen);
+
+            command.Parameters.AddWithValue(
+                "@calidad",
+                marca.Calidad);
+
+            command.Parameters.AddWithValue(
+                "@idEmpleadoResponsable",
+                marca.IdEmpleadoResponsable);
+
+            connection.Open();
+
+            command.ExecuteNonQuery();
+
+            return Convert.ToInt32(command.LastInsertedId);
+        }
+
+        public void Actualizar(Marca marca)
+        {
+            const string query = @"
+                UPDATE marca
+                SET
+                    Nombre = @nombre,
+                    Descripcion = @descripcion,
+                    PaisOrigen = @paisOrigen,
+                    Calidad = @calidad,
+                    Estado = @estado,
+                    FechaActualizacion = CURRENT_TIMESTAMP,
+                    IdEmpleadoResponsable = @idEmpleadoResponsable
+                WHERE IdMarca = @idMarca";
+
+            using MySqlConnection connection =
+                _connectionFactory.CreateConnection();
+
+            using MySqlCommand command =
+                new MySqlCommand(query, connection);
+
+            command.Parameters.AddWithValue(
+                "@idMarca",
+                marca.IdMarca);
+
+            command.Parameters.AddWithValue(
+                "@nombre",
+                marca.Nombre.Trim());
+
+            command.Parameters.AddWithValue(
+                "@descripcion",
+                (object?)marca.Descripcion ?? DBNull.Value);
+
+            command.Parameters.AddWithValue(
+                "@paisOrigen",
+                marca.PaisOrigen);
+
+            command.Parameters.AddWithValue(
+                "@calidad",
+                marca.Calidad);
+
+            command.Parameters.AddWithValue(
+                "@estado",
+                marca.Estado);
+
+            command.Parameters.AddWithValue(
+                "@idEmpleadoResponsable",
+                marca.IdEmpleadoResponsable);
+
+            connection.Open();
+
+            command.ExecuteNonQuery();
+        }
+
+        public void CambiarEstado(int id)
+        {
+            const string query = @"
+                UPDATE marca
+                SET
+                    Estado = CASE
+                        WHEN Estado = 1 THEN 0
+                        ELSE 1
+                    END,
+                    FechaActualizacion = CURRENT_TIMESTAMP
+                WHERE IdMarca = @idMarca";
+
+            using MySqlConnection connection =
+                _connectionFactory.CreateConnection();
+
+            using MySqlCommand command =
+                new MySqlCommand(query, connection);
+
+            command.Parameters.AddWithValue("@idMarca", id);
+
+            connection.Open();
+
+            command.ExecuteNonQuery();
+        }
+
+        public List<Marca> MostrarActivos()
         {
             List<Marca> marcas = new();
 
@@ -55,9 +192,13 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 SELECT
                     IdMarca,
                     Nombre,
+                    Descripcion,
+                    PaisOrigen,
+                    Calidad,
                     Estado,
                     FechaRegistro,
-                    FechaActualizacion
+                    FechaActualizacion,
+                    IdEmpleadoResponsable
                 FROM marca
                 WHERE Estado = 1
                 ORDER BY Nombre ASC";
@@ -81,6 +222,8 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return marcas;
         }
 
+        // ================== Funciones fuera del contrato ==================
+
         private static Marca MapearMarca(MySqlDataReader reader)
         {
             return new Marca
@@ -91,6 +234,17 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 Nombre =
                     reader["Nombre"].ToString() ?? "",
 
+                Descripcion =
+                    reader["Descripcion"] == DBNull.Value
+                    ? null
+                    : reader["Descripcion"].ToString(),
+
+                PaisOrigen =
+                    reader["PaisOrigen"].ToString() ?? "",
+
+                Calidad =
+                    reader["Calidad"].ToString() ?? "",
+
                 Estado =
                     reader.GetByte("Estado"),
 
@@ -100,7 +254,10 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 FechaActualizacion =
                     reader["FechaActualizacion"] == DBNull.Value
                     ? null
-                    : reader.GetDateTime("FechaActualizacion")
+                    : reader.GetDateTime("FechaActualizacion"),
+
+                IdEmpleadoResponsable =
+                    reader.GetInt32("IdEmpleadoResponsable")
             };
         }
     }

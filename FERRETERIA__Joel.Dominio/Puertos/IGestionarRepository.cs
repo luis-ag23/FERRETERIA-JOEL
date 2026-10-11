@@ -1,11 +1,11 @@
 namespace FERRETERIA__Joel.Dominio.Puertos
 {
-    public interface IModificacionRepository<T>
+    public interface IGestionarRepository<T> : IRepository<T>
     {
         void Actualizar(T entidad);
 
         void CambiarEstado(int id);
 
-        int Count();
+        List<T> MostrarActivos();
     }
 }

@@ -5,17 +5,14 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 {
     public class ServicioProducto
     {
-        private readonly IRepository<Producto> _repositorio;
-        private readonly IModificacionRepository<Producto> _modificacion;
+        private readonly IGestionarRepository<Producto> _repositorio;
         private readonly ServicioHistoricoPrecio _historicoPrecio;
 
         public ServicioProducto(
-            IRepository<Producto> repositorio,
-            IModificacionRepository<Producto> modificacion,
+            IGestionarRepository<Producto> repositorio,
             ServicioHistoricoPrecio historicoPrecio)
         {
             _repositorio = repositorio;
-            _modificacion = modificacion;
             _historicoPrecio = historicoPrecio;
         }
 
@@ -26,7 +23,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
         public List<Producto> ObtenerActivas()
         {
-            return _repositorio.ObtenerActivas();
+            return _repositorio.MostrarActivos();
         }
 
         public List<Producto> Listar(bool soloActivos)
@@ -38,12 +35,14 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
         public Producto? ObtenerPorId(int id)
         {
-            return _repositorio.ObtenerPorId(id);
+            return _repositorio
+                .ObtenerTodos()
+                .FirstOrDefault(p => p.IdProducto == id);
         }
 
         public string SiguienteCodigo()
         {
-            return $"PROD-{_modificacion.Count() + 1:D3}";
+            return $"PROD-{_repositorio.ObtenerTodos().Count + 1:D3}";
         }
 
         public int Crear(Producto producto)
@@ -69,7 +68,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 _historicoPrecio.ObtenerPrecioVigente(
                     producto.IdProducto);
 
-            _modificacion.Actualizar(producto);
+            _repositorio.Actualizar(producto);
 
             bool cambioPrecio =
                 precioVigente is null ||
@@ -99,7 +98,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
         public void CambiarEstado(int idProducto)
         {
-            _modificacion.CambiarEstado(idProducto);
+            _repositorio.CambiarEstado(idProducto);
         }
     }
 }

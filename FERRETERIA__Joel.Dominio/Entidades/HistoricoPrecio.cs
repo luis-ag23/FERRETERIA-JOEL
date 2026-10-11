@@ -14,11 +14,7 @@ namespace FERRETERIA__Joel.Dominio.Entidades
 
         public string MotivoCambio { get; set; } = string.Empty;
 
-        public byte Estado { get; set; }
-
         public DateTime FechaRegistro { get; set; }
-
-        public DateTime? FechaActualizacion { get; set; }
 
         public int IdEmpleadoResponsable { get; set; }
         public string? NombreProducto { get; set; }

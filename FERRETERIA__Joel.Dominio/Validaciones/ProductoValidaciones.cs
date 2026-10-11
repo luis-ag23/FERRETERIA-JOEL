@@ -44,6 +44,11 @@ namespace FERRETERIA__Joel.Dominio.Validaciones
             return idCategoria >= ConfiguracionProducto.CategoriaMinima;
         }
 
+        public bool EsCantidadStockValido(int cantidadStock)
+        {
+            return cantidadStock >= ConfiguracionProducto.StockMinimo;
+        }
+
         public bool EsEmpleadoValido(int idEmpleadoResponsable)
         {
             return idEmpleadoResponsable >= ConfiguracionProducto.EmpleadoMinimo;

@@ -74,6 +74,7 @@
                         <th scope="col">Categoría</th>
                         <th scope="col" class="fj-th-detalle">Detalle</th>
                         <th scope="col" class="fj-td-precio">Precio</th>
+                        <th scope="col">Stock</th>
                         <th scope="col" class="fj-td-estado">Estado</th>
                         <th scope="col" class="fj-td-acciones">Acciones</th>
                     </tr>
@@ -84,7 +85,7 @@
                     @if (Model.ListProductos.Count == 0)
                     {
                         <tr>
-                            <td colspan="7" class="fj-table-vacio">
+                            <td colspan="8" class="fj-table-vacio">
                                 <div class="fj-empty">
                                     <span class="fj-empty-ico" aria-hidden="true">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -141,6 +142,8 @@
                                 <span class="fj-precio">@item.PrecioVenta.ToString("N2")</span>
                                 <span class="fj-currency">Bs</span>
                             </td>
+
+                            <td class="fj-td-secundario">@item.CantidadStock</td>
 
                             <td class="fj-td-estado">
                                 <span class="fj-pill" style="--pill: var(@(item.Estado == 1 ? "--success" : "--texto-ter"));">@(item.Estado == 1 ? "Activo" : "Inactivo")</span>

@@ -27,9 +27,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     h.FechaInicioVigencia,
                     h.FechaFinVigencia,
                     h.MotivoCambio,
-                    h.Estado,
                     h.FechaRegistro,
-                    h.FechaActualizacion,
                     h.IdEmpleadoResponsable,
                     e.Nombre AS NombreEmpleadoResponsable
                 FROM historico_precio h
@@ -56,93 +54,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             }
 
             return historicos;
-        }
-
-        public List<HistoricoPrecio> ObtenerActivas()
-        {
-            List<HistoricoPrecio> historicos = new();
-
-            const string query = @"
-                SELECT
-                    h.IdHistoricoPrecio,
-                    h.IdProducto,
-                    p.Nombre AS NombreProducto,
-                    h.Precio,
-                    h.FechaInicioVigencia,
-                    h.FechaFinVigencia,
-                    h.MotivoCambio,
-                    h.Estado,
-                    h.FechaRegistro,
-                    h.FechaActualizacion,
-                    h.IdEmpleadoResponsable,
-                    e.Nombre AS NombreEmpleadoResponsable
-                FROM historico_precio h
-                INNER JOIN producto p
-                    ON p.IdProducto = h.IdProducto
-                INNER JOIN empleado e
-                    ON e.IdEmpleado = h.IdEmpleadoResponsable
-                WHERE h.Estado = 1
-                ORDER BY h.FechaInicioVigencia DESC";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            while (reader.Read())
-            {
-                historicos.Add(MapearHistoricoPrecio(reader));
-            }
-
-            return historicos;
-        }
-
-        public HistoricoPrecio? ObtenerPorId(int id)
-        {
-            const string query = @"
-                SELECT
-                    h.IdHistoricoPrecio,
-                    h.IdProducto,
-                    p.Nombre AS NombreProducto,
-                    h.Precio,
-                    h.FechaInicioVigencia,
-                    h.FechaFinVigencia,
-                    h.MotivoCambio,
-                    h.Estado,
-                    h.FechaRegistro,
-                    h.FechaActualizacion,
-                    h.IdEmpleadoResponsable,
-                    e.Nombre AS NombreEmpleadoResponsable
-                FROM historico_precio h
-                INNER JOIN producto p
-                    ON p.IdProducto = h.IdProducto
-                INNER JOIN empleado e
-                    ON e.IdEmpleado = h.IdEmpleadoResponsable
-                WHERE h.IdHistoricoPrecio = @id
-                LIMIT 1";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue("@id", id);
-
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            return reader.Read()
-                ? MapearHistoricoPrecio(reader)
-                : null;
         }
 
         public int Insertar(HistoricoPrecio historicoPrecio)
@@ -155,7 +66,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             FechaInicioVigencia,
             FechaFinVigencia,
             MotivoCambio,
-            Estado,
             IdEmpleadoResponsable
         )
         VALUES
@@ -165,7 +75,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             CURRENT_TIMESTAMP,
             NULL,
             @motivoCambio,
-            1,
             @idEmpleadoResponsable
         )";
 
@@ -198,6 +107,91 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return Convert.ToInt32(command.LastInsertedId);
         }
 
+        // ================== Funciones fuera del contrato ==================
+
+        public List<HistoricoPrecio> ObtenerActivas()
+        {
+            List<HistoricoPrecio> historicos = new();
+
+            const string query = @"
+                SELECT
+                    h.IdHistoricoPrecio,
+                    h.IdProducto,
+                    p.Nombre AS NombreProducto,
+                    h.Precio,
+                    h.FechaInicioVigencia,
+                    h.FechaFinVigencia,
+                    h.MotivoCambio,
+                    h.FechaRegistro,
+                    h.IdEmpleadoResponsable,
+                    e.Nombre AS NombreEmpleadoResponsable
+                FROM historico_precio h
+                INNER JOIN producto p
+                    ON p.IdProducto = h.IdProducto
+                INNER JOIN empleado e
+                    ON e.IdEmpleado = h.IdEmpleadoResponsable
+                WHERE h.FechaFinVigencia IS NULL
+                ORDER BY h.FechaInicioVigencia DESC";
+
+            using MySqlConnection connection =
+                _connectionFactory.CreateConnection();
+
+            using MySqlCommand command =
+                new MySqlCommand(query, connection);
+
+            connection.Open();
+
+            using MySqlDataReader reader =
+                command.ExecuteReader();
+
+            while (reader.Read())
+            {
+                historicos.Add(MapearHistoricoPrecio(reader));
+            }
+
+            return historicos;
+        }
+
+        public HistoricoPrecio? ObtenerPorId(int id)
+        {
+            const string query = @"
+                SELECT
+                    h.IdHistoricoPrecio,
+                    h.IdProducto,
+                    p.Nombre AS NombreProducto,
+                    h.Precio,
+                    h.FechaInicioVigencia,
+                    h.FechaFinVigencia,
+                    h.MotivoCambio,
+                    h.FechaRegistro,
+                    h.IdEmpleadoResponsable,
+                    e.Nombre AS NombreEmpleadoResponsable
+                FROM historico_precio h
+                INNER JOIN producto p
+                    ON p.IdProducto = h.IdProducto
+                INNER JOIN empleado e
+                    ON e.IdEmpleado = h.IdEmpleadoResponsable
+                WHERE h.IdHistoricoPrecio = @id
+                LIMIT 1";
+
+            using MySqlConnection connection =
+                _connectionFactory.CreateConnection();
+
+            using MySqlCommand command =
+                new MySqlCommand(query, connection);
+
+            command.Parameters.AddWithValue("@id", id);
+
+            connection.Open();
+
+            using MySqlDataReader reader =
+                command.ExecuteReader();
+
+            return reader.Read()
+                ? MapearHistoricoPrecio(reader)
+                : null;
+        }
+
         public List<HistoricoPrecio> ObtenerPorProducto(int idProducto)
         {
             List<HistoricoPrecio> historicos = new();
@@ -211,9 +205,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     h.FechaInicioVigencia,
                     h.FechaFinVigencia,
                     h.MotivoCambio,
-                    h.Estado,
                     h.FechaRegistro,
-                    h.FechaActualizacion,
                     h.IdEmpleadoResponsable,
                     e.Nombre AS NombreEmpleadoResponsable
                 FROM historico_precio h
@@ -257,14 +249,11 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             FechaInicioVigencia,
             FechaFinVigencia,
             MotivoCambio,
-            Estado,
             FechaRegistro,
-            FechaActualizacion,
             IdEmpleadoResponsable
         FROM historico_precio
         WHERE IdProducto = @idProducto
         AND FechaFinVigencia IS NULL
-        AND Estado = 1
         ORDER BY FechaInicioVigencia DESC
         LIMIT 1";
 
@@ -300,27 +289,20 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                         : reader.GetDateTime("FechaFinVigencia"),
                 MotivoCambio =
                     reader["MotivoCambio"].ToString() ?? "",
-                Estado =
-                    reader.GetByte("Estado"),
                 FechaRegistro =
                     reader.GetDateTime("FechaRegistro"),
-                FechaActualizacion =
-                    reader["FechaActualizacion"] == DBNull.Value
-                        ? null
-                        : reader.GetDateTime("FechaActualizacion"),
                 IdEmpleadoResponsable =
                     reader.GetInt32("IdEmpleadoResponsable")
             };
         }
+
         public void CerrarPrecioVigente(int idProducto)
         {
             const string query = @"
         UPDATE historico_precio
-        SET FechaFinVigencia = CURRENT_TIMESTAMP,
-            FechaActualizacion = CURRENT_TIMESTAMP
+        SET FechaFinVigencia = CURRENT_TIMESTAMP
         WHERE IdProducto = @idProducto
-        AND FechaFinVigencia IS NULL
-        AND Estado = 1";
+        AND FechaFinVigencia IS NULL";
 
             using MySqlConnection connection =
                 _connectionFactory.CreateConnection();
@@ -336,6 +318,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
             command.ExecuteNonQuery();
         }
+
         private HistoricoPrecio MapearHistoricoPrecio(
             MySqlDataReader reader)
         {
@@ -364,16 +347,8 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 MotivoCambio =
                     reader["MotivoCambio"].ToString() ?? "",
 
-                Estado =
-                    reader.GetByte("Estado"),
-
                 FechaRegistro =
                     reader.GetDateTime("FechaRegistro"),
-
-                FechaActualizacion =
-                    reader["FechaActualizacion"] == DBNull.Value
-                        ? null
-                        : reader.GetDateTime("FechaActualizacion"),
 
                 IdEmpleadoResponsable =
                     reader.GetInt32("IdEmpleadoResponsable"),

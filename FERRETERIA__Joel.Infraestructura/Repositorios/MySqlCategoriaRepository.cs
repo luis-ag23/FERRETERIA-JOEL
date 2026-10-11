@@ -5,7 +5,7 @@ using FERRETERIA__Joel.Dominio.Puertos;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
 {
-    public class MySqlCategoriaRepository : IRepository<Categoria>, IModificacionRepository<Categoria>
+    public class MySqlCategoriaRepository : IGestionarRepository<Categoria>
     {
         private readonly IDbConnectionFactory _connectionFactory;
 
@@ -49,81 +49,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             }
 
             return categorias;
-        }
-
-        public List<Categoria> ObtenerActivas()
-        {
-            List<Categoria> categorias = new();
-
-            const string query = @"
-                SELECT
-                    IdCategoria,
-                    Codigo,
-                    Nombre,
-                    Descripcion,
-                    PorcentajeGanancia,
-                    Estado,
-                    FechaRegistro,
-                    FechaActualizacion,
-                    IdEmpleadoResponsable
-                FROM categoria
-                WHERE Estado = 1
-                ORDER BY Nombre ASC";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            while (reader.Read())
-            {
-                categorias.Add(MapearCategoria(reader));
-            }
-
-            return categorias;
-        }
-
-        public Categoria? ObtenerPorId(int id)
-        {
-            const string query = @"
-                SELECT
-                    IdCategoria,
-                    Codigo,
-                    Nombre,
-                    Descripcion,
-                    PorcentajeGanancia,
-                    Estado,
-                    FechaRegistro,
-                    FechaActualizacion,
-                    IdEmpleadoResponsable
-                FROM categoria
-                WHERE IdCategoria = @IdCategoria
-                LIMIT 1";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue(
-                "@IdCategoria",
-                id);
-
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            return reader.Read()
-                ? MapearCategoria(reader)
-                : null;
         }
 
         public int Insertar(Categoria categoria)
@@ -200,6 +125,83 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
             connection.Open();
             command.ExecuteNonQuery();
+        }
+
+        public List<Categoria> MostrarActivos()
+        {
+            List<Categoria> categorias = new();
+
+            const string query = @"
+                SELECT
+                    IdCategoria,
+                    Codigo,
+                    Nombre,
+                    Descripcion,
+                    PorcentajeGanancia,
+                    Estado,
+                    FechaRegistro,
+                    FechaActualizacion,
+                    IdEmpleadoResponsable
+                FROM categoria
+                WHERE Estado = 1
+                ORDER BY Nombre ASC";
+
+            using MySqlConnection connection =
+                _connectionFactory.CreateConnection();
+
+            using MySqlCommand command =
+                new MySqlCommand(query, connection);
+
+            connection.Open();
+
+            using MySqlDataReader reader =
+                command.ExecuteReader();
+
+            while (reader.Read())
+            {
+                categorias.Add(MapearCategoria(reader));
+            }
+
+            return categorias;
+        }
+
+        // ================== Funciones fuera del contrato ==================
+
+        public Categoria? ObtenerPorId(int id)
+        {
+            const string query = @"
+                SELECT
+                    IdCategoria,
+                    Codigo,
+                    Nombre,
+                    Descripcion,
+                    PorcentajeGanancia,
+                    Estado,
+                    FechaRegistro,
+                    FechaActualizacion,
+                    IdEmpleadoResponsable
+                FROM categoria
+                WHERE IdCategoria = @IdCategoria
+                LIMIT 1";
+
+            using MySqlConnection connection =
+                _connectionFactory.CreateConnection();
+
+            using MySqlCommand command =
+                new MySqlCommand(query, connection);
+
+            command.Parameters.AddWithValue(
+                "@IdCategoria",
+                id);
+
+            connection.Open();
+
+            using MySqlDataReader reader =
+                command.ExecuteReader();
+
+            return reader.Read()
+                ? MapearCategoria(reader)
+                : null;
         }
 
         public int Count()

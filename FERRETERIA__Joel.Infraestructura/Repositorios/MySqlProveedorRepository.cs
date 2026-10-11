@@ -5,7 +5,7 @@ using MySql.Data.MySqlClient;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
 {
-    public class MySqlProveedorRepository : IRepository<Proveedor>, IModificacionRepository<Proveedor>
+    public class MySqlProveedorRepository : IGestionarRepository<Proveedor>
     {
         private readonly IDbConnectionFactory _connectionFactory;
 
@@ -13,7 +13,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
         {
             _connectionFactory = connectionFactory;
         }
-
 
         public List<Proveedor> ObtenerTodos()
         {
@@ -53,90 +52,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
             return proveedores;
         }
-
-
-        public List<Proveedor> ObtenerActivas()
-        {
-            List<Proveedor> proveedores = new();
-
-            const string query = @"
-                SELECT
-                    IdProveedor,
-                    RazonSocial,
-                    NombreComercial,
-                    NombreContacto,
-                    Telefono,
-                    CorreoElectronico,
-                    Direccion,
-                    Estado,
-                    FechaRegistro,
-                    FechaActualizacion,
-                    IdEmpleadoResponsable
-                FROM proveedor
-                WHERE Estado = 1
-                ORDER BY RazonSocial ASC";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            while (reader.Read())
-            {
-                proveedores.Add(MapearProveedor(reader));
-            }
-
-            return proveedores;
-        }
-
-
-        public Proveedor? ObtenerPorId(int idProveedor)
-        {
-            const string query = @"
-                SELECT
-                    IdProveedor,
-                    RazonSocial,
-                    NombreComercial,
-                    NombreContacto,
-                    Telefono,
-                    CorreoElectronico,
-                    Direccion,
-                    Estado,
-                    FechaRegistro,
-                    FechaActualizacion,
-                    IdEmpleadoResponsable
-                FROM proveedor
-                WHERE IdProveedor = @idProveedor";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue(
-                "@idProveedor",
-                idProveedor);
-
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            if (!reader.Read())
-            {
-                return null;
-            }
-
-            return MapearProveedor(reader);
-        }
-
 
         public int Insertar(Proveedor proveedor)
         {
@@ -209,7 +124,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return Convert.ToInt32(command.LastInsertedId);
         }
 
-
         public void Actualizar(Proveedor proveedor)
         {
             const string query = @"
@@ -275,7 +189,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.ExecuteNonQuery();
         }
 
-
         public void CambiarEstado(int idProveedor)
         {
             const string query = @"
@@ -303,6 +216,88 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.ExecuteNonQuery();
         }
 
+        public List<Proveedor> MostrarActivos()
+        {
+            List<Proveedor> proveedores = new();
+
+            const string query = @"
+                SELECT
+                    IdProveedor,
+                    RazonSocial,
+                    NombreComercial,
+                    NombreContacto,
+                    Telefono,
+                    CorreoElectronico,
+                    Direccion,
+                    Estado,
+                    FechaRegistro,
+                    FechaActualizacion,
+                    IdEmpleadoResponsable
+                FROM proveedor
+                WHERE Estado = 1
+                ORDER BY RazonSocial ASC";
+
+            using MySqlConnection connection =
+                _connectionFactory.CreateConnection();
+
+            using MySqlCommand command =
+                new MySqlCommand(query, connection);
+
+            connection.Open();
+
+            using MySqlDataReader reader =
+                command.ExecuteReader();
+
+            while (reader.Read())
+            {
+                proveedores.Add(MapearProveedor(reader));
+            }
+
+            return proveedores;
+        }
+
+        // ================== Funciones fuera del contrato ==================
+
+        public Proveedor? ObtenerPorId(int idProveedor)
+        {
+            const string query = @"
+                SELECT
+                    IdProveedor,
+                    RazonSocial,
+                    NombreComercial,
+                    NombreContacto,
+                    Telefono,
+                    CorreoElectronico,
+                    Direccion,
+                    Estado,
+                    FechaRegistro,
+                    FechaActualizacion,
+                    IdEmpleadoResponsable
+                FROM proveedor
+                WHERE IdProveedor = @idProveedor";
+
+            using MySqlConnection connection =
+                _connectionFactory.CreateConnection();
+
+            using MySqlCommand command =
+                new MySqlCommand(query, connection);
+
+            command.Parameters.AddWithValue(
+                "@idProveedor",
+                idProveedor);
+
+            connection.Open();
+
+            using MySqlDataReader reader =
+                command.ExecuteReader();
+
+            if (!reader.Read())
+            {
+                return null;
+            }
+
+            return MapearProveedor(reader);
+        }
 
         public int Count()
         {
@@ -320,7 +315,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
             return Convert.ToInt32(command.ExecuteScalar());
         }
-
 
         private Proveedor MapearProveedor(MySqlDataReader reader)
         {

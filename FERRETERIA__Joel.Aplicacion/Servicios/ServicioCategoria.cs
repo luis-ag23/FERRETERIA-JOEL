@@ -5,15 +5,12 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 {
     public class ServicioCategoria
     {
-        private readonly IRepository<Categoria> _repositorio;
-        private readonly IModificacionRepository<Categoria> _modificacion;
+        private readonly IGestionarRepository<Categoria> _repositorio;
 
         public ServicioCategoria(
-            IRepository<Categoria> repositorio,
-            IModificacionRepository<Categoria> modificacion)
+            IGestionarRepository<Categoria> repositorio)
         {
             _repositorio = repositorio;
-            _modificacion = modificacion;
         }
 
         public List<Categoria> ObtenerTodos()
@@ -23,17 +20,19 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
         public List<Categoria> ObtenerActivas()
         {
-            return _repositorio.ObtenerActivas();
+            return _repositorio.MostrarActivos();
         }
 
         public Categoria? ObtenerPorId(int id)
         {
-            return _repositorio.ObtenerPorId(id);
+            return _repositorio
+                .ObtenerTodos()
+                .FirstOrDefault(c => c.IdCategoria == id);
         }
 
         public string SiguienteCodigo()
         {
-            return $"CAT-{_modificacion.Count() + 1:D3}";
+            return $"CAT-{_repositorio.ObtenerTodos().Count + 1:D3}";
         }
 
         public int Insertar(Categoria categoria)
@@ -43,12 +42,12 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
         public void Actualizar(Categoria categoria)
         {
-            _modificacion.Actualizar(categoria);
+            _repositorio.Actualizar(categoria);
         }
 
         public void CambiarEstado(int id)
         {
-            _modificacion.CambiarEstado(id);
+            _repositorio.CambiarEstado(id);
         }
     }
 }

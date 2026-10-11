@@ -5,7 +5,7 @@ using MySql.Data.MySqlClient;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
 {
-    public class MySqlProductoRepository : IRepository<Producto>, IModificacionRepository<Producto>
+    public class MySqlProductoRepository : IGestionarRepository<Producto>
     {
         private readonly IDbConnectionFactory _connectionFactory;
 
@@ -13,7 +13,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
         {
             _connectionFactory = connectionFactory;
         }
-
 
         public List<Producto> ObtenerTodos()
         {
@@ -30,6 +29,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     m.Nombre AS NombreMarca,
                     p.UnidadMedida,
                     p.PrecioVenta,
+                    p.CantidadStock,
                     p.Estado,
                     p.FechaRegistro,
                     p.FechaActualizacion,
@@ -56,95 +56,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
             return productos;
         }
-
-        public List<Producto> ObtenerActivas()
-        {
-            List<Producto> productos = new();
-
-            const string query = @"
-                SELECT
-                    p.IdProducto,
-                    p.IdCategoria,
-                    p.Codigo,
-                    p.Nombre,
-                    p.Descripcion,
-                    p.Marca AS IdMarca,
-                    m.Nombre AS NombreMarca,
-                    p.UnidadMedida,
-                    p.PrecioVenta,
-                    p.Estado,
-                    p.FechaRegistro,
-                    p.FechaActualizacion,
-                    p.IdEmpleadoResponsable
-                FROM producto p
-                LEFT JOIN marca m ON m.IdMarca = p.Marca
-                WHERE p.Estado = 1
-                ORDER BY p.Nombre ASC";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            while (reader.Read())
-            {
-                productos.Add(MapearProducto(reader));
-            }
-
-            return productos;
-        }
-
-
-        public Producto? ObtenerPorId(int idProducto)
-        {
-            const string query = @"
-                SELECT
-                    p.IdProducto,
-                    p.IdCategoria,
-                    p.Codigo,
-                    p.Nombre,
-                    p.Descripcion,
-                    p.Marca AS IdMarca,
-                    m.Nombre AS NombreMarca,
-                    p.UnidadMedida,
-                    p.PrecioVenta,
-                    p.Estado,
-                    p.FechaRegistro,
-                    p.FechaActualizacion,
-                    p.IdEmpleadoResponsable
-                FROM producto p
-                LEFT JOIN marca m ON m.IdMarca = p.Marca
-                WHERE p.IdProducto = @idProducto";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue(
-                "@idProducto",
-                idProducto);
-
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            if (!reader.Read())
-            {
-                return null;
-            }
-
-            return MapearProducto(reader);
-        }
-
 
         public int Insertar(Producto producto)
         {
@@ -158,6 +69,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     Marca,
                     UnidadMedida,
                     PrecioVenta,
+                    CantidadStock,
                     Estado,
                     IdEmpleadoResponsable
                 )
@@ -170,6 +82,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     @idMarca,
                     @unidadMedida,
                     @precioVenta,
+                    @cantidadStock,
                     1,
                     @idEmpleadoResponsable
                 )";
@@ -209,6 +122,10 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 producto.PrecioVenta);
 
             command.Parameters.AddWithValue(
+                "@cantidadStock",
+                producto.CantidadStock);
+
+            command.Parameters.AddWithValue(
                 "@idEmpleadoResponsable",
                 producto.IdEmpleadoResponsable);
 
@@ -217,7 +134,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.ExecuteNonQuery();
             return Convert.ToInt32(command.LastInsertedId);
         }
-
 
         public void Actualizar(Producto producto)
         {
@@ -231,6 +147,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     Marca = @idMarca,
                     UnidadMedida = @unidadMedida,
                     PrecioVenta = @precioVenta,
+                    CantidadStock = @cantidadStock,
                     IdEmpleadoResponsable = @idEmpleadoResponsable,
                     Estado = @estado,
                     FechaActualizacion = CURRENT_TIMESTAMP
@@ -275,6 +192,10 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 producto.PrecioVenta);
 
             command.Parameters.AddWithValue(
+                "@cantidadStock",
+                producto.CantidadStock);
+
+            command.Parameters.AddWithValue(
                 "@idEmpleadoResponsable",
                 producto.IdEmpleadoResponsable);
 
@@ -286,7 +207,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
             command.ExecuteNonQuery();
         }
-
 
         public void CambiarEstado(int idProducto)
         {
@@ -315,6 +235,96 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.ExecuteNonQuery();
         }
 
+        public List<Producto> MostrarActivos()
+        {
+            List<Producto> productos = new();
+
+            const string query = @"
+                SELECT
+                    p.IdProducto,
+                    p.IdCategoria,
+                    p.Codigo,
+                    p.Nombre,
+                    p.Descripcion,
+                    p.Marca AS IdMarca,
+                    m.Nombre AS NombreMarca,
+                    p.UnidadMedida,
+                    p.PrecioVenta,
+                    p.CantidadStock,
+                    p.Estado,
+                    p.FechaRegistro,
+                    p.FechaActualizacion,
+                    p.IdEmpleadoResponsable
+                FROM producto p
+                LEFT JOIN marca m ON m.IdMarca = p.Marca
+                WHERE p.Estado = 1
+                ORDER BY p.Nombre ASC";
+
+            using MySqlConnection connection =
+                _connectionFactory.CreateConnection();
+
+            using MySqlCommand command =
+                new MySqlCommand(query, connection);
+
+            connection.Open();
+
+            using MySqlDataReader reader =
+                command.ExecuteReader();
+
+            while (reader.Read())
+            {
+                productos.Add(MapearProducto(reader));
+            }
+
+            return productos;
+        }
+
+        // ================== Funciones fuera del contrato ==================
+
+        public Producto? ObtenerPorId(int idProducto)
+        {
+            const string query = @"
+                SELECT
+                    p.IdProducto,
+                    p.IdCategoria,
+                    p.Codigo,
+                    p.Nombre,
+                    p.Descripcion,
+                    p.Marca AS IdMarca,
+                    m.Nombre AS NombreMarca,
+                    p.UnidadMedida,
+                    p.PrecioVenta,
+                    p.CantidadStock,
+                    p.Estado,
+                    p.FechaRegistro,
+                    p.FechaActualizacion,
+                    p.IdEmpleadoResponsable
+                FROM producto p
+                LEFT JOIN marca m ON m.IdMarca = p.Marca
+                WHERE p.IdProducto = @idProducto";
+
+            using MySqlConnection connection =
+                _connectionFactory.CreateConnection();
+
+            using MySqlCommand command =
+                new MySqlCommand(query, connection);
+
+            command.Parameters.AddWithValue(
+                "@idProducto",
+                idProducto);
+
+            connection.Open();
+
+            using MySqlDataReader reader =
+                command.ExecuteReader();
+
+            if (!reader.Read())
+            {
+                return null;
+            }
+
+            return MapearProducto(reader);
+        }
 
         public int Count()
         {
@@ -367,6 +377,9 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
                 PrecioVenta =
                     reader.GetDecimal("PrecioVenta"),
+
+                CantidadStock =
+                    reader.GetInt32("CantidadStock"),
 
                 Estado =
                     reader.GetByte("Estado"),

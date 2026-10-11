@@ -185,6 +185,13 @@ namespace FERRETERIA__Joel.Pages
                     "El precio debe ser mayor a 0.");
             }
 
+            if (!_validacion.EsCantidadStockValido(Producto.CantidadStock))
+            {
+                AgregarErrorCampo(
+                    nameof(Producto.CantidadStock),
+                    "La cantidad en stock no puede ser negativa.");
+            }
+
             if (!_validacion.EsCategoriaValida(Producto.IdCategoria))
             {
                 AgregarErrorCampo(

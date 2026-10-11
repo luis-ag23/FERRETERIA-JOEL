@@ -1,0 +1,113 @@
+@page
+@model FERRETERIA__Joel.Pages.MarcaNuevaModel
+@{
+    ViewData["Title"] = "Nueva Marca";
+    ViewData["ActiveMenu"] = "Marcas";
+}
+@section Styles {
+    <link rel="stylesheet" href="~/css/productos.css" asp-append-version="true" />
+}
+
+<div class="fj-container fj-page-products">
+
+    <section class="fj-page-head">
+        <p class="fj-eyebrow">Módulo · Catálogo</p>
+        <h1>Nueva Marca</h1>
+        <p class="fj-page-sub">Registra una nueva marca en el catálogo.</p>
+    </section>
+
+    @if (Model.Errores.Any())
+    {
+        <div class="fj-alert" role="alert">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+            <div>
+                <strong>No se pudo guardar:</strong>
+                <ul class="fj-alert-lista">
+                    @foreach (var error in Model.Errores)
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    }
+
+    <form method="post" class="fj-card fj-form" novalidate>
+        <div class="fj-form-grid">
+
+            <div class="fj-form-field @(Model.ErroresCampo.ContainsKey("Nombre") ? "fj-form-field-error" : "")">
+                <label class="fj-form-label" asp-for="NuevaMarca.Nombre">Nombre de la Marca</label>
+                <input class="fj-input" asp-for="NuevaMarca.Nombre" maxlength="100" placeholder="Ej: Bosch" required data-fj-regex="^\p{L}[\p{L}\s.,'\-&()]*$" data-fj-msj="El nombre solo admite letras y espacios (sin números ni caracteres especiales)." />
+                @if (Model.ErroresCampo.TryGetValue("Nombre", out var errorNombre))
+                {
+                    <p class="fj-form-error" role="alert">@errorNombre</p>
+                }
+            </div>
+
+            <div class="fj-form-field @(Model.ErroresCampo.ContainsKey("PaisOrigen") ? "fj-form-field-error" : "")">
+                <label class="fj-form-label" asp-for="NuevaMarca.PaisOrigen">País de origen</label>
+                <input class="fj-input" asp-for="NuevaMarca.PaisOrigen" maxlength="100" placeholder="Ej: Alemania" required />
+                @if (Model.ErroresCampo.TryGetValue("PaisOrigen", out var errorPais))
+                {
+                    <p class="fj-form-error" role="alert">@errorPais</p>
+                }
+            </div>
+
+            <div class="fj-form-field @(Model.ErroresCampo.ContainsKey("Calidad") ? "fj-form-field-error" : "")">
+                <label class="fj-form-label" asp-for="NuevaMarca.Calidad">Calidad</label>
+                <select class="fj-input fj-select" asp-for="NuevaMarca.Calidad" required>
+                    <option value="">-- Seleccione --</option>
+                    @foreach (var calidad in FERRETERIA__Joel.Pages.MarcaNuevaModel.Calidades)
+                    {
+                        <option value="@calidad">@calidad</option>
+                    }
+                </select>
+                @if (Model.ErroresCampo.TryGetValue("Calidad", out var errorCalidad))
+                {
+                    <p class="fj-form-error" role="alert">@errorCalidad</p>
+                }
+            </div>
+
+            <div class="fj-form-field fj-form-field--full @(Model.ErroresCampo.ContainsKey("Descripcion") ? "fj-form-field-error" : "")">
+                <label class="fj-form-label" asp-for="NuevaMarca.Descripcion">Descripción</label>
+                <textarea class="fj-input fj-input-area" asp-for="NuevaMarca.Descripcion" rows="3" maxlength="255" placeholder="Detalle opcional de la marca..."></textarea>
+                @if (Model.ErroresCampo.TryGetValue("Descripcion", out var errorDescripcion))
+                {
+                    <p class="fj-form-error" role="alert">@errorDescripcion</p>
+                }
+            </div>
+
+            <div class="fj-form-field fj-form-field--full @(Model.ErroresCampo.ContainsKey("IdEmpleadoResponsable") ? "fj-form-field-error" : "")">
+                <label class="fj-form-label" asp-for="NuevaMarca.IdEmpleadoResponsable">Empleado responsable</label>
+                <select class="fj-input fj-select" asp-for="NuevaMarca.IdEmpleadoResponsable" required>
+                    <option value="">-- Seleccione --</option>
+                    @foreach (var empleado in Model.Empleados)
+                    {
+                        <option value="@empleado.IdEmpleado">@empleado.Nombre</option>
+                    }
+                </select>
+                @if (Model.ErroresCampo.TryGetValue("IdEmpleadoResponsable", out var errorEmpleado))
+                {
+                    <p class="fj-form-error" role="alert">@errorEmpleado</p>
+                }
+            </div>
+
+            <div class="fj-form-field fj-form-field--full">
+                <label class="fj-form-label" asp-for="NuevaMarca.Estado">Estado</label>
+                <select class="fj-input fj-select" asp-for="NuevaMarca.Estado">
+                    <option value="1">Activo</option>
+                    <option value="0">Inactivo</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="fj-form-actions">
+            <a asp-page="Marcas" class="fj-btn fj-btn-ghost">Cancelar</a>
+            <button type="submit" class="fj-btn fj-btn-primary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
+                Guardar
+            </button>
+        </div>
+    </form>
+
+</div>

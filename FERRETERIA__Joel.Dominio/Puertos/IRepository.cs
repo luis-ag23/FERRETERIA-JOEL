@@ -4,10 +4,6 @@ namespace FERRETERIA__Joel.Dominio.Puertos
     {
         List<T> ObtenerTodos();
 
-        List<T> ObtenerActivas();
-
-        T? ObtenerPorId(int id);
-
         int Insertar(T entidad);
     }
 }

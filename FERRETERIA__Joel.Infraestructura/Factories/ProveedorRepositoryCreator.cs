@@ -5,7 +5,7 @@ using FERRETERIA__Joel.Infraestructura.Repositorios;
 
 namespace FERRETERIA__Joel.Infraestructura.Factories
 {
-    public class ProveedorRepositoryCreator : RepositoryCreator<IRepository<Proveedor>>
+    public class ProveedorRepositoryCreator : RepositoryCreator<IGestionarRepository<Proveedor>>
     {
         private readonly IDbConnectionFactory _connectionFactory;
 
@@ -14,7 +14,7 @@ namespace FERRETERIA__Joel.Infraestructura.Factories
             _connectionFactory = connectionFactory;
         }
 
-        public override IRepository<Proveedor> CreateRepository()
+        public override IGestionarRepository<Proveedor> CreateRepository()
         {
             return new MySqlProveedorRepository(_connectionFactory);
         }

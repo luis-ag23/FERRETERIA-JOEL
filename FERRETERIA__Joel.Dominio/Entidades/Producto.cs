@@ -11,6 +11,7 @@ namespace FERRETERIA__Joel.Dominio.Entidades
         public string? NombreMarca { get; set; }
         public string UnidadMedida { get; set; } = string.Empty;
         public decimal PrecioVenta { get; set; }
+        public int CantidadStock { get; set; }
 
         public byte Estado { get; set; }
         public DateTime FechaRegistro { get; set; }

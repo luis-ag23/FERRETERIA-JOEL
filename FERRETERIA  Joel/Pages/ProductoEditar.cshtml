@@ -105,6 +105,15 @@
                 }
             </div>
 
+            <div class="fj-form-field @(Model.ErroresCampo.ContainsKey("CantidadStock") ? "fj-form-field-error" : "")">
+                <label class="fj-form-label" asp-for="Producto.CantidadStock">Cantidad en stock</label>
+                <input class="fj-input" asp-for="Producto.CantidadStock" type="number" step="1" min="0" required />
+                @if (Model.ErroresCampo.TryGetValue("CantidadStock", out var errorStock))
+                {
+                    <p class="fj-form-error" role="alert">@errorStock</p>
+                }
+            </div>
+
             <div class="fj-form-field fj-form-field--full @(Model.ErroresCampo.ContainsKey("IdEmpleadoResponsable") ? "fj-form-field-error" : "")">
                 <label class="fj-form-label" asp-for="Producto.IdEmpleadoResponsable">Empleado responsable</label>
                 <select class="fj-input fj-select" asp-for="Producto.IdEmpleadoResponsable" required>
