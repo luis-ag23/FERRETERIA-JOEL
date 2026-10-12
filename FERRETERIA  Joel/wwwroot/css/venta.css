@@ -4,16 +4,17 @@
 
 .fj-page-venta .fj-venta-grid {
     display: grid;
-    grid-template-columns: minmax(16rem, 30%) 1fr;
-    gap: 1.25rem;
+    grid-template-columns: 30% 1fr;
+    gap: var(--fv-gap);
     align-items: start;
 }
 
 .fj-venta-panel {
-    padding: 1.5rem;
+    padding: var(--fv-panel-pad);
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    min-width: 0;
 }
 
 .fj-venta-titulo {
@@ -31,9 +32,10 @@
 
 .fj-buscador input {
     width: 100%;
-    padding: 0.7rem 0.9rem;
+    height: var(--fv-control-h);
+    padding: 0 0.875rem;
     border: 0.0625rem solid var(--borde);
-    border-radius: var(--radius-sm);
+    border-radius: var(--fv-radio);
     background: var(--fondo-elevado);
     color: var(--texto);
     font: inherit;
@@ -122,15 +124,20 @@
 .fj-venta-tabla-wrap {
     max-height: 22rem;
     overflow-y: auto;
+    overflow-x: auto;
 }
 
 .fj-venta-vacio {
     margin: 0;
 }
 
+#tablaLineas thead th:nth-child(2) {
+    white-space: nowrap;
+}
+
 #tablaLineas th:nth-child(2),
 #tablaLineas td:nth-child(2) {
-    width: 5.5rem;
+    width: 6rem;
 }
 
 #tablaLineas th:nth-child(3),
@@ -155,9 +162,10 @@
 
 .fj-cantidad-input {
     width: 4.5rem;
-    padding: 0.4rem 0.55rem;
+    height: 2.25rem;
+    padding: 0 0.55rem;
     border: 0.0625rem solid var(--borde);
-    border-radius: var(--radius-sm);
+    border-radius: var(--fv-radio);
     background: var(--fondo-elevado);
     color: var(--texto);
     font: inherit;
@@ -223,22 +231,40 @@
     min-width: 11rem;
 }
 
-/* ---------- Éxito ---------- */
+/* ---------- Éxito (compacto, en fila en escritorio) ---------- */
+
+.venta-alerta-exito {
+    align-items: flex-start;
+    padding: 0.75rem 1rem;
+    margin-bottom: var(--fv-gap);
+}
+
+.venta-alerta-exito > svg {
+    width: 1rem;
+    height: 1rem;
+    margin-top: 0.125rem;
+}
 
 .venta-exito {
     display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 1.125rem;
+    row-gap: 0.25rem;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .venta-exito-nota {
-    font-size: 0.85rem;
+    flex-basis: 100%;
+    font-size: 0.8rem;
     color: var(--texto-sec);
 }
 
 .venta-exito-accion {
-    align-self: flex-start;
-    margin-top: 0.5rem;
+    margin-left: auto;
+    margin-top: 0;
+    white-space: nowrap;
 }
 
 /* ---------- Alta de cliente desde la venta ---------- */
@@ -291,6 +317,15 @@
 }
 
 @media (max-width: 640px) {
+    .venta-exito-accion {
+        flex-basis: 100%;
+        margin-left: 0;
+    }
+
+    .venta-exito {
+        column-gap: 0.625rem;
+    }
+
     .fj-venta-acciones .fj-btn {
         width: 100%;
     }
@@ -298,5 +333,25 @@
     #tablaLineas th:nth-child(2),
     #tablaLineas td:nth-child(2) {
         display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    /* En pantallas muy estrechas se oculta el Subtotal por línea y se
+       reducen las columnas numéricas para que la tabla no se recorte
+       (el total se muestra debajo). La tabla es desplazable si hiciera falta. */
+    #tablaLineas th:nth-child(5),
+    #tablaLineas td:nth-child(5) {
+        display: none;
+    }
+
+    #tablaLineas th:nth-child(3),
+    #tablaLineas td:nth-child(3) {
+        width: 5.5rem;
+    }
+
+    #tablaLineas th:nth-child(4),
+    #tablaLineas td:nth-child(4) {
+        width: 5rem;
     }
 }

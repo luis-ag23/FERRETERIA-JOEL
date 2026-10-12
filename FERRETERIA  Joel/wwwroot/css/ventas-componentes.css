@@ -11,6 +11,25 @@
    afecta a los demás módulos.
    ============================================================ */
 
+/* ---------- Tokens del módulo ----------
+   Medidas y espaciados unificados para todo el módulo Ventas.
+   Quedan aquí (y no en site.css) porque son exclusivas de este
+   módulo y no deben influir en los demás. */
+:root {
+    --fv-radio: 0.625rem;            /* radio de controles y alertas */
+    --fv-control-h: 2.625rem;        /* altura estándar de inputs/buscadores */
+    --fv-panel-pad: 1.5rem;          /* padding interno de las tarjetas */
+    --fv-gap: 1.25rem;               /* separación entre tarjetas/paneles */
+    --fv-toolbar-gap: 1rem;          /* margen inferior de la barra de herramientas */
+    --fv-alerta-pad: 0.875rem 1.125rem;
+    --fv-alerta-bot: 1.25rem;
+    --fv-accion: 2rem;               /* botones-icono de las tablas */
+    --fv-accion-ico: 1.0625rem;      /* tamaño del icono en botones-icono */
+    --fv-tabla-pad: 15px 20px;       /* padding de las celdas de tabla */
+    --fv-tabla-fs: 0.9rem;           /* tamaño de letra de las tablas */
+    --fv-th-fs: 0.68rem;             /* tamaño de letra de los encabezados */
+}
+
 /* ---------- Encabezado de página ---------- */
 .fj-page-head {
     margin-bottom: 30px;
@@ -36,10 +55,10 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 14px 18px;
+    padding: var(--fv-alerta-pad);
     border-radius: var(--radius-sm);
     font-size: 0.85rem;
-    margin-bottom: 24px;
+    margin-bottom: var(--fv-alerta-bot);
 }
 
 .fj-alert svg,
@@ -84,7 +103,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    margin-bottom: 22px;
+    margin-bottom: var(--fv-toolbar-gap);
 }
 
 .fj-toolbar-count {
@@ -124,13 +143,13 @@
     width: 100%;
     border-collapse: collapse;
     text-align: left;
-    font-size: 0.9rem;
+    font-size: var(--fv-tabla-fs);
     table-layout: fixed;
 }
 
 .fj-table thead th {
-    padding: 15px 20px;
-    font-size: 0.68rem;
+    padding: var(--fv-tabla-pad);
+    font-size: var(--fv-th-fs);
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -138,14 +157,14 @@
     border-bottom: 1px solid var(--borde);
     background: var(--fondo-panel);
     white-space: normal;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
 }
 
 .fj-table tbody td {
-    padding: 15px 20px;
+    padding: var(--fv-tabla-pad);
     border-bottom: 1px solid var(--borde-suave);
     vertical-align: middle;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
 }
 
 .fj-table tbody tr {
@@ -232,16 +251,16 @@
 
 /* ---------- Botones-icono (iconos 16–20 px) ---------- */
 .fj-btn-icon {
-    width: 2rem;
-    height: 2rem;
+    width: var(--fv-accion);
+    height: var(--fv-accion);
     padding: 0;
     border-radius: 0.5rem;
     flex: none;
 }
 
 .fj-btn-icon svg {
-    width: 1.0625rem;
-    height: 1.0625rem;
+    width: var(--fv-accion-ico);
+    height: var(--fv-accion-ico);
 }
 
 /* ---------- Ficha de detalle (modal) ---------- */
