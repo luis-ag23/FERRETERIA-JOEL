@@ -49,9 +49,9 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             Repositorio.Actualizar(categoria);
         }
 
-        public void CambiarEstado(int id)
+        public void CambiarEstado(int id, int idEmpleadoResponsable)
         {
-            Repositorio.CambiarEstado(id);
+            Repositorio.CambiarEstado(id, idEmpleadoResponsable);
         }
     }
 }

@@ -8,10 +8,10 @@ using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Empleado)]
     public class ProveedorEditarModel : PageModel
     {
         private readonly ServicioProveedor _servicio;
-        private readonly ServicioEmpleado _servicioEmpleado;
         private readonly ILogger<ProveedorEditarModel> _logger;
 
         private readonly ProveedorValidaciones _validacion = new();
@@ -19,24 +19,19 @@ namespace FERRETERIA__Joel.Pages
         [BindProperty]
         public Proveedor Proveedor { get; set; } = new();
 
-        public List<Empleado> Empleados { get; set; } = new();
         public List<string> Errores { get; set; } = new();
         public Dictionary<string, string> ErroresCampo { get; set; } = new();
 
         public ProveedorEditarModel(
             ServicioProveedor servicio,
-            ServicioEmpleado servicioEmpleado,
             ILogger<ProveedorEditarModel> logger)
         {
             _servicio = servicio;
-            _servicioEmpleado = servicioEmpleado;
             _logger = logger;
         }
 
         public IActionResult OnGet(string token)
         {
-            CargarEmpleados();
-
             string? texto = UrlProtector.Descifrar(token);
 
             if (!int.TryParse(texto, out int id))
@@ -64,12 +59,13 @@ namespace FERRETERIA__Joel.Pages
 
         public IActionResult OnPost()
         {
+            Proveedor.IdEmpleadoResponsable =
+                EmpleadoSesion.ObtenerIdEmpleado(User);
             NormalizarDatos();
             Validar();
 
             if (Errores.Any() || ErroresCampo.Any())
             {
-                CargarEmpleados();
                 return Page();
             }
 
@@ -87,7 +83,6 @@ namespace FERRETERIA__Joel.Pages
                 Errores.Add(
                     "No se pudo actualizar el proveedor. Inténtalo nuevamente.");
 
-                CargarEmpleados();
                 return Page();
             }
 
@@ -163,24 +158,11 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Proveedor.CorreoElectronico),
                     "El correo debe tener un formato válido: mínimo 6 caracteres antes de la @ y un dominio como correo@ejemplo.com.");
             }
-
-            if (!_validacion.EsEmpleadoValido(
-                Proveedor.IdEmpleadoResponsable))
-            {
-                AgregarErrorCampo(
-                    nameof(Proveedor.IdEmpleadoResponsable),
-                    "Debe seleccionar un empleado responsable.");
-            }
         }
 
         private void AgregarErrorCampo(string campo, string mensaje)
         {
             ErroresCampo[campo] = mensaje;
-        }
-
-        private void CargarEmpleados()
-        {
-            Empleados = _servicioEmpleado.ObtenerTodos();
         }
     }
 }

@@ -28,119 +28,160 @@
             <nav class="fj-nav" id="fjNav" aria-label="Navegación principal">
                 <ul class="fj-menu">
 
-                    @if (activo == "Home")
+                    @if (User.Identity?.IsAuthenticated == true)
                     {
-                        <li class="fj-menu-item is-active">
-                            <a class="fj-menu-link" asp-page="/Index" aria-current="page">Home</a>
+                        @if (activo == "Home")
+                        {
+                            <li class="fj-menu-item is-active">
+                                <a class="fj-menu-link" asp-page="/Index" aria-current="page">Home</a>
+                            </li>
+                        }
+                        else
+                        {
+                            <li class="fj-menu-item">
+                                <a class="fj-menu-link" asp-page="/Index">Home</a>
+                            </li>
+                        }
+
+                        @if (User.IsInRole(RolesSistema.Empleado))
+                        {
+                            <!-- Gestión de Productos -->
+                            <li class="fj-menu-item fj-dropdown">
+                            <button class="fj-menu-link fj-dropdown-toggle" type="button"
+                                    aria-expanded="false">
+                                <span>Gestión de Productos</span>
+                                <svg class="fj-dropdown-chevron" viewBox="0 0 24 24"
+                                     fill="none" stroke="currentColor" stroke-width="1.8"
+                                     stroke-linecap="round" stroke-linejoin="round"
+                                     aria-hidden="true">
+                                    <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                            </button>
+
+                            <div class="fj-dropdown-menu">
+                                <a asp-page="/Productos">Productos</a>
+                                <a asp-page="/Categorias">Categorías</a>
+                                <a asp-page="/Marcas">Marcas</a>
+                                <span class="disabled">Unidades de venta</span>
+                                <span class="disabled">Precios y ofertas</span>
+                            </div>
                         </li>
+
+                        <!-- Gestión de Inventarios -->
+                        <li class="fj-menu-item fj-dropdown">
+                            <button class="fj-menu-link fj-dropdown-toggle" type="button"
+                                    aria-expanded="false">
+                                <span>Gestión de Inventarios</span>
+                                <svg class="fj-dropdown-chevron" viewBox="0 0 24 24"
+                                     fill="none" stroke="currentColor" stroke-width="1.8"
+                                     stroke-linecap="round" stroke-linejoin="round"
+                                     aria-hidden="true">
+                                    <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                            </button>
+
+                            <div class="fj-dropdown-menu">
+                                <a asp-page="/Proveedores">Proveedores</a>
+                                <span class="disabled">Inventario</span>
+                                <span class="disabled">Compras</span>
+                                <span class="disabled">Historial de compras</span>
+                            </div>
+                        </li>
+
+                        <!-- Ventas y Caja -->
+                        <li class="fj-menu-item fj-dropdown">
+                            <button class="fj-menu-link fj-dropdown-toggle" type="button"
+                                    aria-expanded="false">
+                                <span>Ventas y Caja</span>
+                                <svg class="fj-dropdown-chevron" viewBox="0 0 24 24"
+                                     fill="none" stroke="currentColor" stroke-width="1.8"
+                                     stroke-linecap="round" stroke-linejoin="round"
+                                     aria-hidden="true">
+                                    <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                            </button>
+
+                            <div class="fj-dropdown-menu">
+                                <a asp-page="/Venta">Registrar venta</a>
+                                <a asp-page="/Ventas">Historial de ventas</a>
+                                <span class="disabled">Recibos</span>
+                                <span class="disabled">Descuentos mayoristas</span>
+                            </div>
+                        </li>
+
+                        <!-- Administración -->
+                        <li class="fj-menu-item fj-dropdown">
+                            <button class="fj-menu-link fj-dropdown-toggle" type="button"
+                                    aria-expanded="false">
+                                <span>Administración</span>
+                                <svg class="fj-dropdown-chevron" viewBox="0 0 24 24"
+                                     fill="none" stroke="currentColor" stroke-width="1.8"
+                                     stroke-linecap="round" stroke-linejoin="round"
+                                     aria-hidden="true">
+                                    <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                            </button>
+
+                            <div class="fj-dropdown-menu">
+                                <span class="disabled">Reportes y estadísticas</span>
+                                <span class="disabled">Clientes</span>
+                                <span class="disabled">Empleados y roles</span>
+                                <span class="disabled">Configuración</span>
+                            </div>
+                        </li>
+                        }
+                        else
+                        {
+                            <!-- Consulta (Usuario / solo lectura) -->
+                            <li class="fj-menu-item fj-dropdown">
+                                <button class="fj-menu-link fj-dropdown-toggle" type="button"
+                                        aria-expanded="false">
+                                    <span>Consulta</span>
+                                    <svg class="fj-dropdown-chevron" viewBox="0 0 24 24"
+                                         fill="none" stroke="currentColor" stroke-width="1.8"
+                                         stroke-linecap="round" stroke-linejoin="round"
+                                         aria-hidden="true">
+                                        <polyline points="6 9 12 15 18 9" />
+                                    </svg>
+                                </button>
+
+                                <div class="fj-dropdown-menu">
+                                    <a asp-page="/ProductosUsuario">Productos</a>
+                                    <a asp-page="/CategoriasUsuario">Categorías</a>
+                                    <a asp-page="/MarcasUsuario">Marcas</a>
+                                    <a asp-page="/ProveedoresUsuario">Proveedores</a>
+                                </div>
+                            </li>
+                        }
                     }
                     else
                     {
-                        <li class="fj-menu-item">
-                            <a class="fj-menu-link" asp-page="/Index">Home</a>
-                        </li>
+                        <partial name="_NavegacionVisitante" />
                     }
-
-                    <!-- Gestión de Productos -->
-                    <li class="fj-menu-item fj-dropdown">
-                        <button class="fj-menu-link fj-dropdown-toggle" type="button"
-                                aria-expanded="false">
-                            <span>Gestión de Productos</span>
-                            <svg class="fj-dropdown-chevron" viewBox="0 0 24 24"
-                                 fill="none" stroke="currentColor" stroke-width="1.8"
-                                 stroke-linecap="round" stroke-linejoin="round"
-                                 aria-hidden="true">
-                                <polyline points="6 9 12 15 18 9" />
-                            </svg>
-                        </button>
-
-                        <div class="fj-dropdown-menu">
-                            <a asp-page="/Productos">Productos</a>
-                            <a asp-page="/Categorias">Categorías</a>
-                            <a asp-page="/Marcas">Marcas</a>
-                            <span class="disabled">Unidades de venta</span>
-                            <span class="disabled">Precios y ofertas</span>
-                        </div>
-                    </li>
-
-                    <!-- Gestión de Inventarios -->
-                    <li class="fj-menu-item fj-dropdown">
-                        <button class="fj-menu-link fj-dropdown-toggle" type="button"
-                                aria-expanded="false">
-                            <span>Gestión de Inventarios</span>
-                            <svg class="fj-dropdown-chevron" viewBox="0 0 24 24"
-                                 fill="none" stroke="currentColor" stroke-width="1.8"
-                                 stroke-linecap="round" stroke-linejoin="round"
-                                 aria-hidden="true">
-                                <polyline points="6 9 12 15 18 9" />
-                            </svg>
-                        </button>
-
-                        <div class="fj-dropdown-menu">
-                            <a asp-page="/Proveedores">Proveedores</a>
-                            <span class="disabled">Inventario</span>
-                            <span class="disabled">Compras</span>
-                            <span class="disabled">Historial de compras</span>
-                        </div>
-                    </li>
-
-                    <!-- Ventas y Caja -->
-                    <li class="fj-menu-item fj-dropdown">
-                        <button class="fj-menu-link fj-dropdown-toggle" type="button"
-                                aria-expanded="false">
-                            <span>Ventas y Caja</span>
-                            <svg class="fj-dropdown-chevron" viewBox="0 0 24 24"
-                                 fill="none" stroke="currentColor" stroke-width="1.8"
-                                 stroke-linecap="round" stroke-linejoin="round"
-                                 aria-hidden="true">
-                                <polyline points="6 9 12 15 18 9" />
-                            </svg>
-                        </button>
-
-                        <div class="fj-dropdown-menu">
-                            <a asp-page="/Venta">Registrar venta</a>
-                            <a asp-page="/Ventas">Historial de ventas</a>
-                            <span class="disabled">Recibos</span>
-                            <span class="disabled">Descuentos mayoristas</span>
-                        </div>
-                    </li>
-
-                    <!-- Administración -->
-                    <li class="fj-menu-item fj-dropdown">
-                        <button class="fj-menu-link fj-dropdown-toggle" type="button"
-                                aria-expanded="false">
-                            <span>Administración</span>
-                            <svg class="fj-dropdown-chevron" viewBox="0 0 24 24"
-                                 fill="none" stroke="currentColor" stroke-width="1.8"
-                                 stroke-linecap="round" stroke-linejoin="round"
-                                 aria-hidden="true">
-                                <polyline points="6 9 12 15 18 9" />
-                            </svg>
-                        </button>
-
-                        <div class="fj-dropdown-menu">
-                            <span class="disabled">Reportes y estadísticas</span>
-                            <span class="disabled">Clientes</span>
-                            <span class="disabled">Empleados y roles</span>
-                            <span class="disabled">Configuración</span>
-                        </div>
-                    </li>
                 </ul>
 
-                <div class="fj-nav-side">
-                    <button class="fj-icon-btn" type="button" aria-label="Notificaciones">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
-                    </button>
-                    <button class="fj-icon-btn" type="button" aria-label="Configuración">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2v-1a2 2 0 0 1 2-2h.09c.7 0 1.25-.45 1.51-1a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06c.45.45 1.1.6 1.7.36.5-.2 1.05-.3 1.61-.3H9c.55 0 1.09.1 1.61.3.59.24 1.25.09 1.7-.36l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06c-.45.45-.6 1.1-.36 1.7.2.5.3 1.05.3 1.61V9c0 .55.1 1.09.3 1.61.24.59.09 1.25-.36 1.7l-.06.06a2 2 0 0 1 0 2.83z" /></svg>
-                    </button>
-                    <a class="fj-userchip" href="#" aria-label="Perfil de usuario">
-                        <span class="fj-userchip-avatar" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-                        </span>
-                        <span class="fj-userchip-name">Admin</span>
-                    </a>
-                </div>
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <div class="fj-nav-side">
+                        <button class="fj-icon-btn" type="button" aria-label="Notificaciones">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+                        </button>
+                        <button class="fj-icon-btn" type="button" aria-label="Configuración">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2v-1a2 2 0 0 1 2-2h.09c.7 0 1.25-.45 1.51-1a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06c.45.45 1.1.6 1.7.36.5-.2 1.05-.3 1.61-.3H9c.55 0 1.09.1 1.61.3.59.24 1.25.09 1.7-.36l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06c-.45.45-.6 1.1-.36 1.7.2.5.3 1.05.3 1.61V9c0 .55.1 1.09.3 1.61.24.59.09 1.25-.36 1.7l-.06.06a2 2 0 0 1 0 2.83z" /></svg>
+                        </button>
+                        <a class="fj-userchip" href="#" aria-label="Perfil de usuario">
+                            <span class="fj-userchip-avatar" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                            </span>
+                            <span class="fj-userchip-name">@(User.Identity?.Name ?? "Usuario")</span>
+                        </a>
+                        <form method="post" asp-page="/Logout" class="fj-logout-form">
+                            <button class="fj-icon-btn" type="submit" aria-label="Cerrar sesión" title="Cerrar sesión">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+                            </button>
+                        </form>
+                    </div>
+                }
             </nav>
 
             <button class="fj-burger" type="button" data-fj-burger aria-label="Abrir menú" aria-expanded="false" aria-controls="fjNav">

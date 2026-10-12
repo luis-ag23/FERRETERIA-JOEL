@@ -1,0 +1,115 @@
+@page
+@model FERRETERIA__Joel.Pages.MarcasUsuarioModel
+@{
+    ViewData["Title"] = "Marcas";
+    ViewData["ActiveMenu"] = "MarcasUsuario";
+    string accionFiltro = Model.SoloActivos ? "" : "true";
+    string etiquetaFiltro = Model.SoloActivos ? "Mostrar todas" : "Solo activas";
+}
+@section Styles {
+    <link rel="stylesheet" href="~/css/productos.css" asp-append-version="true" />
+}
+
+<div class="fj-container fj-page-products">
+
+    <section class="fj-page-head">
+        <p class="fj-eyebrow">Consulta · Catálogo</p>
+        <h1>Marcas</h1>
+        <p class="fj-page-sub">Marcas que identifican los productos del catálogo.</p>
+    </section>
+
+    @if (!string.IsNullOrEmpty(Model.Mensaje))
+    {
+        <div class="fj-alert" role="alert">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+            <span>@Model.Mensaje</span>
+        </div>
+    }
+
+    <section class="fj-toolbar fj-toolbar-simple">
+        <p class="fj-toolbar-count">
+            <strong>@Model.ListMarcas.Count</strong>
+            @(Model.ListMarcas.Count == 1 ? "marca" : "marcas") registradas
+        </p>
+
+        <div class="fj-toolbar-actions">
+            <a class="fj-btn fj-btn-edit"
+               asp-route-soloActivos="@accionFiltro">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
+                @etiquetaFiltro
+            </a>
+        </div>
+    </section>
+
+    <section class="fj-card fj-table-card" aria-label="Listado de marcas">
+        <div class="fj-table-wrap">
+            <table class="fj-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Nombre</th>
+                        <th scope="col">País de origen</th>
+                        <th scope="col">Calidad</th>
+                        <th scope="col">Descripción</th>
+                        <th scope="col">Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.ListMarcas.Count == 0 && string.IsNullOrEmpty(Model.Mensaje))
+                    {
+                        <tr>
+                            <td colspan="5" class="fj-table-vacio">
+                                <div class="fj-empty">
+                                    <span class="fj-empty-ico" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></svg>
+                                    </span>
+                                    <p>Sin marcas registradas</p>
+                                    <span>Cuando existan marcas en el sistema, aparecerán aquí.</span>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    else if (Model.ListMarcas.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="5" class="fj-table-vacio">
+                                <div class="fj-empty">
+                                    <span class="fj-empty-ico" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
+                                    </span>
+                                    <p>No se pudo cargar el listado</p>
+                                    <span>Revisa la conexión a la base de datos e inténtalo nuevamente.</span>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+
+                    @foreach (var item in Model.ListMarcas)
+                    {
+                        <tr>
+                            <td>
+                                <span class="fj-nombre">@item.Nombre</span>
+                            </td>
+                            <td class="fj-td-secundario">@item.PaisOrigen</td>
+                            <td class="fj-td-secundario">
+                                <span class="fj-pill" style="--pill: var(--accent-soft);">@item.Calidad</span>
+                            </td>
+                            <td class="fj-td-secundario">
+                                @if (!string.IsNullOrEmpty(item.Descripcion))
+                                {
+                                    <span class="fj-ellipsis" title="@item.Descripcion">@item.Descripcion</span>
+                                }
+                                else
+                                {
+                                    <span>—</span>
+                                }
+                            </td>
+                            <td class="fj-td-estado">
+                                <span class="fj-pill" style="--pill: var(@(item.Estado == 1 ? "--success" : "--texto-ter"));">@(item.Estado == 1 ? "Activo" : "Inactivo")</span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

@@ -1,6 +1,7 @@
 using FERRETERIA__Joel.Aplicacion.Servicios;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Validaciones;
+using FERRETERIA__Joel.Helpers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using MySql.Data.MySqlClient;
@@ -8,10 +9,10 @@ using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Empleado)]
     public class CategoriaNuevaModel : PageModel
     {
         private readonly ServicioCategoria _servicio;
-        private readonly ServicioEmpleado _servicioEmpleado;
         private readonly ILogger<CategoriaNuevaModel> _logger;
 
         private readonly CategoriaValidaciones _validador = new();
@@ -19,17 +20,14 @@ namespace FERRETERIA__Joel.Pages
         [BindProperty]
         public Categoria NuevaCategoria { get; set; } = new();
 
-        public List<Empleado> Empleados { get; set; } = new();
         public List<string> Errores { get; set; } = new();
         public Dictionary<string, string> ErroresCampo { get; set; } = new();
 
         public CategoriaNuevaModel(
             ServicioCategoria servicio,
-            ServicioEmpleado servicioEmpleado,
             ILogger<CategoriaNuevaModel> logger)
         {
             _servicio = servicio;
-            _servicioEmpleado = servicioEmpleado;
             _logger = logger;
         }
 
@@ -37,19 +35,19 @@ namespace FERRETERIA__Joel.Pages
         {
             NuevaCategoria.Estado = 1;
             NuevaCategoria.Codigo = _servicio.SiguienteCodigo();
-            CargarEmpleados();
         }
 
         public IActionResult OnPost()
         {
             NuevaCategoria.Codigo = _servicio.SiguienteCodigo();
             NuevaCategoria.PorcentajeGanancia = 0;
+            NuevaCategoria.IdEmpleadoResponsable =
+                EmpleadoSesion.ObtenerIdEmpleado(User);
             NormalizarDatos();
             Validar();
 
             if (Errores.Any() || ErroresCampo.Any())
             {
-                CargarEmpleados();
                 return Page();
             }
 
@@ -68,7 +66,6 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Categoria.Codigo),
                     $"El código '{NuevaCategoria.Codigo}' ya existe en el sistema.");
 
-                CargarEmpleados();
                 return Page();
             }
             catch (Exception ex)
@@ -80,7 +77,6 @@ namespace FERRETERIA__Joel.Pages
                 Errores.Add(
                     "No se pudo registrar la categoría. Inténtalo nuevamente.");
 
-                CargarEmpleados();
                 return Page();
             }
         }
@@ -134,24 +130,11 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Categoria.PorcentajeGanancia),
                     "El porcentaje de ganancia debe estar entre 0 y 100.");
             }
-
-            if (!_validador.EsEmpleadoValido(
-                NuevaCategoria.IdEmpleadoResponsable))
-            {
-                AgregarErrorCampo(
-                    nameof(Categoria.IdEmpleadoResponsable),
-                    "Debe seleccionar un empleado responsable.");
-            }
         }
 
         private void AgregarErrorCampo(string campo, string mensaje)
         {
             ErroresCampo[campo] = mensaje;
-        }
-
-        private void CargarEmpleados()
-        {
-            Empleados = _servicioEmpleado.ObtenerTodos();
         }
     }
 }

@@ -189,7 +189,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.ExecuteNonQuery();
         }
 
-        public void CambiarEstado(int idProveedor)
+        public void CambiarEstado(int idProveedor, int idEmpleadoResponsable)
         {
             const string query = @"
                 UPDATE proveedor
@@ -198,7 +198,8 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                         WHEN Estado = 1 THEN 0
                         ELSE 1
                     END,
-                    FechaActualizacion = CURRENT_TIMESTAMP
+                    FechaActualizacion = CURRENT_TIMESTAMP,
+                    IdEmpleadoResponsable = @idEmpleadoResponsable
                 WHERE IdProveedor = @idProveedor";
 
             using MySqlConnection connection =
@@ -210,6 +211,10 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.Parameters.AddWithValue(
                 "@idProveedor",
                 idProveedor);
+
+            command.Parameters.AddWithValue(
+                "@idEmpleadoResponsable",
+                idEmpleadoResponsable);
 
             connection.Open();
 

@@ -5,16 +5,16 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 {
     public class ServicioEmpleado
     {
-        private readonly RepositoryCreator<IRepository<Empleado>> _creador;
-        private IRepository<Empleado>? _repositorio;
+        private readonly RepositoryCreator<IEmpleadoRepository> _creador;
+        private IEmpleadoRepository? _repositorio;
 
         public ServicioEmpleado(
-            RepositoryCreator<IRepository<Empleado>> creador)
+            RepositoryCreator<IEmpleadoRepository> creador)
         {
             _creador = creador;
         }
 
-        private IRepository<Empleado> Repositorio =>
+        private IEmpleadoRepository Repositorio =>
             _repositorio ??= _creador.CreateRepository();
 
         public List<Empleado> ObtenerTodos()

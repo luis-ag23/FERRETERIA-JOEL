@@ -5,7 +5,7 @@ using MySql.Data.MySqlClient;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
 {
-    public class MySqlEmpleadoRepository : IRepository<Empleado>
+    public class MySqlEmpleadoRepository : IEmpleadoRepository
     {
         private readonly IDbConnectionFactory _connectionFactory;
 
@@ -112,7 +112,68 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return Convert.ToInt32(command.LastInsertedId);
         }
 
+        public Empleado? ObtenerPorCorreo(string correo)
+        {
+            const string query = @"
+                SELECT
+                    IdEmpleado,
+                    Nombre,
+                    Apellido,
+                    Rol,
+                    Telefono,
+                    CorreoElectronico,
+                    Contrasena,
+                    Estado,
+                    FechaRegistro,
+                    FechaActualizacion,
+                    IdEmpleadoResponsable
+                FROM empleado
+                WHERE CorreoElectronico = @correo
+                LIMIT 1";
+
+            using MySqlConnection connection =
+                _connectionFactory.CreateConnection();
+
+            using MySqlCommand command =
+                new MySqlCommand(query, connection);
+
+            command.Parameters.AddWithValue("@correo", correo);
+
+            connection.Open();
+
+            using MySqlDataReader reader =
+                command.ExecuteReader();
+
+            return reader.Read()
+                ? MapearEmpleado(reader)
+                : null;
+        }
+
         // ================== Funciones fuera del contrato ==================
+
+        public void ActualizarContrasena(int id, string contrasena)
+        {
+            const string query = @"
+                UPDATE empleado
+                SET
+                    Contrasena = @contrasena,
+                    FechaActualizacion = CURRENT_TIMESTAMP
+                WHERE IdEmpleado = @id";
+
+            using MySqlConnection connection =
+                _connectionFactory.CreateConnection();
+
+            using MySqlCommand command =
+                new MySqlCommand(query, connection);
+
+            command.Parameters.AddWithValue("@id", id);
+
+            command.Parameters.AddWithValue("@contrasena", contrasena);
+
+            connection.Open();
+
+            command.ExecuteNonQuery();
+        }
 
         public List<Empleado> ObtenerActivas()
         {

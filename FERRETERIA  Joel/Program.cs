@@ -6,60 +6,64 @@ using FERRETERIA__Joel.Helpers;
 using FERRETERIA__Joel.Infraestructura;
 using FERRETERIA__Joel.Infraestructura.Conexion;
 using FERRETERIA__Joel.Infraestructura.Factories;
+using FERRETERIA__Joel.Infraestructura.Seguridad;
 using FERRETERIA__Joel.Servicios;
-using System.Net;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddRazorPages();
+// Carga las variables definidas en el archivo .env (no versionado) y expone
+// la clave de alta de empleados a través de la configuración.
+CargarVariablesEntorno(builder.Environment.ContentRootPath);
 
-// ------------------------------------------------------------------
-// Punto de integracion con el modulo de autenticacion del equipo.
-// Ventas NO implementa login: solo declara la proteccion ([Authorize] /
-// rol Administrador). No se implementa aquí el login del equipo.
-// Para pruebas locales se puede habilitar explícitamente el helper
-// de Development; en los demás entornos el acceso anónimo se rechaza.
-// ------------------------------------------------------------------
+string? claveEmpleado =
+    Environment.GetEnvironmentVariable("REGISTRO_CLAVE_EMPLEADO");
+
+if (!string.IsNullOrWhiteSpace(claveEmpleado))
+{
+    builder.Configuration["Registro:ClaveEmpleado"] = claveEmpleado;
+}
+
+builder.Services.AddRazorPages(options =>
+{
+    // Páginas de gestión: requieren sesión iniciada. Un visitante que intente
+    // abrir cualquiera de estas rutas por URL es redirigido a /Login.
+    options.Conventions.AuthorizePage("/Productos");
+    options.Conventions.AuthorizePage("/ProductoNuevo");
+    options.Conventions.AuthorizePage("/ProductoEditar");
+    options.Conventions.AuthorizePage("/ProductoHistoricoPrecio");
+    options.Conventions.AuthorizePage("/Categorias");
+    options.Conventions.AuthorizePage("/CategoriaNueva");
+    options.Conventions.AuthorizePage("/CategoriaEditar");
+    options.Conventions.AuthorizePage("/Marcas");
+    options.Conventions.AuthorizePage("/MarcaNueva");
+    options.Conventions.AuthorizePage("/MarcaEditar");
+    options.Conventions.AuthorizePage("/Proveedores");
+    options.Conventions.AuthorizePage("/ProveedorNuevo");
+    options.Conventions.AuthorizePage("/ProveedorEditar");
+
+    // Páginas de consulta (rol Usuario): requieren sesión iniciada.
+    options.Conventions.AuthorizePage("/ProductosUsuario");
+    options.Conventions.AuthorizePage("/CategoriasUsuario");
+    options.Conventions.AuthorizePage("/MarcasUsuario");
+    options.Conventions.AuthorizePage("/ProveedoresUsuario");
+});
+
+// Autenticación oficial del equipo por cookie. Ventas la reutiliza sin
+// duplicarla: no se declara otra configuracion, cookie ni redirecciones.
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
         options.LoginPath = "/Login";
+        options.LogoutPath = "/Logout";
         options.AccessDeniedPath = "/Login";
-        options.Events = new CookieAuthenticationEvents
-        {
-            OnRedirectToLogin = context =>
-            {
-                // Redirige únicamente una navegación HTML local en Development
-                // cuando el acceso temporal de Ventas está activado explícitamente.
-                bool habilitado = builder.Environment.IsDevelopment()
-                    && builder.Configuration.GetValue<bool>("Ventas:HabilitarAccesoLocal")
-                    && (context.Request.Path.StartsWithSegments("/Venta")
-                        || context.Request.Path.StartsWithSegments("/Ventas")
-                        || context.Request.Path.StartsWithSegments("/VentaComprobante"))
-                    && context.Request.Headers.Accept.ToString().Contains(
-                        "text/html", StringComparison.OrdinalIgnoreCase)
-                    && context.HttpContext.Connection.RemoteIpAddress is { } ip
-                    && IPAddress.IsLoopback(ip);
-
-                if (habilitado)
-                {
-                    context.Response.Redirect("/dev/ventas-acceso");
-                }
-                else
-                {
-                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                }
-
-                return Task.CompletedTask;
-            },
-            OnRedirectToAccessDenied = context =>
-            {
-                context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                return Task.CompletedTask;
-            }
-        };
+        options.Cookie.Name = "FerreteriaJoel.Auth";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.SlidingExpiration = true;
     });
 
 builder.Services.AddAuthorization();
@@ -69,28 +73,25 @@ UrlProtector.Inicializar(
         ?? throw new InvalidOperationException(
             "Falta la clave 'UrlProteccion:Clave' en la configuración."));
 
-
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddSingleton<IDbConnectionFactory, MySqlConnectionFactory>();
 
-
 builder.Services.AddScoped<IConexionTransaccional, MySqlConexionTransaccional>();
 builder.Services.AddScoped<IUnidadDeTrabajo, MySqlUnidadDeTrabajo>();
-
 
 builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Producto>>, ProductoRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Categoria>>, CategoriaRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Proveedor>>, ProveedorRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Marca>>, MarcaRepositoryCreator>();
-builder.Services.AddScoped<RepositoryCreator<IRepository<Empleado>>, EmpleadoRepositoryCreator>();
+builder.Services.AddScoped<RepositoryCreator<IEmpleadoRepository>, EmpleadoRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IHistoricoPrecioRepository>, HistoricoPrecioRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IClienteRepository>, ClienteRepositoryCreator>();
+builder.Services.AddScoped<RepositoryCreator<IBitacoraRepository>, BitacoraRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IVentaRepository>, VentaRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IDetalleVentaRepository>, DetalleVentaRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IInventarioRepository>, InventarioRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IEmpleadoVentaRepository>, EmpleadoVentaRepositoryCreator>();
-
 
 builder.Services.AddScoped<ServicioCategoria>();
 builder.Services.AddScoped<ServicioProducto>();
@@ -100,9 +101,7 @@ builder.Services.AddScoped<ServicioHistoricoPrecio>();
 builder.Services.AddScoped<ServicioMarca>();
 builder.Services.AddScoped<ServicioCliente>();
 
-
 builder.Services.AddScoped<IContextoUsuario, ContextoUsuarioHttp>();
-
 
 var descuentos = new ConfiguracionDescuentos();
 
@@ -118,8 +117,13 @@ builder.Services.AddSingleton<IPoliticaDescuento>(
 builder.Services.AddScoped<SelectorDescuento>();
 builder.Services.AddScoped<FachadaVenta>();
 
-var app = builder.Build();
+builder.Services.AddSingleton<IHasheadorContrasena, Argon2HasheadorContrasena>();
+builder.Services.AddScoped<ServicioRegistroEmpleado>();
+builder.Services.AddScoped<ServicioRegistroUsuario>();
+builder.Services.AddScoped<ServicioInicioSesion>();
+builder.Services.AddScoped<ServicioBitacora>();
 
+var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
 {
@@ -134,12 +138,46 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Solo Development + configuración explícita + solicitudes locales.
-// En producción esta ruta no existe.
-app.MapAccesoLocalVentasDesarrollo();
-
 app.MapStaticAssets();
 app.MapRazorPages()
    .WithStaticAssets();
 
 app.Run();
+
+// Lee un archivo .env (clave=valor por línea) desde el directorio indicado y
+// define cada variable de entorno si aún no existe. Las líneas vacías o que
+// comienzan con '#' se ignoran.
+static void CargarVariablesEntorno(string directorio)
+{
+    string ruta = Path.Combine(directorio, ".env");
+
+    if (!File.Exists(ruta))
+    {
+        return;
+    }
+
+    foreach (string linea in File.ReadAllLines(ruta))
+    {
+        string texto = linea.Trim();
+
+        if (texto.Length == 0 || texto.StartsWith('#'))
+        {
+            continue;
+        }
+
+        int separador = texto.IndexOf('=');
+
+        if (separador <= 0)
+        {
+            continue;
+        }
+
+        string clave = texto[..separador].Trim();
+        string valor = texto[(separador + 1)..].Trim().Trim('"');
+
+        if (Environment.GetEnvironmentVariable(clave) is null)
+        {
+            Environment.SetEnvironmentVariable(clave, valor);
+        }
+    }
+}
