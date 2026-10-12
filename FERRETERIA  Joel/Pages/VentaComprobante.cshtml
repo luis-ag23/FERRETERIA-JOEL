@@ -122,6 +122,11 @@
                 <div class="comprobante-total"><span>TOTAL</span><span>@venta.MontoTotal.ToString("N2") Bs</span></div>
             </div>
 
+            <p class="comprobante-total-literal">
+                <strong>Son:</strong>
+                <span>@FERRETERIA__Joel.Dominio.Utilidades.NumeroALetras.EnLetras(venta.MontoTotal)</span>
+            </p>
+
             @if (!registrada)
             {
                 <div class="comprobante-anulada">
