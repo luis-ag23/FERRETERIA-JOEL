@@ -14,7 +14,7 @@ namespace FERRETERIA__Joel.Pages
     /// Administrador (verificado contra el sistema de autenticación).
     /// Todos los manejadores son asíncronos.
     /// </summary>
-    [Authorize]
+    [Authorize(Roles = RolesSistema.Empleado)]
     public class VentasModel : PageModel
     {
         private readonly FachadaVenta _fachada;

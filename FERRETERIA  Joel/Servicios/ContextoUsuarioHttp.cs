@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Puertos;
 
 namespace FERRETERIA__Joel.Servicios
@@ -28,6 +29,22 @@ namespace FERRETERIA__Joel.Servicios
         {
             get
             {
+                string rol = Rol;
+
+                bool esPersonal = string.Equals(
+                    rol,
+                    RolesSistema.Empleado,
+                    StringComparison.Ordinal) ||
+                    string.Equals(
+                        rol,
+                        RolesSistema.Administrador,
+                        StringComparison.Ordinal);
+
+                if (!esPersonal)
+                {
+                    return 0;
+                }
+
                 string? valor = Usuario?.FindFirstValue(
                     ClaimTypes.NameIdentifier);
 

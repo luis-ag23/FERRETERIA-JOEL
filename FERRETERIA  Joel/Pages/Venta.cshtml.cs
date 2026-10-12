@@ -15,7 +15,7 @@ namespace FERRETERIA__Joel.Pages
     /// El precio y los totales siempre se resuelven en el dominio.
     /// Todos los manejadores son asíncronos.
     /// </summary>
-    [Authorize]
+    [Authorize(Roles = RolesSistema.Empleado)]
     public class VentaModel : PageModel
     {
         private readonly FachadaVenta _fachada;
