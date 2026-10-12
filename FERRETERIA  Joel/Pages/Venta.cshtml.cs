@@ -1,6 +1,8 @@
 using FERRETERIA__Joel.Aplicacion.Modelos;
 using FERRETERIA__Joel.Aplicacion.Politicas;
 using FERRETERIA__Joel.Aplicacion.Servicios;
+using FERRETERIA__Joel.Dominio.Constantes;
+using FERRETERIA__Joel.Dominio.Puertos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -18,14 +20,20 @@ namespace FERRETERIA__Joel.Pages
     {
         private readonly FachadaVenta _fachada;
         private readonly ServicioCliente _servicioCliente;
+        private readonly IContextoUsuario _contextoUsuario;
+        private readonly ILogger<VentaModel> _logger;
 
         public VentaModel(
             FachadaVenta fachada,
             ConfiguracionDescuentos descuentos,
-            ServicioCliente servicioCliente)
+            ServicioCliente servicioCliente,
+            IContextoUsuario contextoUsuario,
+            ILogger<VentaModel> logger)
         {
             _fachada = fachada;
             _servicioCliente = servicioCliente;
+            _contextoUsuario = contextoUsuario;
+            _logger = logger;
             Descuentos = descuentos;
         }
 
@@ -36,11 +44,6 @@ namespace FERRETERIA__Joel.Pages
             "Efectivo", "Tarjeta", "Transferencia", "QR"
         };
 
-        public IReadOnlyList<string> EstadosPago { get; } = new[]
-        {
-            "Pagado", "Pendiente", "Parcial"
-        };
-
         [BindProperty]
         public int IdCliente { get; set; }
 
@@ -49,9 +52,6 @@ namespace FERRETERIA__Joel.Pages
 
         [BindProperty]
         public string MetodoPago { get; set; } = "Efectivo";
-
-        [BindProperty]
-        public string EstadoPago { get; set; } = "Pagado";
 
         [BindProperty]
         public string? ClaveIdempotencia { get; set; }
@@ -68,33 +68,47 @@ namespace FERRETERIA__Joel.Pages
             ClaveIdempotencia = NuevaClave();
         }
 
-        public async Task<JsonResult> OnGetBuscarClientesAsync(string? termino)
+        public async Task<IActionResult> OnGetBuscarClientesAsync(string? termino)
         {
-            var clientes = (await _fachada.BuscarClientesAsync(termino ?? string.Empty))
-                .Select(c => new
-                {
-                    id = c.IdCliente,
-                    nombre = $"{c.Nombre} {c.Apellido}".Trim(),
-                    telefono = c.Telefono
-                });
-
-            return new JsonResult(clientes);
+            try
+            {
+                var clientes = (await _fachada.BuscarClientesAsync(termino ?? string.Empty))
+                    .Select(c => new
+                    {
+                        id = c.IdCliente,
+                        nombre = $"{c.Nombre} {c.Apellido}".Trim(),
+                        telefono = c.Telefono
+                    });
+                return new JsonResult(clientes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al buscar clientes desde Ventas");
+                return StatusCode(503, new { mensaje = "No se pudieron buscar clientes. Revise la conexión con MySQL." });
+            }
         }
 
-        public async Task<JsonResult> OnGetBuscarProductosAsync(string? termino)
+        public async Task<IActionResult> OnGetBuscarProductosAsync(string? termino)
         {
-            var productos = (await _fachada.BuscarProductosAsync(termino ?? string.Empty))
-                .Select(p => new
-                {
-                    id = p.IdProducto,
-                    codigo = p.Codigo,
-                    nombre = p.Nombre,
-                    unidad = p.UnidadMedida,
-                    precio = p.PrecioVenta,
-                    stock = p.CantidadStock
-                });
-
-            return new JsonResult(productos);
+            try
+            {
+                var productos = (await _fachada.BuscarProductosAsync(termino ?? string.Empty))
+                    .Select(p => new
+                    {
+                        id = p.IdProducto,
+                        codigo = p.Codigo,
+                        nombre = p.Nombre,
+                        unidad = p.UnidadMedida,
+                        precio = p.PrecioVenta,
+                        stock = p.CantidadStock
+                    });
+                return new JsonResult(productos);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al buscar productos desde Ventas");
+                return StatusCode(503, new { mensaje = "No se pudieron buscar productos. Revise la conexión con MySQL." });
+            }
         }
 
         /// <summary>
@@ -102,34 +116,46 @@ namespace FERRETERIA__Joel.Pages
         /// propia pantalla de venta. Al ser una llamada AJAX la página
         /// nunca se recarga y las líneas seleccionadas se conservan.
         /// </summary>
-        public async Task<JsonResult> OnPostCrearClienteAsync(
+        public async Task<IActionResult> OnPostCrearClienteAsync(
             string? nuevoClienteNombre,
             string? nuevoClienteApellido,
             string? nuevoClienteTelefono,
             string? nuevoClienteCorreo)
         {
-            ResultadoCliente resultado = await _servicioCliente.CrearAsync(
-                nuevoClienteNombre ?? string.Empty,
-                nuevoClienteApellido ?? string.Empty,
-                nuevoClienteTelefono ?? string.Empty,
-                nuevoClienteCorreo);
+            if (_contextoUsuario.IdEmpleado <= 0)
+                return new JsonResult(new { exito = false, mensaje = "Debe iniciar sesión para registrar clientes." })
+                {
+                    StatusCode = StatusCodes.Status401Unauthorized
+                };
 
-            if (!resultado.Exito || resultado.Cliente is null)
+            try
             {
+                ResultadoCliente resultado = await _servicioCliente.CrearAsync(
+                    nuevoClienteNombre ?? string.Empty,
+                    nuevoClienteApellido ?? string.Empty,
+                    nuevoClienteTelefono ?? string.Empty,
+                    nuevoClienteCorreo);
+
+                if (!resultado.Exito || resultado.Cliente is null)
+                    return BadRequest(new { exito = false, mensaje = resultado.Mensaje });
+
                 return new JsonResult(new
                 {
-                    exito = false,
-                    mensaje = resultado.Mensaje
+                    exito = true,
+                    id = resultado.Cliente.IdCliente,
+                    nombre = $"{resultado.Cliente.Nombre} {resultado.Cliente.Apellido}".Trim(),
+                    telefono = resultado.Cliente.Telefono
                 });
             }
-
-            return new JsonResult(new
+            catch (Exception ex)
             {
-                exito = true,
-                id = resultado.Cliente.IdCliente,
-                nombre = $"{resultado.Cliente.Nombre} {resultado.Cliente.Apellido}".Trim(),
-                telefono = resultado.Cliente.Telefono
-            });
+                _logger.LogError(ex, "Error al crear un cliente desde el modal de Ventas");
+                return StatusCode(503, new
+                {
+                    exito = false,
+                    mensaje = "No se pudo guardar el cliente en MySQL. Verifique la conexión y la migración de Ventas."
+                });
+            }
         }
 
         public async Task<IActionResult> OnPostRegistrarAsync()
@@ -140,16 +166,30 @@ namespace FERRETERIA__Joel.Pages
                     .FirstOrDefault()?.IdCliente ?? 0;
             }
 
+            // El estado del pago no se toma del cliente: lo fija el
+            // servidor. Por ahora toda venta se registra como pagada.
             SolicitudVenta solicitud = new()
             {
                 IdCliente = IdCliente,
                 MetodoPago = MetodoPago,
-                EstadoPago = EstadoPago,
+                EstadoPago = EstadoPago.Pagado,
                 ClaveIdempotencia = ClaveIdempotencia,
                 Lineas = Lineas
             };
 
-            ResultadoVenta resultado = await _fachada.RegistrarVentaAsync(solicitud);
+            ResultadoVenta resultado;
+            try
+            {
+                resultado = await _fachada.RegistrarVentaAsync(solicitud);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error no controlado al registrar la venta");
+                MensajeError = "No se pudo registrar la venta. Revise la conexión a MySQL o consulte al administrador.";
+                // Se conserva la clave de idempotencia si el resultado del servidor
+                // es incierto. Un reintento no debe duplicar la operación.
+                return Page();
+            }
 
             if (!resultado.Exito)
             {

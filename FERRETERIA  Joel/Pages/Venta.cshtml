@@ -7,6 +7,7 @@
     var cultura = System.Globalization.CultureInfo.InvariantCulture;
 }
 @section Styles {
+    <link rel="stylesheet" href="~/css/ventas-componentes.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/venta.css" asp-append-version="true" />
 }
 
@@ -95,22 +96,15 @@
 
             <div class="fj-form-field">
                 <label asp-for="MetodoPago">Método de pago</label>
-                <select asp-for="MetodoPago">
+                <select asp-for="MetodoPago" class="fj-input fj-select">
                     @foreach (var metodo in Model.MetodosPago)
                     {
                         <option value="@metodo">@metodo</option>
                     }
                 </select>
-            </div>
-
-            <div class="fj-form-field">
-                <label asp-for="EstadoPago">Estado del pago</label>
-                <select asp-for="EstadoPago">
-                    @foreach (var estado in Model.EstadosPago)
-                    {
-                        <option value="@estado">@estado</option>
-                    }
-                </select>
+                <p class="fj-form-ayuda">
+                    La venta se registra con el pago completado (Pagado).
+                </p>
             </div>
 
             <input type="hidden" asp-for="ClaveIdempotencia" id="claveIdempotencia" />
@@ -151,8 +145,8 @@
                         <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
                     </svg>
                 </span>
-                <p>Sin productos agregados</p>
-                <span>Busque un producto y agréguelo para armar la venta.</span>
+                <p>Todavía no hay productos en esta venta.</p>
+                <span>Busque un producto por nombre o código para agregarlo.</span>
             </div>
 
             <div id="lineasInputs"></div>
@@ -174,11 +168,11 @@
             </div>
 
             <div class="fj-venta-acciones">
-                <button type="button" class="fj-btn fj-btn-primary" id="btnRegistrar">
+                <button type="button" class="fj-btn fj-btn-primary" id="btnRegistrar" disabled>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <polyline points="20 6 9 17 4 12" />
                     </svg>
-                    Registrar venta
+                    <span id="btnRegistrarTexto">Registrar venta</span>
                 </button>
             </div>
         </section>
@@ -222,22 +216,22 @@
 
                 <div class="fj-form-field">
                     <label for="nuevoClienteNombre">Nombres</label>
-                    <input type="text" id="nuevoClienteNombre"
+                    <input type="text" id="nuevoClienteNombre" class="fj-input"
                            name="nuevoClienteNombre" maxlength="60" autocomplete="off" />
                 </div>
                 <div class="fj-form-field">
                     <label for="nuevoClienteApellido">Apellidos</label>
-                    <input type="text" id="nuevoClienteApellido"
+                    <input type="text" id="nuevoClienteApellido" class="fj-input"
                            name="nuevoClienteApellido" maxlength="60" autocomplete="off" />
                 </div>
                 <div class="fj-form-field">
                     <label for="nuevoClienteTelefono">Teléfono</label>
-                    <input type="tel" id="nuevoClienteTelefono"
+                    <input type="tel" id="nuevoClienteTelefono" class="fj-input"
                            name="nuevoClienteTelefono" maxlength="30" autocomplete="off" />
                 </div>
                 <div class="fj-form-field">
                     <label for="nuevoClienteCorreo">Correo electrónico <span class="fj-optional">(opcional)</span></label>
-                    <input type="email" id="nuevoClienteCorreo"
+                    <input type="email" id="nuevoClienteCorreo" class="fj-input"
                            name="nuevoClienteCorreo" maxlength="120" autocomplete="off" />
                 </div>
 

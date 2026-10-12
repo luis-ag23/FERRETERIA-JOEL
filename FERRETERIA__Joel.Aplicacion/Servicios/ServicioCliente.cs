@@ -42,6 +42,16 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             string telefono,
             string? correo)
         {
+            int idEmpleado = _contextoUsuario.IdEmpleado;
+            if (idEmpleado <= 0)
+            {
+                return new ResultadoCliente
+                {
+                    Exito = false,
+                    Mensaje = "Debe iniciar sesión con un empleado válido para registrar clientes."
+                };
+            }
+
             nombre = nombre?.Trim() ?? string.Empty;
             apellido = apellido?.Trim() ?? string.Empty;
             telefono = telefono?.Trim() ?? string.Empty;
@@ -84,7 +94,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 CorreoElectronico = correo,
                 Estado = 1,
                 FechaRegistro = DateTime.Now,
-                IdEmpleadoResponsable = _contextoUsuario.IdEmpleado
+                IdEmpleadoResponsable = idEmpleado
             };
 
             int idCliente = await Repositorio.InsertarAsync(cliente);

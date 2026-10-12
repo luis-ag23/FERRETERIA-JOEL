@@ -1,8 +1,10 @@
 /* FERRETERÍA JOEL — Pantalla de registro de venta. */
 
+/* ---------- Disposición general (30% / 70% en escritorio) ---------- */
+
 .fj-page-venta .fj-venta-grid {
     display: grid;
-    grid-template-columns: minmax(16rem, 22rem) 1fr;
+    grid-template-columns: minmax(16rem, 30%) 1fr;
     gap: 1.25rem;
     align-items: start;
 }
@@ -126,12 +128,33 @@
     margin: 0;
 }
 
-.fj-td-cantidad {
-    width: 6.5rem;
+#tablaLineas th:nth-child(2),
+#tablaLineas td:nth-child(2) {
+    width: 5.5rem;
+}
+
+#tablaLineas th:nth-child(3),
+#tablaLineas td:nth-child(3) {
+    width: 7rem;
+}
+
+#tablaLineas th:nth-child(4),
+#tablaLineas td:nth-child(4) {
+    width: 7rem;
+}
+
+#tablaLineas th:nth-child(5),
+#tablaLineas td:nth-child(5) {
+    width: 8rem;
+}
+
+#tablaLineas th:nth-child(6),
+#tablaLineas td:nth-child(6) {
+    width: 3.5rem;
 }
 
 .fj-cantidad-input {
-    width: 4.75rem;
+    width: 4.5rem;
     padding: 0.4rem 0.55rem;
     border: 0.0625rem solid var(--borde);
     border-radius: var(--radius-sm);
@@ -175,8 +198,13 @@
     padding-top: 0.6rem;
     border-top: 0.0625rem dashed var(--borde);
     color: var(--texto);
-    font-size: 1.2rem;
-    font-weight: 700;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+}
+
+.fj-venta-total-final #totalFinal {
+    font-variant-numeric: tabular-nums;
 }
 
 .fj-venta-politica {
@@ -189,6 +217,10 @@
     display: flex;
     justify-content: flex-end;
     padding-top: 0.5rem;
+}
+
+.fj-venta-acciones .fj-btn {
+    min-width: 11rem;
 }
 
 /* ---------- Éxito ---------- */
@@ -212,7 +244,7 @@
 /* ---------- Alta de cliente desde la venta ---------- */
 
 .fj-form-ayuda {
-    margin-top: 0.5rem;
+    margin: 0.35rem 0 0;
     font-size: 0.85rem;
     color: var(--texto-ter);
 }
@@ -246,8 +278,25 @@
     gap: 0.9rem;
 }
 
+.fj-modal-dialog-form .fj-modal-actions {
+    justify-content: flex-end;
+}
+
+/* ---------- Responsive ---------- */
+
 @media (max-width: 60rem) {
     .fj-page-venta .fj-venta-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .fj-venta-acciones .fj-btn {
+        width: 100%;
+    }
+
+    #tablaLineas th:nth-child(2),
+    #tablaLineas td:nth-child(2) {
+        display: none;
     }
 }

@@ -2,6 +2,10 @@
 // Gestiona los dos buscadores, la tabla temporal de líneas (M:N) y
 // la previsualización de totales. La validación y el cálculo
 // definitivos siempre ocurren en el servidor (FachadaVenta).
+//
+// Todo el contenido dinámico se construye con nodos del DOM y
+// textContent (nunca innerHTML con datos del usuario) para evitar
+// inyección de HTML/XSS.
 
 (function () {
     var app = document.getElementById('ventaApp');
@@ -37,17 +41,53 @@
         return Math.round((n + Number.EPSILON) * 100) / 100;
     }
 
+    function crear(tag, clase, texto) {
+        var el = document.createElement(tag);
+        if (clase) el.className = clase;
+        if (texto !== undefined && texto !== null) el.textContent = texto;
+        return el;
+    }
+
     // ---------- Buscadores ----------
+
+    function errorHttp(codigo) {
+        if (codigo === 401) return 'La sesión ha expirado o no se ha iniciado. Inicie sesión para continuar.';
+        if (codigo === 403) return 'No tiene permisos para esta operación.';
+        if (codigo === 400) return 'La solicitud no es válida. Revise los datos enviados.';
+        if (codigo === 404) return 'No se encontró el servicio solicitado. Revise las rutas de Ventas.';
+        if (codigo >= 500) return 'Error del servidor o de la conexión con MySQL.';
+        return 'No se pudo completar la solicitud (HTTP ' + codigo + ').';
+    }
+
+    function leerJson(response) {
+        var esJson = (response.headers.get('content-type') || '').includes('application/json');
+        return (esJson ? response.json() : Promise.resolve(null))
+            .catch(function () { return null; })
+            .then(function (datos) {
+                if (!response.ok) {
+                    var error = new Error(datos && datos.mensaje || errorHttp(response.status));
+                    error.status = response.status;
+                    throw error;
+                }
+                if (datos === null) {
+                    throw new Error('El servidor no devolvió JSON válido. Revise la sesión y la ruta.');
+                }
+                return datos;
+            });
+    }
 
     function buscar(url, termino) {
         var sep = url.indexOf('?') === -1 ? '?' : '&';
         return fetch(url + sep + 'termino=' + encodeURIComponent(termino), {
+            credentials: 'same-origin',
             headers: { 'Accept': 'application/json' }
-        }).then(function (r) {
-            return r.ok ? r.json() : [];
-        }).catch(function () {
-            return [];
-        });
+        }).then(leerJson);
+    }
+
+    function mostrarErrorResultados(contenedor, error) {
+        contenedor.replaceChildren(
+            crear('p', 'fj-resultado-vacio', error.message || 'Falló la consulta al servidor.'));
+        contenedor.hidden = false;
     }
 
     function conRetardo(fn, ms) {
@@ -64,7 +104,7 @@
 
     function ocultar(el) {
         el.hidden = true;
-        el.innerHTML = '';
+        el.replaceChildren();
     }
 
     // ---------- Cliente ----------
@@ -78,16 +118,27 @@
     function mostrarCliente(cliente) {
         clienteId.value = cliente.id;
         clienteNombre.value = cliente.nombre;
+
+        clienteSeleccionado.replaceChildren();
+        var ico = crear('span', 'fj-seleccion-ico', '✓');
+        ico.setAttribute('aria-hidden', 'true');
+        clienteSeleccionado.appendChild(ico);
+        clienteSeleccionado.appendChild(document.createTextNode(' '));
+        clienteSeleccionado.appendChild(crear('strong', null, cliente.nombre));
+        if (cliente.telefono) {
+            clienteSeleccionado.appendChild(document.createTextNode(' · ' + cliente.telefono));
+        }
         clienteSeleccionado.hidden = false;
-        clienteSeleccionado.innerHTML =
-            '<span class="fj-seleccion-ico" aria-hidden="true">✓</span> ' +
-            '<strong>' + cliente.nombre + '</strong>' +
-            (cliente.telefono ? ' · ' + cliente.telefono : '');
+
         inputCliente.value = '';
+        secuenciaClientes += 1;
         ocultar(resultadosCliente);
+        actualizarBotonRegistrar();
     }
 
+    var secuenciaClientes = 0;
     var buscarClienteRetardado = conRetardo(function () {
+        var solicitud = secuenciaClientes;
         var termino = inputCliente.value.trim();
         if (termino.length < 2) {
             ocultar(resultadosCliente);
@@ -95,35 +146,47 @@
         }
 
         buscar(urlClientes, termino).then(function (clientes) {
+            if (solicitud !== secuenciaClientes) return;
+            resultadosCliente.replaceChildren();
+
             if (!clientes.length) {
+                resultadosCliente.appendChild(
+                    crear('p', 'fj-resultado-vacio', 'Sin clientes para "' + termino + '".'));
                 resultadosCliente.hidden = false;
-                resultadosCliente.innerHTML =
-                    '<p class="fj-resultado-vacio">Sin clientes para "' + termino + '".</p>';
                 return;
             }
 
-            resultadosCliente.innerHTML = clientes.map(function (c) {
-                return '<button type="button" class="fj-resultado" ' +
-                    'data-cliente-id="' + c.id + '" ' +
-                    'data-cliente-nombre="' + c.nombre.replace(/"/g, '&quot;') + '" ' +
-                    'data-cliente-tel="' + (c.telefono || '').replace(/"/g, '&quot;') + '">' +
-                    '<span class="fj-resultado-titulo">' + c.nombre + '</span>' +
-                    '<span class="fj-resultado-sub">' + (c.telefono || 'Sin teléfono') + '</span>' +
-                    '</button>';
-            }).join('');
+            clientes.forEach(function (c) {
+                var boton = crear('button', 'fj-resultado');
+                boton.type = 'button';
+                boton.dataset.clienteId = c.id;
+                boton.dataset.clienteNombre = c.nombre;
+                boton.dataset.clienteTel = c.telefono || '';
+                boton.appendChild(crear('span', 'fj-resultado-titulo', c.nombre));
+                boton.appendChild(
+                    crear('span', 'fj-resultado-sub', c.telefono || 'Sin teléfono'));
+                resultadosCliente.appendChild(boton);
+            });
+
             resultadosCliente.hidden = false;
+        }).catch(function (error) {
+            if (solicitud !== secuenciaClientes) return;
+            mostrarErrorResultados(resultadosCliente, error);
         });
     }, 250);
 
-    inputCliente.addEventListener('input', buscarClienteRetardado);
+    inputCliente.addEventListener('input', function () {
+        secuenciaClientes += 1;
+        buscarClienteRetardado();
+    });
 
     resultadosCliente.addEventListener('click', function (e) {
         var boton = e.target.closest('[data-cliente-id]');
         if (!boton) return;
         mostrarCliente({
-            id: boton.getAttribute('data-cliente-id'),
-            nombre: boton.getAttribute('data-cliente-nombre'),
-            telefono: boton.getAttribute('data-cliente-tel')
+            id: boton.dataset.clienteId,
+            nombre: boton.dataset.clienteNombre,
+            telefono: boton.dataset.clienteTel
         });
     });
 
@@ -132,53 +195,71 @@
     var inputProducto = document.getElementById('buscarProducto');
     var resultadosProducto = document.getElementById('resultadosProducto');
 
+    var secuenciaProductos = 0;
     var buscarProductoRetardado = conRetardo(function () {
+        var solicitud = secuenciaProductos;
         var termino = inputProducto.value.trim();
+        if (!termino) {
+            ocultar(resultadosProducto);
+            return;
+        }
 
         buscar(urlProductos, termino).then(function (productos) {
+            if (solicitud !== secuenciaProductos) return;
+            resultadosProducto.replaceChildren();
+
             if (!productos.length) {
+                resultadosProducto.appendChild(
+                    crear('p', 'fj-resultado-vacio', 'Sin productos disponibles.'));
                 resultadosProducto.hidden = false;
-                resultadosProducto.innerHTML =
-                    '<p class="fj-resultado-vacio">Sin productos disponibles.</p>';
                 return;
             }
 
-            resultadosProducto.innerHTML = productos.map(function (p) {
+            productos.forEach(function (p) {
                 var agotado = p.stock <= 0;
-                return '<button type="button" class="fj-resultado" ' +
-                    (agotado ? 'disabled ' : '') +
-                    'data-producto-id="' + p.id + '" ' +
-                    'data-producto-codigo="' + p.codigo.replace(/"/g, '&quot;') + '" ' +
-                    'data-producto-nombre="' + p.nombre.replace(/"/g, '&quot;') + '" ' +
-                    'data-producto-unidad="' + (p.unidad || '').replace(/"/g, '&quot;') + '" ' +
-                    'data-producto-precio="' + p.precio + '" ' +
-                    'data-producto-stock="' + p.stock + '">' +
-                    '<span class="fj-resultado-titulo">' + p.nombre + '</span>' +
-                    '<span class="fj-resultado-sub">' +
+                var boton = crear('button', 'fj-resultado');
+                boton.type = 'button';
+                if (agotado) boton.disabled = true;
+                boton.dataset.productoId = p.id;
+                boton.dataset.productoCodigo = p.codigo;
+                boton.dataset.productoNombre = p.nombre;
+                boton.dataset.productoUnidad = p.unidad || '';
+                boton.dataset.productoPrecio = p.precio;
+                boton.dataset.productoStock = p.stock;
+                boton.appendChild(crear('span', 'fj-resultado-titulo', p.nombre));
+                boton.appendChild(crear('span', 'fj-resultado-sub',
                     p.codigo + ' · ' + dinero(p.precio) +
-                    ' · Stock: ' + p.stock + (agotado ? ' · Agotado' : '') +
-                    '</span></button>';
-            }).join('');
+                    ' · Stock: ' + p.stock + (agotado ? ' · Agotado' : '')));
+                resultadosProducto.appendChild(boton);
+            });
+
             resultadosProducto.hidden = false;
+        }).catch(function (error) {
+            if (solicitud !== secuenciaProductos) return;
+            mostrarErrorResultados(resultadosProducto, error);
         });
     }, 250);
 
-    inputProducto.addEventListener('input', buscarProductoRetardado);
+    inputProducto.addEventListener('input', function () {
+        secuenciaProductos += 1;
+        buscarProductoRetardado();
+    });
 
     resultadosProducto.addEventListener('click', function (e) {
         var boton = e.target.closest('[data-producto-id]');
         if (!boton || boton.disabled) return;
 
         agregarProducto({
-            id: parseInt(boton.getAttribute('data-producto-id'), 10),
-            codigo: boton.getAttribute('data-producto-codigo'),
-            nombre: boton.getAttribute('data-producto-nombre'),
-            unidad: boton.getAttribute('data-producto-unidad'),
-            precio: parseFloat(boton.getAttribute('data-producto-precio')),
-            stock: parseInt(boton.getAttribute('data-producto-stock'), 10)
+            id: parseInt(boton.dataset.productoId, 10),
+            codigo: boton.dataset.productoCodigo,
+            nombre: boton.dataset.productoNombre,
+            unidad: boton.dataset.productoUnidad,
+            precio: parseFloat(boton.dataset.productoPrecio),
+            stock: parseInt(boton.dataset.productoStock, 10)
         });
 
         inputProducto.value = '';
+        secuenciaProductos += 1;
         inputProducto.focus();
         ocultar(resultadosProducto);
     });
@@ -242,33 +323,94 @@
         window.alert(mensaje);
     }
 
+    function celdaPrecio(valor) {
+        var td = crear('td', 'fj-td-precio');
+        td.appendChild(crear('span', 'fj-precio', fmt.format(valor)));
+        td.appendChild(document.createTextNode(' '));
+        td.appendChild(crear('span', 'fj-currency', 'Bs'));
+        return td;
+    }
+
+    function svgQuitar() {
+        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+        svg.setAttribute('stroke-width', '1.9');
+        svg.setAttribute('stroke-linecap', 'round');
+        svg.setAttribute('stroke-linejoin', 'round');
+        svg.setAttribute('aria-hidden', 'true');
+        var p1 = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        p1.setAttribute('points', '3 6 5 6 21 6');
+        var p2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        p2.setAttribute('d', 'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2');
+        svg.appendChild(p1);
+        svg.appendChild(p2);
+        return svg;
+    }
+
     function render() {
         lineasVacio.hidden = lineas.length > 0;
 
-        lineasBody.innerHTML = lineas.map(function (l) {
-            return '<tr data-linea="' + l.id + '">' +
-                '<td><span class="fj-nombre">' + l.nombre + '</span>' +
-                '<span class="fj-nombre-sub">' + l.codigo + '</span></td>' +
-                '<td class="fj-td-secundario">' + l.unidad + '</td>' +
-                '<td class="fj-td-precio"><span class="fj-precio">' + fmt.format(l.precio) + '</span> <span class="fj-currency">Bs</span></td>' +
-                '<td class="fj-td-cantidad"><input type="number" class="fj-cantidad-input" ' +
-                'min="1" max="' + l.stock + '" value="' + l.cantidad + '" ' +
-                'data-cantidad="' + l.id + '" /></td>' +
-                '<td class="fj-td-precio"><span class="fj-precio">' + fmt.format(redondear(l.precio * l.cantidad)) + '</span> <span class="fj-currency">Bs</span></td>' +
-                '<td class="fj-td-acciones"><button type="button" class="fj-btn fj-btn-danger fj-btn-icon" ' +
-                'data-quitar="' + l.id + '" title="Quitar" aria-label="Quitar producto">' +
-                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" ' +
-                'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-                '<polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>' +
-                '</button></td></tr>';
-        }).join('');
+        lineasBody.replaceChildren();
+        lineas.forEach(function (l) {
+            var tr = crear('tr');
+            tr.dataset.linea = l.id;
 
-        lineasInputs.innerHTML = lineas.map(function (l, i) {
-            return '<input type="hidden" name="Lineas[' + i + '].IdProducto" value="' + l.id + '" />' +
-                '<input type="hidden" name="Lineas[' + i + '].Cantidad" value="' + l.cantidad + '" />';
-        }).join('');
+            var tdProd = crear('td');
+            tdProd.appendChild(crear('span', 'fj-nombre', l.nombre));
+            tdProd.appendChild(crear('span', 'fj-nombre-sub', l.codigo));
+
+            var tdUnidad = crear('td', 'fj-td-secundario', l.unidad);
+
+            var tdPrecio = celdaPrecio(l.precio);
+
+            var tdCantidad = crear('td', 'fj-td-cantidad');
+            var input = crear('input', 'fj-cantidad-input');
+            input.type = 'number';
+            input.min = '1';
+            input.max = String(l.stock);
+            input.value = String(l.cantidad);
+            input.dataset.cantidad = l.id;
+            tdCantidad.appendChild(input);
+
+            var tdSubtotal = celdaPrecio(redondear(l.precio * l.cantidad));
+
+            var tdAcciones = crear('td', 'fj-td-acciones');
+            var btnQuitar = crear('button', 'fj-btn fj-btn-danger fj-btn-icon');
+            btnQuitar.type = 'button';
+            btnQuitar.title = 'Quitar';
+            btnQuitar.setAttribute('aria-label', 'Quitar producto');
+            btnQuitar.dataset.quitar = l.id;
+            btnQuitar.appendChild(svgQuitar());
+            tdAcciones.appendChild(btnQuitar);
+
+            tr.appendChild(tdProd);
+            tr.appendChild(tdUnidad);
+            tr.appendChild(tdPrecio);
+            tr.appendChild(tdCantidad);
+            tr.appendChild(tdSubtotal);
+            tr.appendChild(tdAcciones);
+            lineasBody.appendChild(tr);
+        });
+
+        lineasInputs.replaceChildren();
+        lineas.forEach(function (l, i) {
+            var idInput = crear('input');
+            idInput.type = 'hidden';
+            idInput.name = 'Lineas[' + i + '].IdProducto';
+            idInput.value = l.id;
+            lineasInputs.appendChild(idInput);
+
+            var cantInput = crear('input');
+            cantInput.type = 'hidden';
+            cantInput.name = 'Lineas[' + i + '].Cantidad';
+            cantInput.value = l.cantidad;
+            lineasInputs.appendChild(cantInput);
+        });
 
         recalcularTotales();
+        actualizarBotonRegistrar();
     }
 
     lineasBody.addEventListener('input', function (e) {
@@ -327,6 +469,25 @@
         return { subtotal: subtotal, descuento: descuento, total: total, unidades: unidades };
     }
 
+    // ---------- Botón Registrar ----------
+
+    var botonRegistrar = document.getElementById('btnRegistrar');
+    var botonRegistrarTexto = document.getElementById('btnRegistrarTexto');
+
+    function actualizarBotonRegistrar() {
+        if (!botonRegistrar) return;
+        var listo = lineas.length > 0 && parseInt(clienteId.value, 10) > 0;
+        botonRegistrar.disabled = !listo;
+    }
+
+    function marcandoEnvio(activo) {
+        if (!botonRegistrar) return;
+        botonRegistrar.disabled = activo;
+        if (botonRegistrarTexto) {
+            botonRegistrarTexto.textContent = activo ? 'Registrando…' : 'Registrar venta';
+        }
+    }
+
     // ---------- Confirmación ----------
 
     var modal = document.getElementById('ventaConfirmModal');
@@ -335,7 +496,10 @@
 
     function abrirModal(texto) {
         if (!modal) {
-            if (window.confirm(texto)) form.submit();
+            if (window.confirm(texto)) {
+                marcandoEnvio(true);
+                form.submit();
+            }
             return;
         }
         mensajeModal.textContent = texto;
@@ -352,9 +516,9 @@
         document.body.classList.remove('fj-modal-open');
     }
 
-    var botonRegistrar = document.getElementById('btnRegistrar');
-
     botonRegistrar.addEventListener('click', function () {
+        if (botonRegistrar.disabled) return;
+
         if (!lineas.length) {
             alerta('Agregue al menos un producto antes de registrar la venta.');
             return;
@@ -367,10 +531,6 @@
         }
 
         var resumen = recalcularTotales();
-        var nombres = lineas.map(function (l) {
-            return l.cantidad + '× ' + l.nombre;
-        }).join(', ');
-
         abrirModal(
             'Cliente: ' + clienteNombre.value + ' · ' + lineas.length +
             ' producto(s). Total: ' + dinero(resumen.total) + '. ¿Registrar la venta?');
@@ -379,6 +539,7 @@
     if (botonOk) {
         botonOk.addEventListener('click', function () {
             cerrarModal();
+            marcandoEnvio(true);
             form.submit();
         });
     }
@@ -435,11 +596,16 @@
         });
     }
 
+    function mostrarErrorCliente(mensaje) {
+        errorCliente.replaceChildren(crear('span', null, mensaje));
+        errorCliente.hidden = false;
+    }
+
     if (formCliente) {
         formCliente.addEventListener('submit', function (e) {
             e.preventDefault();
             errorCliente.hidden = true;
-            errorCliente.innerHTML = '';
+            errorCliente.replaceChildren();
 
             var enviar = document.getElementById('nuevoClienteOk');
             if (enviar) enviar.disabled = true;
@@ -448,14 +614,12 @@
 
             fetch(document.getElementById('nuevoClienteUrl').value, {
                 method: 'POST',
+                credentials: 'same-origin',
                 body: datos,
                 headers: { 'Accept': 'application/json' }
-            }).then(function (r) {
-                return r.json();
-            }).then(function (respuesta) {
+            }).then(leerJson).then(function (respuesta) {
                 if (!respuesta.exito) {
-                    errorCliente.hidden = false;
-                    errorCliente.innerHTML = '<span>' + respuesta.mensaje + '</span>';
+                    mostrarErrorCliente(respuesta.mensaje);
                     return;
                 }
 
@@ -468,9 +632,8 @@
                 });
                 cerrarNuevoCliente();
                 formCliente.reset();
-            }).catch(function () {
-                errorCliente.hidden = false;
-                errorCliente.innerHTML = '<span>No se pudo registrar el cliente. Intente nuevamente.</span>';
+            }).catch(function (error) {
+                mostrarErrorCliente(error.message || 'No se pudo registrar el cliente. Intente nuevamente.');
             }).finally(function () {
                 if (enviar) enviar.disabled = false;
             });

@@ -7,6 +7,7 @@ using FERRETERIA__Joel.Infraestructura;
 using FERRETERIA__Joel.Infraestructura.Conexion;
 using FERRETERIA__Joel.Infraestructura.Factories;
 using FERRETERIA__Joel.Servicios;
+using System.Net;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,9 +17,9 @@ builder.Services.AddRazorPages();
 // ------------------------------------------------------------------
 // Punto de integracion con el modulo de autenticacion del equipo.
 // Ventas NO implementa login: solo declara la proteccion ([Authorize] /
-// rol Administrador). Hasta que exista el modulo externo, la cookie no
-// se emite y las operaciones protegidas rechazan el acceso (401/403);
-// nunca se ejecutan acciones anonimas.
+// rol Administrador). No se implementa aquí el login del equipo.
+// Para pruebas locales se puede habilitar explícitamente el helper
+// de Development; en los demás entornos el acceso anónimo se rechaza.
 // ------------------------------------------------------------------
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -30,7 +31,27 @@ builder.Services
         {
             OnRedirectToLogin = context =>
             {
-                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                // Redirige únicamente una navegación HTML local en Development
+                // cuando el acceso temporal de Ventas está activado explícitamente.
+                bool habilitado = builder.Environment.IsDevelopment()
+                    && builder.Configuration.GetValue<bool>("Ventas:HabilitarAccesoLocal")
+                    && (context.Request.Path.StartsWithSegments("/Venta")
+                        || context.Request.Path.StartsWithSegments("/Ventas")
+                        || context.Request.Path.StartsWithSegments("/VentaComprobante"))
+                    && context.Request.Headers.Accept.ToString().Contains(
+                        "text/html", StringComparison.OrdinalIgnoreCase)
+                    && context.HttpContext.Connection.RemoteIpAddress is { } ip
+                    && IPAddress.IsLoopback(ip);
+
+                if (habilitado)
+                {
+                    context.Response.Redirect("/dev/ventas-acceso");
+                }
+                else
+                {
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                }
+
                 return Task.CompletedTask;
             },
             OnRedirectToAccessDenied = context =>
@@ -112,6 +133,10 @@ app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Solo Development + configuración explícita + solicitudes locales.
+// En producción esta ruta no existe.
+app.MapAccesoLocalVentasDesarrollo();
 
 app.MapStaticAssets();
 app.MapRazorPages()

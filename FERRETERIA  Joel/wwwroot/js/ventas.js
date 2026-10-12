@@ -13,6 +13,20 @@
         return fmt.format(n) + ' Bs';
     }
 
+    function crear(tag, clase, texto) {
+        var el = document.createElement(tag);
+        if (clase) el.className = clase;
+        if (texto !== undefined && texto !== null) el.textContent = texto;
+        return el;
+    }
+
+    function celdaProducto(nombre, codigo) {
+        var td = crear('td');
+        td.appendChild(crear('span', 'fj-nombre', nombre));
+        td.appendChild(crear('span', 'fj-nombre-sub', codigo));
+        return td;
+    }
+
     function abrirModal(modal) {
         modal.classList.add('is-open');
         modal.setAttribute('aria-hidden', 'false');
@@ -49,6 +63,11 @@
         fetch('?handler=Detalle&idVenta=' + boton.getAttribute('data-id'), {
             headers: { 'Accept': 'application/json' }
         }).then(function (r) {
+            if (!r.ok) {
+                if (r.status === 401) throw new Error('Inicie sesión para consultar ventas.');
+                if (r.status === 403) throw new Error('No tiene permisos para consultar el detalle.');
+                throw new Error('No se pudo consultar el detalle (HTTP ' + r.status + ').');
+            }
             return r.json();
         }).then(function (v) {
             if (!v || !v.lineas) return;
@@ -58,14 +77,15 @@
             fechaEl.textContent = new Date(v.fecha).toLocaleString('es-BO');
             pagoEl.textContent = v.estadoPago + ' · ' + v.metodoPago;
 
-            lineasEl.innerHTML = v.lineas.map(function (l) {
-                return '<tr>' +
-                    '<td><span class="fj-nombre">' + l.nombre + '</span>' +
-                    '<span class="fj-nombre-sub">' + l.codigo + '</span></td>' +
-                    '<td class="fj-td-cantidad">' + l.cantidad + '</td>' +
-                    '<td class="fj-td-precio">' + dinero(l.precio) + '</td>' +
-                    '<td class="fj-td-precio">' + dinero(l.total) + '</td></tr>';
-            }).join('');
+            lineasEl.replaceChildren();
+            v.lineas.forEach(function (l) {
+                var tr = crear('tr');
+                tr.appendChild(celdaProducto(l.nombre, l.codigo));
+                tr.appendChild(crear('td', 'fj-td-cantidad', String(l.cantidad)));
+                tr.appendChild(crear('td', 'fj-td-precio', dinero(l.precio)));
+                tr.appendChild(crear('td', 'fj-td-precio', dinero(l.total)));
+                lineasEl.appendChild(tr);
+            });
 
             subtotalEl.textContent = dinero(v.subtotal);
             descuentoEl.textContent = '- ' + dinero(v.descuento);
@@ -79,6 +99,8 @@
             }
 
             abrirModal(detalleModal);
+        }).catch(function (error) {
+            window.alert(error.message || 'Error al consultar el detalle de venta.');
         });
     });
 

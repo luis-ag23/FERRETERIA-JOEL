@@ -215,8 +215,20 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
             string metodoPago = solicitud.MetodoPago.Trim();
             string estadoPago = string.IsNullOrWhiteSpace(solicitud.EstadoPago)
-                ? "Pagado"
+                ? EstadoPago.Pagado
                 : solicitud.EstadoPago.Trim();
+
+            // Por ahora solo se registran ventas pagadas. Se rechaza
+            // cualquier estado distinto para que una solicitud
+            // manipulada no pueda fijar Pendiente/Parcial.
+            if (!string.Equals(
+                    estadoPago,
+                    EstadoPago.Pagado,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return ResultadoVenta.Fallido(
+                    "Por el momento solo se registran ventas con el pago completado.");
+            }
 
             await _unidadDeTrabajo.IniciarAsync();
 

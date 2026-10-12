@@ -1,5 +1,30 @@
 /* FERRETERÍA JOEL — Historial de ventas. */
 
+.fj-table-ventas th:nth-child(3),
+.fj-table-ventas td:nth-child(3) {
+    width: 10.5rem;
+}
+
+.fj-table-ventas th:nth-child(4),
+.fj-table-ventas td:nth-child(4) {
+    width: 6.5rem;
+}
+
+.fj-table-ventas th:nth-child(5),
+.fj-table-ventas td:nth-child(5) {
+    width: 8rem;
+}
+
+.fj-table-ventas th:nth-child(6),
+.fj-table-ventas td:nth-child(6) {
+    width: 7.5rem;
+}
+
+.fj-table-ventas th:nth-child(7),
+.fj-table-ventas td:nth-child(7) {
+    width: 8rem;
+}
+
 .fj-ventas-modal-dlg {
     width: min(42rem, 100%);
 }
@@ -65,4 +90,63 @@
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 0.1875rem var(--amarillo-bg);
+}
+
+/* ---------- Responsive del listado ---------- */
+
+@media (max-width: 768px) {
+    /* En pantallas estrechas se ocultan Fecha y Pago para conservar
+       Comprobante, Cliente, Total, Estado y Acciones. */
+    .fj-table-ventas th:nth-child(3),
+    .fj-table-ventas td:nth-child(3),
+    .fj-table-ventas th:nth-child(4),
+    .fj-table-ventas td:nth-child(4) {
+        display: none;
+    }
+
+    .fj-table-ventas th:nth-child(1),
+    .fj-table-ventas td:nth-child(1) {
+        width: 7rem;
+    }
+
+    .fj-table-ventas th:nth-child(5),
+    .fj-table-ventas td:nth-child(5) {
+        width: 6rem;
+    }
+
+    .fj-table-ventas th:nth-child(6),
+    .fj-table-ventas td:nth-child(6) {
+        width: 6.5rem;
+    }
+
+    .fj-table-ventas th:nth-child(7),
+    .fj-table-ventas td:nth-child(7) {
+        width: 6.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .fj-table-ventas th:nth-child(6),
+    .fj-table-ventas td:nth-child(6) {
+        display: none;
+    }
+
+    .fj-table-ventas th:nth-child(1),
+    .fj-table-ventas td:nth-child(1) {
+        width: 5.5rem;
+    }
+
+    .fj-table-ventas th:nth-child(5),
+    .fj-table-ventas td:nth-child(5) {
+        width: 5rem;
+    }
+
+    .fj-table-ventas th:nth-child(7),
+    .fj-table-ventas td:nth-child(7) {
+        width: 6.5rem;
+    }
+
+    .fj-acciones {
+        gap: 4px;
+    }
 }

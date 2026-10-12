@@ -18,10 +18,12 @@ namespace FERRETERIA__Joel.Pages
     public class VentasModel : PageModel
     {
         private readonly FachadaVenta _fachada;
+        private readonly ILogger<VentasModel> _logger;
 
-        public VentasModel(FachadaVenta fachada)
+        public VentasModel(FachadaVenta fachada, ILogger<VentasModel> logger)
         {
             _fachada = fachada;
+            _logger = logger;
         }
 
         public List<VentaListado> Ventas { get; private set; } = new();
@@ -40,12 +42,30 @@ namespace FERRETERIA__Joel.Pages
 
         public async Task OnGetAsync()
         {
-            Ventas = await _fachada.ListarVentasListadoAsync();
+            try
+            {
+                Ventas = await _fachada.ListarVentasListadoAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "No se pudo cargar el historial de ventas");
+                TempData["MensajeError"] = "No se pudo cargar el historial. Revise la conexión a MySQL y la migración de Ventas.";
+                Ventas = new List<VentaListado>();
+            }
         }
 
-        public async Task<JsonResult> OnGetDetalleAsync(int idVenta)
+        public async Task<IActionResult> OnGetDetalleAsync(int idVenta)
         {
-            ResultadoVenta? resultado = await _fachada.ObtenerVentaAsync(idVenta);
+            ResultadoVenta? resultado;
+            try
+            {
+                resultado = await _fachada.ObtenerVentaAsync(idVenta);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "No se pudo cargar el detalle de venta {IdVenta}", idVenta);
+                return StatusCode(503, new { mensaje = "No se pudo consultar el detalle en MySQL." });
+            }
 
             if (resultado is null)
             {
@@ -82,9 +102,19 @@ namespace FERRETERIA__Joel.Pages
                 return Forbid();
             }
 
-            ResultadoVenta resultado = await _fachada.AnularVentaAsync(
-                IdVenta,
-                MotivoAnulacion ?? string.Empty);
+            ResultadoVenta resultado;
+            try
+            {
+                resultado = await _fachada.AnularVentaAsync(
+                    IdVenta,
+                    MotivoAnulacion ?? string.Empty);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "No se pudo anular la venta {IdVenta}", IdVenta);
+                MensajeError = "No se pudo anular la venta. Revise la conexión a MySQL.";
+                return RedirectToPage();
+            }
 
             if (!resultado.Exito)
             {
