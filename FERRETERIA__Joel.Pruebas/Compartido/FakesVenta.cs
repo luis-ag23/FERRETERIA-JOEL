@@ -101,6 +101,46 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
                 .ToList();
             return Task.FromResult(resultado);
         }
+
+        // Contrato sincrónico del módulo de autenticación.
+
+        public List<Cliente> ObtenerTodos()
+        {
+            return _clientes.ToList();
+        }
+
+        public int Insertar(Cliente entidad)
+        {
+            entidad.IdCliente = _clientes.Count + 1;
+            _clientes.Add(entidad);
+            return entidad.IdCliente;
+        }
+
+        public bool ExisteCorreo(string correo)
+        {
+            return _clientes.Any(c => string.Equals(
+                c.CorreoElectronico,
+                correo,
+                StringComparison.OrdinalIgnoreCase));
+        }
+
+        public Cliente? ObtenerPorCorreo(string correo)
+        {
+            return _clientes.FirstOrDefault(c => string.Equals(
+                c.CorreoElectronico,
+                correo,
+                StringComparison.OrdinalIgnoreCase));
+        }
+
+        public void ActualizarContrasena(int id, string contrasena)
+        {
+            Cliente? cliente = _clientes.FirstOrDefault(c => c.IdCliente == id);
+
+            if (cliente is not null)
+            {
+                cliente.Contrasena = contrasena;
+            }
+        }
     }
 
     public sealed class VentaRepositorioFake : IVentaRepository
