@@ -549,3 +549,39 @@
         font-size: 1.3rem;
     }
 }
+
+/* ---------- Proveedores: columnas con ancho propio ---------- */
+
+/* Permite scroll horizontal en pantallas estrechas en lugar de montar
+   unas columnas sobre otras. */
+.fj-table-wrap-scroll {
+    overflow-x: auto;
+}
+
+.fj-table-proveedores {
+    min-width: 48rem;
+}
+
+/* Teléfono */
+.fj-table-proveedores th:nth-child(3),
+.fj-table-proveedores td:nth-child(3) {
+    width: 7.5rem;
+    white-space: nowrap;
+}
+
+/* Estado */
+.fj-table-proveedores th:nth-child(5),
+.fj-table-proveedores td:nth-child(5) {
+    width: 8rem;
+}
+
+/* Acciones */
+.fj-table-proveedores th:nth-child(6),
+.fj-table-proveedores td:nth-child(6) {
+    width: 7.5rem;
+}
+
+.fj-table-proveedores .fj-ellipsis {
+    display: block;
+    max-width: 100%;
+}
