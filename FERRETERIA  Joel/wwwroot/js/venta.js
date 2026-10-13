@@ -319,9 +319,44 @@
         linea.cantidad = Math.floor(cantidad);
         render();
     }
-
     function alerta(mensaje) {
-        window.alert(mensaje);
+        var contenedor = document.getElementById('fj-toast-center-container');
+        if (!contenedor) {
+            contenedor = crear('div', 'position-fixed top-50 start-50 translate-middle');
+            contenedor.id = 'fj-toast-center-container';
+            contenedor.style.zIndex = '2000';
+            contenedor.style.maxWidth = '420px';
+            contenedor.style.width = '90%';
+            document.body.appendChild(contenedor);
+        }
+
+        var toast = crear('div', 'toast align-items-center text-bg-warning border-0 show shadow-lg rounded-3');
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+
+        var flex = crear('div', 'd-flex align-items-center p-2');
+        var body = crear('div', 'toast-body fw-bold text-center flex-grow-1 fs-6', mensaje);
+
+        var btnCerrar = crear('button', 'btn-close me-2 m-auto');
+        btnCerrar.type = 'button';
+        btnCerrar.setAttribute('aria-label', 'Cerrar');
+        btnCerrar.addEventListener('click', function () {
+            toast.remove();
+        });
+
+        flex.appendChild(body);
+        flex.appendChild(btnCerrar);
+        toast.appendChild(flex);
+
+        contenedor.replaceChildren(toast);
+
+        setTimeout(function () {
+            toast.classList.remove('show');
+            setTimeout(function () {
+                toast.remove();
+            }, 300);
+        }, 3000);
     }
 
     function celdaPrecio(valor) {
