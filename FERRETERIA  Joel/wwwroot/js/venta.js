@@ -319,44 +319,85 @@
         linea.cantidad = Math.floor(cantidad);
         render();
     }
+
     function alerta(mensaje) {
-        var contenedor = document.getElementById('fj-toast-center-container');
-        if (!contenedor) {
-            contenedor = crear('div', 'position-fixed top-50 start-50 translate-middle');
-            contenedor.id = 'fj-toast-center-container';
-            contenedor.style.zIndex = '2000';
-            contenedor.style.maxWidth = '420px';
-            contenedor.style.width = '90%';
-            document.body.appendChild(contenedor);
+
+        var overlay = crear('div');
+        overlay.id = 'fjModalAlertaDark';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background-color:rgba(0,0,0,0.75);backdrop-filter:blur(3px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
+
+
+        var tarjeta = crear('div');
+        tarjeta.style.cssText = 'background-color:#1c2026;border:1px solid #2d333b;border-radius:14px;max-width:400px;width:100%;padding:28px 24px;text-align:center;box-shadow:0 20px 45px rgba(0,0,0,0.7);box-sizing:border-box;';
+
+
+        var iconoBox = crear('div');
+        iconoBox.style.cssText = 'width:50px;height:50px;border-radius:12px;background-color:rgba(239,68,68,0.12);border:1.5px solid #FFC824;color:#FFC824;display:flex;align-items:center;justify-content:center;margin:0 auto 16px auto;';
+
+        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+        svg.setAttribute('stroke-width', '2');
+        svg.setAttribute('stroke-linecap', 'round');
+        svg.setAttribute('stroke-linejoin', 'round');
+        svg.style.cssText = 'width:24px;height:24px;';
+
+        var pathTriangulo = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        pathTriangulo.setAttribute('d', 'M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z');
+        var linea1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        linea1.setAttribute('x1', '12'); linea1.setAttribute('y1', '9'); linea1.setAttribute('x2', '12'); linea1.setAttribute('y2', '13');
+        var linea2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        linea2.setAttribute('x1', '12'); linea2.setAttribute('y1', '17'); linea2.setAttribute('x2', '12.01'); linea2.setAttribute('y2', '17');
+
+        svg.appendChild(pathTriangulo);
+        svg.appendChild(linea1);
+        svg.appendChild(linea2);
+        iconoBox.appendChild(svg);
+
+
+        var titulo = crear('h3', null, 'Límite de stock');
+        titulo.style.cssText = 'color:#ffffff;font-size:1.18rem;font-weight:700;margin:0 0 8px 0;letter-spacing:-0.01em;';
+
+
+        var desc = crear('p', null, mensaje);
+        desc.style.cssText = 'color:#9ca3af;font-size:0.94rem;line-height:1.5;margin:0 0 24px 0;word-break:break-word;';
+
+
+        var btnCerrar = crear('button', null, 'Entendido');
+        btnCerrar.type = 'button';
+        btnCerrar.style.cssText = 'background-color:#2a303a;color:#ffffff;border:1px solid #3b4250;border-radius:8px;padding:9px 24px;font-size:0.92rem;font-weight:600;cursor:pointer;transition:background-color 0.15s ease;outline:none;';
+
+        btnCerrar.onmouseenter = function () { btnCerrar.style.backgroundColor = '#38414e'; };
+        btnCerrar.onmouseleave = function () { btnCerrar.style.backgroundColor = '#2a303a'; };
+
+        function cerrarModal() {
+            overlay.remove();
+            document.removeEventListener('keydown', teclaEscape);
         }
 
-        var toast = crear('div', 'toast align-items-center text-bg-warning border-0 show shadow-lg rounded-3');
-        toast.setAttribute('role', 'alert');
-        toast.setAttribute('aria-live', 'assertive');
-        toast.setAttribute('aria-atomic', 'true');
+        btnCerrar.addEventListener('click', cerrarModal);
 
-        var flex = crear('div', 'd-flex align-items-center p-2');
-        var body = crear('div', 'toast-body fw-bold text-center flex-grow-1 fs-6', mensaje);
+        function teclaEscape(e) {
+            if (e.key === 'Escape') cerrarModal();
+        }
+        document.addEventListener('keydown', teclaEscape);
 
-        var btnCerrar = crear('button', 'btn-close me-2 m-auto');
-        btnCerrar.type = 'button';
-        btnCerrar.setAttribute('aria-label', 'Cerrar');
-        btnCerrar.addEventListener('click', function () {
-            toast.remove();
+        overlay.addEventListener('click', function (e) {
+            if (e.target === overlay) cerrarModal();
         });
 
-        flex.appendChild(body);
-        flex.appendChild(btnCerrar);
-        toast.appendChild(flex);
 
-        contenedor.replaceChildren(toast);
+        tarjeta.appendChild(iconoBox);
+        tarjeta.appendChild(titulo);
+        tarjeta.appendChild(desc);
+        tarjeta.appendChild(btnCerrar);
+        overlay.appendChild(tarjeta);
 
-        setTimeout(function () {
-            toast.classList.remove('show');
-            setTimeout(function () {
-                toast.remove();
-            }, 300);
-        }, 3000);
+        document.body.appendChild(overlay);
+        btnCerrar.focus();
     }
 
     function celdaPrecio(valor) {

@@ -6,6 +6,10 @@
     <a class="fj-menu-link" asp-page="/Index" aria-current="@(activo == "Home" ? "page" : null)">Home</a>
 </li>
 
+<li class="fj-menu-item @(activo == "Registro" ? "is-active" : "")">
+    <a class="fj-menu-link" asp-page="/Registro" aria-current="@(activo == "Registro" ? "page" : null)">Registrarse</a>
+</li>
+
 <li class="fj-menu-item @(activo == "Login" ? "is-active" : "")">
     <a class="fj-menu-link" asp-page="/Login" aria-current="@(activo == "Login" ? "page" : null)">Iniciar sesión</a>
 </li>
