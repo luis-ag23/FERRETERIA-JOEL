@@ -253,27 +253,27 @@ CREATE TABLE historico_precio
 
 -- ============================================================
 -- DATOS: 10 empleados
--- Las contraseñas se almacenan como hashes PBKDF2-HMAC-SHA256
--- (formato pbkdf2$iteraciones$sal$hash). No hay texto plano.
--- Credenciales de prueba: Administrador -> admin123 / EmpleadoVenta -> clave123
+-- Las contraseñas se almacenan como hashes Argon2id (PHC format).
+-- Credenciales : joel.rios@ferreteria.com / admin123 (Administrador)
+-- Credemciales : Cualquier EmpleadoVenta, ej. maria.lopez@ferreteria.com / clave123
 -- ============================================================
 INSERT INTO empleado
     (Nombre, Apellido, Rol, Telefono, CorreoElectronico, Contrasena, Estado, IdEmpleadoResponsable)
 VALUES
-    ('Joel',   'Rios',      'Administrador', '70000001', 'joel.rios@ferreteria.com',    'pbkdf2$100000$i6K/10J1uVUy7aaxu05n6Q==$3D4C9TUHOOT08JtcWtVN9msWrt9otzyRNaXCCeEPNzk=',   1, NULL);
+    ('Joel',   'Rios',      'Administrador', '70000001', 'joel.rios@ferreteria.com',    '$argon2id$v=19$m=19456,t=2,p=1$Z+Kb/5STembq6DWHh6ZgBg$vSM1I7ha07sC1lViQivu6mQFHo52FiCSl5zSYMFcfqI',   1, NULL);
 
 INSERT INTO empleado
     (Nombre, Apellido, Rol, Telefono, CorreoElectronico, Contrasena, Estado, IdEmpleadoResponsable)
 VALUES
-    ('Maria',    'Lopez',     'EmpleadoVenta', '70000002', 'maria.lopez@ferreteria.com',    'pbkdf2$100000$EiFO247GganlHDHRxibZDw==$ovflhHg31hgKKpNQZVQ3tZjGB1w/w8XDZrnb5axXvm4=', 1, 1),
-    ('Carlos',   'Mendoza',   'EmpleadoVenta', '70000003', 'carlos.mendoza@ferreteria.com', 'pbkdf2$100000$ayUjMsgyfL17cWAkvjwSiA==$J3qQUfUFBYMAB3ylW0NOgMvAifND8c7EbnxWFnPPKYM=', 1, 1),
-    ('Ana',      'Gutierrez', 'EmpleadoVenta',   '70000004', 'ana.gutierrez@ferreteria.com',  'pbkdf2$100000$KXtZXQhBSn5/LDoMSA1J/w==$48er+pEZ2cVPdYmKYZ6CsabCgwesfQWZkNmI86CjX+A=', 1, 1),
-    ('Luis',     'Fernandez', 'EmpleadoVenta',  '70000005', 'luis.fernandez@ferreteria.com', 'pbkdf2$100000$CFNYcmqMCgdqeSA09yxzcA==$/Om+zTZhiKWd93h3XrZE7POI4QK7Dym8YOkhzwgt5Do=', 1, 1),
-    ('Sofia',    'Ramirez',   'EmpleadoVenta', '70000006', 'sofia.ramirez@ferreteria.com',  'pbkdf2$100000$QlYdGoL14VOiIwBvuXr1SA==$xWtOKNuCO6Ww+Pi2ak7kylnmTrrB7crk972Z8N5AzuE=', 1, 1),
-    ('Diego',    'Torres',    'EmpleadoVenta',   '70000007', 'diego.torres@ferreteria.com',   'pbkdf2$100000$kNf5ZyOi23tYQJwSbhxbvg==$xEUvYHu4mK/gQya8j+ZIxfBAkZTbfm93bHw2Cx3HlU8=', 1, 1),
-    ('Lucia',    'Vargas',    'EmpleadoVenta',  '70000008', 'lucia.vargas@ferreteria.com',   'pbkdf2$100000$72lYf8pr8D50FmGTnHaaHw==$Pym0xZNlP3gLWsolMIFE9AaYkPb+eKCdnT05Vr84jy4=', 1, 1),
-    ('Pedro',    'Castillo',  'EmpleadoVenta','70000009','pedro.castillo@ferreteria.com', 'pbkdf2$100000$TJfoEKh9Yji7JlavWOwDlg==$hFZpDnK6VhKn0dyHmEY0RGX4eC4HROsAt5EdVCvmvA8=', 1, 1),
-    ('Elena',    'Rojas',     'EmpleadoVenta', '70000010', 'elena.rojas@ferreteria.com',    'pbkdf2$100000$271ELSu8jKyojeVGCV5b3w==$+cyOdhoBHX5E4XGFZBOWZoEjFvNhibHGJsBrXOQ0z9U=', 1, 1);
+    ('Maria',    'Lopez',     'EmpleadoVenta', '70000002', 'maria.lopez@ferreteria.com',    '$argon2id$v=19$m=19456,t=2,p=1$432CJ2xhzoutD3YceF5mfQ$BGAYPqa6XVk6osyHgnFTeg7pB5NL8yAK05UhDHHlRm0', 1, 1),
+    ('Carlos',   'Mendoza',   'EmpleadoVenta', '70000003', 'carlos.mendoza@ferreteria.com', '$argon2id$v=19$m=19456,t=2,p=1$UxDIBBPv5brarthGWQNkRQ$73iY2wXaUNsrAlHpXgImy3ZrigjX0q5UIPATOirSJgY', 1, 1),
+    ('Ana',      'Gutierrez', 'EmpleadoVenta',   '70000004', 'ana.gutierrez@ferreteria.com',  '$argon2id$v=19$m=19456,t=2,p=1$U8EUBa0bu4tDk3f82hCdYg$D4YF8Aq9qprVM1q3lPNC9FbXdq09lQkw2dK1pnridQY', 1, 1),
+    ('Luis',     'Fernandez', 'EmpleadoVenta',  '70000005', 'luis.fernandez@ferreteria.com', '$argon2id$v=19$m=19456,t=2,p=1$mXiLh5CNwb1XmsPoZlCKYg$vqF5qWziDQV+EoyFtBBK9omnCnJTM6ywS78DephbAwM', 1, 1),
+    ('Sofia',    'Ramirez',   'EmpleadoVenta', '70000006', 'sofia.ramirez@ferreteria.com',  '$argon2id$v=19$m=19456,t=2,p=1$UKLS7lcxWKbEWJvAacTqRw$b65cck9cbwNYbvCFTLly9nQfAKimKKV/PIEyGj+fvvc', 1, 1),
+    ('Diego',    'Torres',    'EmpleadoVenta',   '70000007', 'diego.torres@ferreteria.com',   '$argon2id$v=19$m=19456,t=2,p=1$Rrba/l4K/4cRwn61P3A9gw$4IRRCq2JTCzsREoDcDDPqB5DczR+VrzRol4/WGyeTU4', 1, 1),
+    ('Lucia',    'Vargas',    'EmpleadoVenta',  '70000008', 'lucia.vargas@ferreteria.com',   '$argon2id$v=19$m=19456,t=2,p=1$0Fns0IHrq/Kd6krlFhsQIQ$yjXH1tZbCRCs8ZbKwoybMf4UEkZVTc/EfZGUX/yFnDo', 1, 1),
+    ('Pedro',    'Castillo',  'EmpleadoVenta','70000009','pedro.castillo@ferreteria.com', '$argon2id$v=19$m=19456,t=2,p=1$DkC+fWxOlRk1/X6aGj7e9A$a34WBFccYECQ3Ka+UwVczdl8Rn5zku1/kXvK+Yjpdsc', 1, 1),
+    ('Elena',    'Rojas',     'EmpleadoVenta', '70000010', 'elena.rojas@ferreteria.com',    '$argon2id$v=19$m=19456,t=2,p=1$6lLxKhg6camSJXMOp3SN9A$vkifcdnD0iQr6VnYP1kF05W/7N/4AcCXfrd7Olubf0o', 1, 1);
 
 -- ============================================================
 -- DATOS: 5 clientes (IdEmpleadoResponsable -> empleado)

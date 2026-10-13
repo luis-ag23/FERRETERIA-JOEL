@@ -14,8 +14,16 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 var builder = WebApplication.CreateBuilder(args);
 
 // Carga las variables definidas en el archivo .env (no versionado): cadena de
-// conexión a MySQL y clave del protector de URLs.
+// conexión a MySQL, clave del protector de URLs y clave para registro.
 CargarVariablesEntorno(builder.Environment.ContentRootPath);
+
+string? claveEmpleadoEnv =
+    Environment.GetEnvironmentVariable("REGISTRO_CLAVE_EMPLEADO");
+
+if (!string.IsNullOrWhiteSpace(claveEmpleadoEnv))
+{
+    builder.Configuration["Registro:ClaveEmpleado"] = claveEmpleadoEnv;
+}
 
 builder.Services.AddRazorPages(options =>
 {
@@ -114,6 +122,8 @@ builder.Services.AddScoped<FachadaVenta>();
 builder.Services.AddScoped<FachadaAnulacion>();
 
 builder.Services.AddSingleton<IHasheadorContrasena, Argon2HasheadorContrasena>();
+builder.Services.AddScoped<RegistroCredencialesValidador>();
+builder.Services.AddScoped<ServicioRegistroEmpleado>();
 builder.Services.AddScoped<ServicioInicioSesion>();
 builder.Services.AddScoped<ServicioBitacora>();
 

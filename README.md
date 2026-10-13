@@ -147,15 +147,16 @@ Si el archivo `appsettings.json` no existe en tu copia (no está versionado),
 créalo tomando `appsettings.Development.json` como base y define ahí la clave
 `ConnectionStrings:MySqlConnection`.
 
-### 3. `.env` (si es necesario)
+### 3. `.env` (obligatorio para registro de empleados)
 
-Si prefieres no tocar `appsettings.json`, copia `.env.example` a
-`FERRETERIA  Joel/.env` (no versionado) y define las claves como variables de
-entorno (usa `__` para anidar):
+Copia `.env.example` a `FERRETERIA  Joel/.env` (no versionado) y ajusta las
+claves. Para registrar empleados desde `/Registro` se debe mantener la clave
+secreta `REGISTRO_CLAVE_EMPLEADO` (hasheo con **Argon2** al guardar):
 
 ```
 ConnectionStrings__MySqlConnection=Server=localhost;Database=bdferreteria;Uid=root;Pwd=tu_clave;
 UrlProteccion__Clave=una_clave_larga_para_proteger_los_tokens_de_url
+REGISTRO_CLAVE_EMPLEADO=Ferreteria@Joel@Empleado
 ```
 
 El archivo `.env` se carga automáticamente al arrancar (`Program.cs`) y **no
@@ -169,4 +170,7 @@ dotnet run --project "FERRETERIA  Joel"
 
 Luego abre el navegador en la URL que indique la consola (por defecto
 `https://localhost:xxxx`) e inicia sesión con un usuario de prueba del seed
-(`Administrador` / `admin123` o cualquier `EmpleadoVenta` / `clave123`).
+ADMINISTRADOR: joel.rios@ferreteria.com / admin123  
+EMPLEADO VENTA: cualquier ` maria.lopez@ferreteria.com ` / clave123
+
+**Nota:** El registro (/Registro) es exclusivo para empleados. El tipo de empleado es **EmpleadoVenta** y se exige la clave secreta definida en .env. La contrase�a se almacena con **Argon2**.
