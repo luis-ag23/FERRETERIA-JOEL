@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
-    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Empleado)]
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Administrador)]
     public class ProveedorNuevoModel : PageModel
     {
         private readonly ServicioProveedor _servicio;
@@ -29,10 +29,10 @@ namespace FERRETERIA__Joel.Pages
             _servicio = servicio;
             _logger = logger;
         }
-        public void OnGet()
+        public async Task OnGetAsync()
         {
         }
-        public IActionResult OnPost()
+        public async Task<IActionResult> OnPostAsync()
         {
             Proveedor.IdEmpleadoResponsable =
                 EmpleadoSesion.ObtenerIdEmpleado(User);
@@ -46,7 +46,7 @@ namespace FERRETERIA__Joel.Pages
 
             try
             {
-                _servicio.Insertar(Proveedor);
+                await _servicio.InsertarAsync(Proveedor);
             }
             catch (Exception ex)
             {

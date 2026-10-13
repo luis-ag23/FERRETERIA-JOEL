@@ -6,28 +6,21 @@ using FERRETERIA__Joel.Helpers;
 using FERRETERIA__Joel.Infraestructura;
 using FERRETERIA__Joel.Infraestructura.Conexion;
 using FERRETERIA__Joel.Infraestructura.Factories;
+using FERRETERIA__Joel.Infraestructura.Repositorios;
 using FERRETERIA__Joel.Infraestructura.Seguridad;
 using FERRETERIA__Joel.Servicios;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Carga las variables definidas en el archivo .env (no versionado) y expone
-// la clave de alta de empleados a través de la configuración.
+// Carga las variables definidas en el archivo .env (no versionado): cadena de
+// conexión a MySQL y clave del protector de URLs.
 CargarVariablesEntorno(builder.Environment.ContentRootPath);
-
-string? claveEmpleado =
-    Environment.GetEnvironmentVariable("REGISTRO_CLAVE_EMPLEADO");
-
-if (!string.IsNullOrWhiteSpace(claveEmpleado))
-{
-    builder.Configuration["Registro:ClaveEmpleado"] = claveEmpleado;
-}
 
 builder.Services.AddRazorPages(options =>
 {
-    // Páginas de gestión: requieren sesión iniciada. Un visitante que intente
-    // abrir cualquiera de estas rutas por URL es redirigido a /Login.
+    // Páginas de gestión del catálogo: solo personal autenticado. Un visitante
+    // que intente abrir cualquiera de estas rutas por URL es redirigido a /Login.
     options.Conventions.AuthorizePage("/Productos");
     options.Conventions.AuthorizePage("/ProductoNuevo");
     options.Conventions.AuthorizePage("/ProductoEditar");
@@ -41,12 +34,6 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizePage("/Proveedores");
     options.Conventions.AuthorizePage("/ProveedorNuevo");
     options.Conventions.AuthorizePage("/ProveedorEditar");
-
-    // Páginas de consulta (rol Usuario): requieren sesión iniciada.
-    options.Conventions.AuthorizePage("/ProductosUsuario");
-    options.Conventions.AuthorizePage("/CategoriasUsuario");
-    options.Conventions.AuthorizePage("/MarcasUsuario");
-    options.Conventions.AuthorizePage("/ProveedoresUsuario");
 });
 
 // Autenticación oficial del equipo por cookie. Ventas la reutiliza sin
@@ -80,18 +67,21 @@ builder.Services.AddSingleton<IDbConnectionFactory, MySqlConnectionFactory>();
 builder.Services.AddScoped<IConexionTransaccional, MySqlConexionTransaccional>();
 builder.Services.AddScoped<IUnidadDeTrabajo, MySqlUnidadDeTrabajo>();
 
+// Repositorios concretos inyectados directamente (operaciones especiales que
+// no encajan en los contratos genéricos) y creadores (patrón Factory Method).
+builder.Services.AddScoped<MySqlClienteRepository>();
+builder.Services.AddScoped<MySqlEmpleadoRepository>();
+builder.Services.AddScoped<MySqlHistoricoPrecioRepository>();
+builder.Services.AddScoped<MySqlVentaRepository>();
+builder.Services.AddScoped<MySqlDetalleVentaRepository>();
+builder.Services.AddScoped<MySqlInventarioRepository>();
+builder.Services.AddScoped<MySqlBitacoraRepository>();
+
 builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Producto>>, ProductoRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Categoria>>, CategoriaRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Proveedor>>, ProveedorRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Marca>>, MarcaRepositoryCreator>();
-builder.Services.AddScoped<RepositoryCreator<IEmpleadoRepository>, EmpleadoRepositoryCreator>();
-builder.Services.AddScoped<RepositoryCreator<IHistoricoPrecioRepository>, HistoricoPrecioRepositoryCreator>();
-builder.Services.AddScoped<RepositoryCreator<IClienteRepository>, ClienteRepositoryCreator>();
-builder.Services.AddScoped<RepositoryCreator<IBitacoraRepository>, BitacoraRepositoryCreator>();
-builder.Services.AddScoped<RepositoryCreator<IVentaRepository>, VentaRepositoryCreator>();
-builder.Services.AddScoped<RepositoryCreator<IDetalleVentaRepository>, DetalleVentaRepositoryCreator>();
-builder.Services.AddScoped<RepositoryCreator<IInventarioRepository>, InventarioRepositoryCreator>();
-builder.Services.AddScoped<RepositoryCreator<IEmpleadoVentaRepository>, EmpleadoVentaRepositoryCreator>();
+builder.Services.AddScoped<RepositoryCreator<IRepository<Empleado>>, EmpleadoRepositoryCreator>();
 
 builder.Services.AddScoped<ServicioCategoria>();
 builder.Services.AddScoped<ServicioProducto>();
@@ -115,11 +105,15 @@ builder.Services.AddSingleton<IPoliticaDescuento>(
         cantidadMinima: descuentos.CantidadMinima,
         porcentaje: descuentos.PorcentajePorCantidad));
 builder.Services.AddScoped<SelectorDescuento>();
+
+// Fachadas del módulo de Ventas (patrón Facade). Cada pantalla consume
+// una sola fachada; las de venta y anulación delegan el inventario en la
+// fachada de stock.
+builder.Services.AddScoped<FachadaActualizacionStock>();
 builder.Services.AddScoped<FachadaVenta>();
+builder.Services.AddScoped<FachadaAnulacion>();
 
 builder.Services.AddSingleton<IHasheadorContrasena, Argon2HasheadorContrasena>();
-builder.Services.AddScoped<ServicioRegistroEmpleado>();
-builder.Services.AddScoped<ServicioRegistroUsuario>();
 builder.Services.AddScoped<ServicioInicioSesion>();
 builder.Services.AddScoped<ServicioBitacora>();
 

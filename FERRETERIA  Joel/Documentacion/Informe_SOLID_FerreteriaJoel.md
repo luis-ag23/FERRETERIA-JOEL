@@ -44,17 +44,23 @@ correcto de errores con mensajes legibles para el usuario final.
 
 - Investigar y comprender los principios SOLID y las buenas prácticas de
   Clean Code.
-- Aplicarlos de forma real en un sistema web con **Razor Pages + C# + ADO .NET**.
-- Construir **CRUD completos** sobre 3 tablas (Productos, Categorías y
-  Proveedores) de una ferretería, cada una con al menos 4 atributos
+- Aplicarlos de forma real en un sistema web con **ASP.NET Core Razor Pages + C#
+  + ADO .NET sobre MySQL**.
+- Organizar el sistema con una **arquitectura hexagonal (puertos y adaptadores)**
+  materializada en **proyectos `.csproj` por capa** dentro de una misma solución.
+- Construir **CRUD completos** sobre las tablas del catálogo (Productos,
+  Categorías, Marcas y Proveedores), cada una con al menos 4 atributos
   independientes.
 - Validar la **entrada de datos** con base en la **lógica de negocio** y con
   mensajes claros para el usuario.
 - **Incorporar el control de datos históricos** en una de las tablas (histórico
-  de precios de productos) con un modelo escalable que permita gestionar el
-  historial a futuro, incluida una **vista que muestre el histórico de cambios**.
+  de precios de productos) con un modelo escalable y una **vista que muestre el
+  histórico de cambios**.
 - Desarrollar la **ventana Home** con menú de opciones, logo y línea gráfica
   propia del negocio.
+- Incorporar **autenticación por cookie y al menos dos roles diferenciados**.
+- Implementar el **proceso principal de ventas** (registro, historial,
+  comprobante y **anulación lógica**) con **transacciones** y **asincronía**.
 - Ordenar el trabajo en un **repositorio Git** (GitHub) con ramas temáticas y
   commits descriptivos.
 
@@ -88,104 +94,229 @@ características:
   cuando percibe faltantes, sin datos confiables.
 - La caja usa **talonario de ventas con copias**, sin facturación ni registros
   digitales.
-- No existe un catálogo digital único de productos, categorías ni proveedores.
+- No existe un catálogo digital único de productos, categorías, marcas ni
+  proveedores.
 - No hay trazabilidad de los **cambios históricos** (por ejemplo, evolución de
-  precios de un producto).
+  precios de un producto) ni de las **ventas y sus anulaciones**.
 
-**Solución propuesta (alcance actual):** un sistema administrativo web modular
-que ya cuenta con la **ventana Home** (marca, historia y estadísticas), el menú
-de opciones y los **catálogos base** del negocio —Productos, Categorías y
-Proveedores— con CRUD completo, validaciones de negocio y **histórico de
-precios** del producto. La arquitectura queda lista para incorporar inventario,
-ventas, compras y reportes.
+**Solución implementada (alcance actual):** un sistema administrativo web
+(**monolito**) con **arquitectura hexagonal** que ya cuenta con:
 
-## 2.2 Requisitos funcionales mínimos
+1. **Ventana Home** (marca, historia y estadísticas), menú de opciones y login.
+2. **Catálogos base** —Productos, Categorías, Marcas y Proveedores— con CRUD
+   completo, validaciones de negocio y **histórico de precios** del producto.
+3. **Seguridad** —inicio/cierre de sesión por cookie **solo para empleados**
+   (roles `Administrador` y `EmpleadoVenta`) y bitácora de sesiones.
+4. **Módulo de Ventas** —registro de venta con carrito y descuentos automáticos,
+   historial, comprobante/recibo y **anulación lógica**— todo sobre
+   **transacciones atómicas** y **flujo asíncrono de extremo a extremo**.
 
-| # | Requisito | Tabla | Evidencia en el código |
-|---|-----------|-------|------------------------|
-| R1 | Listar registros ordenados | Categorías | `Repositories/MySqlCategoriaRepository.cs` (`ORDER BY IdCategoria ASC`) |
-| R2 | Listar registros ordenados | Productos | `Repositories/MySqlProductoRepository.cs` (`ORDER BY Nombre ASC`) |
-| R3 | Listar registros ordenados | Proveedores | `Repositories/MySqlProveedorRepository.cs` (`ORDER BY NombreComercial ASC`) |
-| R4 | Insertar con validación de negocio | Categorías | `Pages/CategoriaNueva.cshtml.cs` + `Validaciones/CategoriaValidaciones.cs` |
-| R5 | Insertar con validación de negocio | Productos | `Pages/ProductoNuevo.cshtml.cs` + `Validaciones/ProductoValidaciones.cs` |
-| R6 | Insertar con validación de negocio | Proveedores | `Pages/ProveedorNuevo.cshtml.cs` + `Validaciones/ProveedorValidaciones.cs` |
-| R7 | Actualizar | Categorías | `Pages/CategoriaEditar.cshtml.cs` |
-| R8 | Actualizar | Productos | `Pages/ProductoEditar.cshtml.cs` |
-| R9 | Actualizar | Proveedores | `Pages/ProveedorEditar.cshtml.cs` |
-| R10 | Eliminación lógica (soft delete) | Las 3 | `CambiarEstado()` / `Desactivar()` + handlers `OnPostEliminar` |
-| R11 | Histórico de cambios con vista | Producto | `Repositories/MySqlHistoricoPrecioRepository.cs` + `Pages/ProductoHistoricoPrecio.cshtml` |
-| R12 | Home + menú de opciones con logo | — | `Pages/Index.cshtml` + `Pages/Shared/_Layout.cshtml` |
+## 2.2 Requisitos funcionales y evidencia en el código
+
+| # | Requisito | Tabla / Área | Evidencia en el código |
+|---|-----------|--------------|------------------------|
+| R1 | Listar registros ordenados | Categorías | `Infraestructura/Repositorios/MySqlCategoriaRepository.cs` (`ORDER BY`) |
+| R2 | Listar registros ordenados | Productos | `Infraestructura/Repositorios/MySqlProductoRepository.cs` |
+| R3 | Listar registros ordenados | Marcas | `Infraestructura/Repositorios/MySqlMarcaRepository.cs` |
+| R4 | Listar registros ordenados | Proveedores | `Infraestructura/Repositorios/MySqlProveedorRepository.cs` |
+| R5 | Insertar con validación de negocio | Categorías | `Aplicacion/Servicios/ServicioCategoria.cs` + `Dominio/Validaciones/CategoriaValidaciones.cs` |
+| R6 | Insertar con validación de negocio | Productos | `ServicioProducto.cs` + `ProductoValidaciones.cs` |
+| R7 | Insertar con validación de negocio | Marcas | `ServicioMarca.cs` + `MarcaValidaciones.cs` |
+| R8 | Insertar con validación de negocio | Proveedores | `ServicioProveedor.cs` + `ProveedorValidaciones.cs` |
+| R9 | Actualizar | Catálogo | `ServicioProducto/Categoria/Marca/Proveedor.*Async` |
+| R10 | Eliminación lógica (soft delete) | Catálogo | `IGestionarRepository<T>.CambiarEstadoAsync(...)` + handlers `OnPostEliminarAsync` |
+| R11 | Histórico de cambios con vista | Producto | `ServicioHistoricoPrecio.cs` + `Pages/ProductoHistoricoPrecio.cshtml` |
+| R12 | Home + menú con logo | — | `Pages/Index.cshtml` + `Pages/Shared/_Layout.cshtml` |
+| R13 | Login + logout | Empleado | `ServicioInicioSesion.cs`, `Pages/Login.cshtml` |
+| R14 | ≥2 roles diferenciados | — | `Dominio/Constantes/RolesSistema.cs` (`Administrador`, `EmpleadoVenta`) + convenciones `AuthorizePage` en `Program.cs` |
+| R15 | Registro de venta con descuentos | Venta/DetalleVenta | `Aplicacion/Servicios/FachadaVenta.cs` (`RegistrarVentaAsync`) |
+| R16 | Anulación lógica + reposición | Venta | `Aplicacion/Servicios/FachadaAnulacion.cs` (`AnularVentaAsync`) |
+| R17 | Comprobante/recibo | Venta | `FachadaVenta.ObtenerComprobanteAsync` + `Dominio/Utilidades/NumeroALetras.cs` |
+| R18 | Bitácora de sesiones | Bitácora | `ServicioBitacora.cs` + `MySqlBitacoraRepository.cs` |
 
 Cada tabla implementada cumple con tener al menos **4 atributos independientes**
 (sin contar claves ni atributos de auditoría):
 
 | Tabla | Atributos independientes |
 |-------|--------------------------|
-| **Categoria** | Codigo, Nombre, Descripcion, PorcentajeGanancia (`Models/Categoria.cs`) |
-| **Producto** | Codigo, Nombre, Descripcion, Marca, UnidadMedida, PrecioVenta (`Models/Producto.cs`) |
-| **Proveedor** | RazonSocial, NombreComercial, Nit, NombreContacto, Telefono, CorreoElectronico, Direccion (`Models/Proveedor.cs`) |
+| **Categoria** | Codigo, Nombre, Descripcion, PorcentajeGanancia (`Dominio/Entidades/Categoria.cs`) |
+| **Marca** | Nombre, Descripcion, PaisOrigen, Calidad (`Dominio/Entidades/Marca.cs`) |
+| **Producto** | Codigo, Nombre, Descripcion, UnidadMedida, PrecioVenta, IdCategoria, IdMarca (`Dominio/Entidades/Producto.cs`) |
+| **Proveedor** | RazonSocial, NombreComercial, NombreContacto, Telefono, CorreoElectronico, Direccion (`Dominio/Entidades/Proveedor.cs`) |
 
 Convención de auditoría común: `Estado`, `FechaRegistro` y `FechaActualizacion`
 son tratados como atributos de auditoría (no se cuentan entre los independientes)
 y en todos los repositorios los valores de `FechaActualizacion` se asignan con
-`CURRENT_TIMESTAMP`/`NOW()` sin intervención de la lógica de la página.
+`NOW()`/`CURRENT_TIMESTAMP` sin intervención de la lógica de la página.
 
 ---
 
-# 3. Diseño e implementación
+# 3. Arquitectura
 
-## 3.1 Diagrama de clases
+## 3.1 Monolito con arquitectura hexagonal
 
-### 3.1.1 Diagrama general (modelos, repositorios, ayudantes y validaciones)
+El sistema es un **monolito** (un único despliegue: la aplicación web) organizado
+internamente como **arquitectura hexagonal (puertos y adaptadores)**, con el
+código separado en **proyectos por responsabilidad técnica** dentro de la misma
+solución (`.slnx`).
+
+| Proyecto | Responsabilidad | Depende de |
+|----------|-----------------|------------|
+| `FERRETERIA__Joel.Dominio` | Núcleo: `Entidades/`, `Puertos/`, `Validaciones/`, `ConfiguracionValidacion/`, `Constantes/`, `Utilidades/` | (nada) |
+| `FERRETERIA__Joel.Aplicacion` | Casos de uso: `Servicios/` (servicios y **fachadas**), `Modelos/` (DTOs) y `Politicas/` | Dominio + Infraestructura |
+| `FERRETERIA__Joel.Infraestructura` | Adaptadores de salida: `Repositorios/` (MySQL), `Conexion/`, `Factories/`, `Seguridad/` (Argon2) | Dominio |
+| `FERRETERIA  Joel` (Web) | Adaptador de entrada: `Pages/` (Razor Pages), `Servicios/ContextoUsuarioHttp`, `Helpers/`, `Program.cs` | Dominio + Aplicación + Infraestructura |
+| `FERRETERIA__Joel.Pruebas` | Pruebas unitarias e integración (xUnit) | Todas |
+
+**Regla de dependencias (regla de dependencia de Clean Architecture):**
+
+```text
+Web ─▶ Aplicacion ─▶ Dominio ◀─ Infraestructura
+                 └───────────────────────┘
+```
+
+Las flechas **apuntan hacia el Dominio**: la Aplicación depende de los **puertos y
+entidades** del Dominio y, además, referencia Infraestructura para consumir las
+implementaciones concretas de operación especial y las fábricas
+(`RepositoryCreator`) que se registran por inyección de dependencias. El Dominio
+no conoce ni `MySql.Data` ni ASP.NET Core.
+
+## 3.2 Puertos y adaptadores
+
+**Puertos (contratos en `Dominio/Puertos/`):**
+
+| Puerto | Rol |
+|--------|-----|
+| `IRepository<T>` | Contrato base: `Task<List<T>> ObtenerTodosAsync()`, `Task<int> InsertarAsync(T)` |
+| `IGestionarRepository<T>` | Extiende el base: `ActualizarAsync`, `CambiarEstadoAsync`, `MostrarActivosAsync` |
+| `IUnidadDeTrabajo` | Transacción (`IniciarAsync` / `ConfirmarAsync` / `RevertirAsync`) |
+| `IHasheadorContrasena` | Hash y verificación de contraseñas |
+| `IContextoUsuario` | Identidad del usuario en sesión (`IdEmpleado`, `NombreCompleto`, `Rol`) |
+
+> Ya **no** existen puertos específicos por entidad: los repositorios concretos
+> implementan **solo** `IRepository<T>` / `IGestionarRepository<T>`. Las
+> operaciones que no encajan en un CRUD (folio de venta, idempotencia, anulación,
+> stock, precio vigente, bitácora) se exponen como **métodos concretos** `virtual`
+> y se inyectan directamente por DI.
+
+**Adaptadores (Infraestructura y Web):**
+
+- `MySql*Repository` implementan los puertos genéricos (`MySqlProductoRepository`
+  implementa `IGestionarRepository<Producto>`, `MySqlEmpleadoRepository`
+  implementa `IRepository<Empleado>`, etc. — 11 en total).
+- Los repositorios de operación especial (`MySqlVentaRepository`,
+  `MySqlDetalleVentaRepository`, `MySqlInventarioRepository`,
+  `MySqlHistoricoPrecioRepository`, `MySqlBitacoraRepository`) se inyectan como
+  clase concreta y exponen sus métodos propios (`AsignarCodigoAsync`,
+  `DescontarAsync`, `ObtenerPrecioVigenteAsync`, `RegistrarAsync`, …).
+- `MySqlUnidadDeTrabajo` implementa `IUnidadDeTrabajo` sobre `IConexionTransaccional`
+  (`MySqlConexionTransaccional`, que abre conexión y transacción asíncrona).
+- `Argon2HasheadorContrasena` implementa `IHasheadorContrasena`.
+- `ContextoUsuarioHttp` (en Web) implementa `IContextoUsuario` leyendo las
+  *claims* del usuario autenticado.
+- **Factory Method:** `RepositoryCreator<TContrato>` (abstracto, en
+  `Infraestructura/Factories/`) con los creadores `ProductoRepositoryCreator`,
+  `CategoriaRepositoryCreator`, `MarcaRepositoryCreator`,
+  `ProveedorRepositoryCreator` y `EmpleadoRepositoryCreator`.
+
+> **Clave de defensa:** *"El Dominio declara el 'qué' (puertos); la Infraestructura
+> aporta el 'cómo' (adaptadores). Por eso podemos cambiar MySQL por otro motor sin
+> tocar la lógica de negocio."*
+
+## 3.3 Composition Root (inyección de dependencias)
+
+`FERRETERIA  Joel/Program.cs` es el único punto donde se conocen las
+implementaciones concretas:
+
+```csharp
+// Puertos base
+builder.Services.AddSingleton<IDbConnectionFactory, MySqlConnectionFactory>();
+builder.Services.AddScoped<IConexionTransaccional, MySqlConexionTransaccional>();
+builder.Services.AddScoped<IUnidadDeTrabajo, MySqlUnidadDeTrabajo>();
+
+// Factory Method: un RepositoryCreator<> por contrato genérico
+builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Producto>>, ProductoRepositoryCreator>();
+builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Categoria>>, CategoriaRepositoryCreator>();
+builder.Services.AddScoped<RepositoryCreator<IRepository<Empleado>>, EmpleadoRepositoryCreator>();
+// ...
+
+// Repositorios de operación especial (se inyectan como clase concreta)
+builder.Services.AddScoped<MySqlVentaRepository>();
+builder.Services.AddScoped<MySqlInventarioRepository>();
+builder.Services.AddScoped<MySqlClienteRepository>();
+
+// Casos de uso
+builder.Services.AddScoped<ServicioCategoria>();
+builder.Services.AddScoped<ServicioProducto>();
+builder.Services.AddScoped<ServicioInicioSesion>();
+
+// Fachadas del módulo de ventas (patrón Facade)
+builder.Services.AddScoped<FachadaActualizacionStock>();
+builder.Services.AddScoped<FachadaVenta>();
+builder.Services.AddScoped<FachadaAnulacion>();
+
+// Adaptadores
+builder.Services.AddScoped<IContextoUsuario, ContextoUsuarioHttp>();
+builder.Services.AddSingleton<IHasheadorContrasena, Argon2HasheadorContrasena>();
+```
+
+`AddScoped` = una instancia por petición HTTP; `AddSingleton` = una para toda la
+aplicación (el hasheador y la fábrica de conexión no tienen estado).
+
+---
+
+# 4. Diseño e implementación
+
+## 4.1 Diagrama de clases del núcleo (Dominio)
 
 ```plantuml
 @startuml
 skinparam classAttributeIconSize 0
 skinparam backgroundColor #FFFFFF
 
-package "FERRETERIA__Joel.Models" {
+package "FERRETERIA__Joel.Dominio.Entidades" {
   class Categoria {
-    + IdCategoria : short
+    + IdCategoria : int
     + Codigo : string
     + Nombre : string
     + Descripcion : string?
     + PorcentajeGanancia : decimal
     + Estado : byte
-    + FechaRegistro : DateTime
-    + FechaActualizacion : DateTime?
-    + IdEmpleadoResponsable : short
+  }
+  class Marca {
+    + IdMarca : int
+    + Nombre : string
+    + PaisOrigen : string
+    + Calidad : string
   }
   class Producto {
     + IdProducto : int
-    + IdCategoria : short
+    + IdCategoria : int
+    + IdMarca : int
     + Codigo : string
     + Nombre : string
-    + Descripcion : string?
-    + Marca : string?
     + UnidadMedida : string
     + PrecioVenta : decimal
-    + Estado : byte
-    + FechaRegistro : DateTime
-    + FechaActualizacion : DateTime?
-    + IdEmpleadoResponsable : short
+    + CantidadStock : int
   }
   class Proveedor {
-    + IdProveedor : short
+    + IdProveedor : int
     + RazonSocial : string
     + NombreComercial : string
-    + Nit : string
     + NombreContacto : string
     + Telefono : string
-    + CorreoElectronico : string?
-    + Direccion : string?
-    + Estado : byte
-    + FechaRegistro : DateTime
-    + FechaActualizacion : DateTime?
-    + IdEmpleadoResponsable : short
   }
   class Empleado {
-    + IdEmpleado : short
+    + IdEmpleado : int
     + Nombre : string
+    + Rol : string
+    + Contrasena : string
+  }
+  class Cliente {
+    + IdCliente : int
+    + Nombre : string
+    + Telefono : string
+    + IdEmpleadoResponsable : int?
   }
   class HistoricoPrecio {
     + IdHistoricoPrecio : int
@@ -194,216 +325,128 @@ package "FERRETERIA__Joel.Models" {
     + FechaInicioVigencia : DateTime
     + FechaFinVigencia : DateTime?
     + MotivoCambio : string
-    + Estado : byte
-    + FechaRegistro : DateTime
-    + FechaActualizacion : DateTime?
-    + IdEmpleadoResponsable : short
-    + NombreProducto : string?
-    + NombreEmpleadoResponsable : string?
+  }
+  class Venta {
+    + IdVenta : int
+    + CodigoVenta : string?
+    + EstadoVenta : string
+    + MontoTotal : decimal
+    + ClaveIdempotencia : string?
+    + MotivoAnulacion : string?
+  }
+  class DetalleVenta {
+    + IdDetalleVenta : int
+    + IdVenta : int
+    + IdProducto : int
+    + Cantidad : int
+    + PrecioUnitario : decimal
+    + TotalProducto : decimal
   }
 }
 
-package "FERRETERIA__Joel.Repositories" {
-  interface ICategoriaRepository {
-    + ObtenerTodas() : List<Categoria>
-    + ObtenerActivas() : List<Categoria>
-    + ObtenerPorId(id : short) : Categoria?
-    + Insertar(categoria : Categoria) : void
-    + Actualizar(categoria : Categoria) : void
-    + Desactivar(id : short) : void
+package "FERRETERIA__Joel.Dominio.Puertos" {
+  interface IRepository<T> {
+    + ObtenerTodosAsync() : Task<List<T>>
+    + InsertarAsync(entidad : T) : Task<int>
   }
-  class MySqlCategoriaRepository
-
-  interface IProductoRepository {
-    + ObtenerTodos() : List<Producto>
-    + ObtenerPorId(idProducto : int) : Producto?
-    + Insertar(producto : Producto) : int
-    + Actualizar(producto : Producto) : void
-    + CambiarEstado(idProducto : int) : void
-    + ExisteCodigo(codigo, excluir?) : bool
-    + ExisteCategoriaActiva(idCategoria) : bool
+  interface IGestionarRepository<T> {
+    + ActualizarAsync(entidad : T) : Task
+    + CambiarEstadoAsync(id, idEmpleado) : Task
+    + MostrarActivosAsync() : Task<List<T>>
   }
-  class MySqlProductoRepository
-
-  interface IProveedorRepository {
-    + ObtenerTodos() : List<Proveedor>
-    + ObtenerPorId(idProveedor : short) : Proveedor?
-    + Insertar(proveedor : Proveedor) : void
-    + Actualizar(proveedor : Proveedor) : void
-    + CambiarEstado(idProveedor : short) : void
-    + ExisteNit(nit, excluir?) : bool
+  interface IUnidadDeTrabajo {
+    + IniciarAsync() : Task
+    + ConfirmarAsync() : Task
+    + RevertirAsync() : Task
   }
-  class MySqlProveedorRepository
-
-  interface IEmpleadoRepository {
-    + ObtenerActivos() : List<Empleado>
+  class MySqlVentaRepository {
+    + InsertarAsync(venta) : Task<int>
+    + MarcarAnuladaAsync(...) : Task<bool>
   }
-  class MySqlEmpleadoRepository
-
-  interface IHistoricoPrecioRepository {
-    + ObtenerPorProducto(idProducto : int) : List<HistoricoPrecio>
-    + Insertar(historicoPrecio : HistoricoPrecio) : void
-    + ObtenerPrecioVigente(idProducto : int) : HistoricoPrecio?
-    + CerrarPrecioVigente(idProducto : int) : void
-  }
-  class MySqlHistoricoPrecioRepository
-}
-
-package "FERRETERIA__Joel.Validaciones" {
-  class CategoriaValidaciones {
-    + EsCodigoValido(codigo) : bool
-    + EsNombreValido(nombre) : bool
-    + EsDescripcionValida(descripcion) : bool
-    + EsPorcentajeGananciaValido(pct) : bool
-    + EsEmpleadoValido(id) : bool
-    + EsValida(categoria) : bool
-  }
-  class ProveedorValidaciones {
-    + EsRazonSocialValida(rs) : bool
-    + EsNombreComercialValido(nc) : bool
-    + EsNitValido(nit) : bool
-    + EsNombreContactoValido(nc) : bool
-    + EsTelefonoValido(tel) : bool
-    + EsCorreoValido(correo) : bool
-    + EsEmpleadoValido(id) : bool
-  }
-  class ProductoValidaciones {
-    + EsCodigoValido(codigo) : bool
-    + EsNombreValido(nombre) : bool
-    + EsUnidadMedidaValida(um) : bool
-    + EsPrecioValido(precio) : bool
-    + EsCategoriaValida(id) : bool
-    + EsEmpleadoValido(id) : bool
+  class MySqlInventarioRepository {
+    + DescontarAsync(idProducto, cantidad) : Task<bool>
+    + ReponerAsync(idProducto, cantidad) : Task
   }
 }
 
-ICategoriaRepository <|.. MySqlCategoriaRepository
-IProductoRepository <|.. MySqlProductoRepository
-IProveedorRepository <|.. MySqlProveedorRepository
-IEmpleadoRepository <|.. MySqlEmpleadoRepository
-IHistoricoPrecioRepository <|.. MySqlHistoricoPrecioRepository
+IRepository <|-- IGestionarRepository
+Categoria ..|> IGestionarRepository
+Producto ..|> IGestionarRepository
 
-note right of ICategoriaRepository
-  Program.cs registra las 5 abstracciones
-  con AddScoped<Interface, Implementacion>
-  (Inversión de dependencias en todo el sistema)
+note right of IRepository
+  Todos los puertos son ASÍNCRONOS
+  (Task/ValueTask): no bloquean el hilo
+  durante el acceso a la base de datos.
 end note
 
 @enduml
 ```
 
-### 3.1.2 Diagrama de las páginas Razor (Page Models)
+## 4.2 Diagrama de casos de uso, fachadas y adaptadores
 
 ```plantuml
 @startuml
 skinparam classAttributeIconSize 0
 skinparam backgroundColor #FFFFFF
 
-package "FERRETERIA__Joel.Pages" {
-  class CategoriasModel {
-    - _repositorio : ICategoriaRepository
-    + OnGet() : void
-    + OnPostEliminar(id : short) : IActionResult
-  }
-  class CategoriaNuevaModel {
-    + NuevaCategoria : Categoria
-    + OnGet() : void
-    + OnPost() : IActionResult
-    - CargarEmpleados() : void
-  }
-  class CategoriaEditarModel {
-    + CategoriaEdit : Categoria
-    + OnGet(id : short) : IActionResult
-    + OnPost() : IActionResult
-    - CargarEmpleados() : void
-  }
-  class ProductosModel {
-    + ListProductos : List<Producto>
-    + Categorias : List<Categoria>
-    + OnGet() : void
-  }
-  class ProductoNuevoModel {
-    + Producto : Producto
-    + OnGet() : void
-    + OnPost() : IActionResult
-    - NormalizarDatos() : void
-    - Validar() : void
-    - CargarCatalogos() : void
-    - Insertar() : void  // inserta producto + precio inicial (histórico)
-  }
-  class ProductoEditarModel {
-    + Producto : Producto
-    + OnGet(id : int) : IActionResult
-    + OnPost() : IActionResult
-    - Validar() : void
-    - CargarCatalogos() : void
-    - Actualizar() : void  // actualiza producto + registra cambio de precio
-  }
-  class ProductoHistoricoPrecioModel {
-    + Historicos : List<HistoricoPrecio>
-    + NombreProducto : string
-    + OnGet(id : int) : void
-  }
-  class ProveedoresModel {
-    + ListProveedores : List<Proveedor>
-    + OnGet() : void
-    + OnPostEliminar(idProveedor : short) : IActionResult
-  }
-  class ProveedorNuevoModel {
-    + Proveedor : Proveedor
-    + OnGet() : void
-    + OnPost() : IActionResult
-    - NormalizarDatos() : void
-    - Validar() : void
-    - CargarEmpleados() : void
-    - Insertar() : void
-  }
-  class ProveedorEditarModel {
-    + Proveedor : Proveedor
-    + OnGet(id : int) : IActionResult
-    + OnPost() : IActionResult
-    - NormalizarDatos() : void
-    - Validar() : void
-    - ObtenerPorId(id) : Proveedor?
-    - Actualizar() : void
-  }
+package "Web (Razor Pages)" {
+  class VentaModel
+  class VentasModel
+  class VentaComprobanteModel
+  class ProductosModel
+}
+package "Aplicacion (Servicios/Fachadas)" {
+  class FachadaVenta
+  class FachadaAnulacion
+  class FachadaActualizacionStock
+  class ServicioProducto
+  class ServicioCliente
+  class ServicioInicioSesion
+}
+package "Dominio (Puertos)" {
+  interface IRepository<T>
+  interface IGestionarRepository<T>
+  interface IUnidadDeTrabajo
+  interface IContextoUsuario
+}
+package "Infraestructura (Adaptadores)" {
+  class MySqlVentaRepository
+  class MySqlDetalleVentaRepository
+  class MySqlInventarioRepository
+  class MySqlProductoRepository
+  class MySqlUnidadDeTrabajo
+}
+package "Web (Adaptador entrada)" {
+  class ContextoUsuarioHttp
 }
 
-CategoriasModel --> ICategoriaRepository
-CategoriaNuevaModel --> ICategoriaRepository
-CategoriaNuevaModel --> IEmpleadoRepository
-CategoriaNuevaModel --> CategoriaValidaciones
-CategoriaEditarModel --> ICategoriaRepository
-CategoriaEditarModel --> CategoriaValidaciones
-ProductosModel --> IProductoRepository
-ProductosModel --> ICategoriaRepository
-ProductoNuevoModel --> IProductoRepository
-ProductoNuevoModel --> ICategoriaRepository
-ProductoNuevoModel --> IEmpleadoRepository
-ProductoNuevoModel --> IHistoricoPrecioRepository
-ProductoNuevoModel --> ProductoValidaciones
-ProductoEditarModel --> IProductoRepository
-ProductoEditarModel --> ICategoriaRepository
-ProductoEditarModel --> IEmpleadoRepository
-ProductoEditarModel --> IHistoricoPrecioRepository
-ProductoEditarModel --> ProductoValidaciones
-ProductoHistoricoPrecioModel --> IHistoricoPrecioRepository
-ProveedorNuevoModel --> IEmpleadoRepository
-ProveedorNuevoModel --> ProveedorValidaciones
-ProveedorEditarModel --> IEmpleadoRepository
-ProveedorEditarModel --> ProveedorValidaciones
-ProveedoresModel --> IProveedorRepository
+VentaModel --> FachadaVenta
+VentasModel --> FachadaAnulacion
+VentaComprobanteModel --> FachadaVenta
+ProductosModel --> ServicioProducto
+FachadaVenta --> FachadaActualizacionStock
+FachadaAnulacion --> FachadaActualizacionStock
+FachadaVenta --> ServicioCliente
+FachadaVenta --> MySqlVentaRepository
+FachadaVenta --> MySqlDetalleVentaRepository
+FachadaAnulacion --> MySqlVentaRepository
+FachadaAnulacion --> IUnidadDeTrabajo
+FachadaVenta --> IContextoUsuario
+FachadaActualizacionStock --> MySqlInventarioRepository
+ServicioProducto --> IGestionarRepository
+IGestionarRepository <|-- MySqlProductoRepository
+IUnidadDeTrabajo <|.. MySqlUnidadDeTrabajo
+IContextoUsuario <|.. ContextoUsuarioHttp
 
-note top of ProductosModel
-  Los Page Models ya NO contienen SQL:
-  toda la persistencia vive en los repositorios
-  (en principio) y se inyectan por constructor.
+note bottom of FachadaVenta
+  Cada pantalla consume UNA sola fachada.
+  La UI nunca ve repositorios, SQL ni transacciones.
 end note
 
 @enduml
 ```
 
-### 3.1.3 Diagrama del control de datos históricos (implementado)
+## 4.3 Diagrama del control de datos históricos (implementado)
 
 ```plantuml
 @startuml
@@ -422,196 +465,210 @@ class HistoricoPrecio {
   + FechaInicioVigencia : DateTime
   + FechaFinVigencia : DateTime?
   + MotivoCambio : string
-  + IdEmpleadoResponsable : short
+  + IdEmpleadoResponsable : int
 }
 
-interface IHistoricoPrecioRepository {
-  + ObtenerPorProducto(idProducto) : List<HistoricoPrecio>
-  + Insertar(historicoPrecio) : void
-  + ObtenerPrecioVigente(idProducto) : HistoricoPrecio?
-  + CerrarPrecioVigente(idProducto) : void
+class MySqlHistoricoPrecioRepository {
+  + ObtenerPorProductoAsync(idProducto) : Task<List<HistoricoPrecio>>
+  + ObtenerPrecioVigenteAsync(idProducto) : Task<HistoricoPrecio?>
+  + CerrarPrecioVigenteAsync(idProducto) : Task
 }
 
-class ProductoHistoricoPrecioModel {
-  + Historicos : List<HistoricoPrecio>
-  + NombreProducto : string
-  + OnGet(id : int) : void
+class ServicioProducto {
+  + CrearAsync(...) : Task<int>
+  + ActualizarAsync(...) : Task
 }
 
-class "ProductoHistoricoPrecio.cshtml" as Vista
+class ProductoHistoricoPrecioModel
 
 Producto "1" *-- "0..*" HistoricoPrecio
-IHistoricoPrecioRepository <|.. MySqlHistoricoPrecioRepository
-ProductoHistoricoPrecioModel --> IHistoricoPrecioRepository
-ProductoHistoricoPrecioModel ..> Vista : @model HistoricoPrecio[]
+ServicioProducto --> MySqlHistoricoPrecioRepository
+ProductoHistoricoPrecioModel --> MySqlHistoricoPrecioRepository
 
 note bottom of HistoricoPrecio
   Modelo por vigencia:
   el precio activo tiene FechaFinVigencia = NULL.
   Al cambiar el precio se cierra el vigente
-  (CerrarPrecioVigente) y se inserta el nuevo.
+  y se inserta uno nuevo.
 end note
 
 @enduml
 ```
 
-## 3.2 Justificación de las decisiones de diseño
+## 4.4 Justificación de las decisiones de diseño
 
-1. **Patrón Repository con ADO .NET en todo el sistema.** Se definieron cinco
-   interfaces (`ICategoriaRepository`, `IProductoRepository`,
-   `IProveedorRepository`, `IEmpleadoRepository`, `IHistoricoPrecioRepository`)
-   con sus implementaciones `MySql*`. Esto separa por completo la consulta SQL
-   de la lógica de la página y permite cambiar la base de datos sin tocar las
-   vistas.
+1. **Arquitectura hexagonal con puertos y adaptadores.** El Dominio define las
+   interfaces (`Puertos/`) y las entidades; la Aplicación implementa los casos de
+   uso; la Infraestructura aporta los adaptadores MySQL y Web el adaptador de
+   entrada. Esto **invierte las dependencias**: el núcleo no depende de ningún
+   detalle externo.
 
-2. **Validadores dedicados por entidad.** La carpeta `Validaciones/` agrupa
-   clases con una única responsabilidad: decidir si un dato es válido según la
-   lógica de negocio.
+2. **Proyectos por capa (no carpetas).** Se materializó cada capa como un
+   `.csproj` real (`Dominio`, `Aplicacion`, `Infraestructura`, Web y `Pruebas`),
+   de modo que el compilador **impide físicamente** las dependencias prohibidas:
+   el Dominio no referencia a nadie y ninguna capa externa lo contamina. La
+   Aplicación referencia a Dominio e Infraestructura (para las fábricas y las
+   implementaciones concretas de operación especial) y la Web compone todo.
 
-3. **Modelo de histórico por vigencia.** En lugar de guardar pares
+3. **Contratos genéricos de repositorio + operaciones especiales concretas.** Se
+   eliminaron los puertos específicos por entidad y se conservaron solo
+   `IRepository<T>` e `IGestionarRepository<T>`; las operaciones que no son CRUD
+   se exponen como métodos concretos `virtual`, lo que mantiene los contratos
+   pequeños y permite sustituirlos en pruebas.
+
+4. **Patrón Repository con ADO .NET.** Cada repositorio `MySql*` encapsula su
+   SQL; las capas superiores solo ven entidades. Cambiar de motor de base de datos
+   se reduce a una nueva implementación de los contratos y su registro en
+   `Program.cs`.
+
+5. **Factory Method sobre el Repository.** Se conservó el patrón Factory existente
+   mediante `RepositoryCreator<TContrato>` (en `Infraestructura/Factories/`): cada
+   creador concreto decide qué repositorio entregar, **ligado a la
+   conexión/transacción ambiente** del request.
+
+6. **Módulo de ventas con tres fachadas.** `FachadaVenta` (registro),
+   `FachadaAnulacion` (historial y anulación) y `FachadaActualizacionStock`
+   (inventario). Cada pantalla depende de **una sola** fachada y el subsistema de
+   stock se reutiliza en los tres flujos (patrón **Facade**).
+
+7. **Modelo de histórico por vigencia.** En lugar de guardar pares
    "precio anterior / precio nuevo", la tabla `historico_precio` guarda un
-   registro por versión con `FechaInicioVigencia` y `FechaFinVigencia` (NULL =
-   vigente). Este modelo es más simple de consultar y permite saber, en
-   cualquier fecha, cuál era el precio de un producto.
+   registro por versión con `FechaInicioVigencia` y `FechaFinVigencia`
+   (`NULL` = vigente). Permite saber, en cualquier fecha, cuál era el precio.
 
-4. **Eliminación lógica (soft delete).** Los repositorios de producto y
-   proveedor implementan `CambiarEstado()` con un `CASE` que alterna el estado;
-   las listas consultan únicamente los activos. Se preserva la integridad
-   referencial y se habilita auditoría.
+8. **Eliminación lógica (soft delete).** Los repositorios implementan
+   `CambiarEstadoAsync` que alterna el estado (`Estado=1/0`); las listas
+   consultan los activos. Se preserva la integridad referencial y se habilita
+   auditoría. En ventas, **anular** es un `UPDATE ... EstadoVenta='Anulada'`.
 
-5. **Errores controlados con `ILogger` y mensajes genéricos.** Toda operación
-   queda envuelta en `try/catch`; el detalle técnico se registra con el logger
-   (con parámetros como `{IdProducto}`) y al usuario solo se muestra un mensaje
-   claro y no sensible.
+9. **Asincronía de extremo a extremo.** Todo el acceso a E/S usa
+   `async`/`await` real (sin `Task.Run` ni `async void`) para no bloquear hilos
+   del servidor bajo carga concurrente.
 
-6. **Inyección de dependencias por constructor.** Las páginas reciben los
-   repositorios, `IConfiguration` e `ILogger` por constructor; el contenedor de
-   ASP.NET Core resuelve el ciclo de vida.
+10. **Errores controlados con `ILogger` y mensajes genéricos.** Toda operación
+    queda envuelta en `try/catch`; el detalle técnico se registra con el logger y
+   al usuario se le muestra un mensaje claro y no sensible.
 
-## 3.3 Aplicación de cada principio SOLID (con ejemplos reales del código)
+## 4.5 Aplicación de cada principio SOLID (con ejemplos reales del código)
 
 ### S — Single Responsibility (Responsabilidad Única)
 
 El sistema separa responsabilidades en capas y en métodos pequeños:
 
-- **El acceso a datos de cada entidad** vive exclusivamente en su repositorio.
-  Por ejemplo, `MySqlProductoRepository` solo conoce el SQL de productos
-  (`Repositories/MySqlProductoRepository.cs:6`).
-- **La validación de cada entidad** vive en clases separadas
-  (`Validaciones/CategoriaValidaciones.cs`, `Validaciones/ProductoValidaciones.cs`,
-  `Validaciones/ProveedorValidaciones.cs`).
-- **Métodos pequeños con una sola tarea** en los Page Models: `NormalizarDatos()`,
-  `Validar()` y `CargarCatalogos()` en `Pages/ProductoNuevo.cshtml.cs:91-187`.
-  El handler `OnPost()` solo orquesta: normaliza → valida → inserta → redirige.
-- **`MapearProducto(reader)` / `MapearProveedor(reader)` / `MapearHistoricoPrecio(reader)`**
-  son métodos privados únicos dentro de cada repositorio, responsables de
-  convertir una fila (`MySqlDataReader`) en el modelo (por ejemplo
-  `Repositories/MySqlProductoRepository.cs:325-371`).
+- **Persistencia:** solo el repositorio de cada entidad conoce su SQL
+  (`Infraestructura/Repositorios/MySqlProductoRepository.cs`).
+- **Validación:** reglas puras en `Dominio/Validaciones/*`
+  (`CategoriaValidaciones`, `ProductoValidaciones`, `MarcaValidaciones`,
+  `ProveedorValidaciones`) y su configuración en `ConfiguracionValidacion/*`.
+- **Casos de uso:** en `Aplicacion/Servicios/*` (por ejemplo `ServicioProducto`
+  separa `CrearAsync`, `ActualizarAsync` y `CambiarEstadoAsync`).
+- **HTTP:** el Page Model solo orquesta (`OnGetAsync`/`OnPost...Async`), sin SQL.
+- **Mapeo fila→entidad:** método privado `Mapear*` dentro de cada repositorio.
 
 ### O — Open/Closed (Abierto/Cerrado)
 
-El sistema está *abierto a la extensión* y *cerrado a la modificación* gracias a
-las cinco abstracciones de repositorio. Si se desea migrar a SQL Server o a una
-implementación en memoria para pruebas unitarias, solo se crea una nueva
-implementación y se cambia el registro en `Program.cs:8-13`:
+El sistema está *abierto a la extensión* y *cerrado a la modificación*:
 
 ```csharp
-// Program.cs — registro de todas las implementaciones
-builder.Services.AddScoped<ICategoriaRepository, MySqlCategoriaRepository>();
-builder.Services.AddScoped<IProductoRepository, MySqlProductoRepository>();
-builder.Services.AddScoped<IProveedorRepository, MySqlProveedorRepository>();
-builder.Services.AddScoped<IEmpleadoRepository, MySqlEmpleadoRepository>();
-builder.Services.AddScoped<IHistoricoPrecioRepository, MySqlHistoricoPrecioRepository>();
+// Program.cs — cambiar de motor solo exige otra fábrica/implementación
+builder.Services.AddScoped<RepositoryCreator<IRepository<Empleado>>, EmpleadoRepositoryCreator>();
+builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Producto>>, ProductoRepositoryCreator>();
 ```
 
-Ninguna página Razor necesita modificarse cuando cambia la tecnología de
-persistencia: cumplen la condición de estar *cerradas a la modificación*.
+- **Nuevo descuento** → nueva clase `IPoliticaDescuento`, sin tocar
+  `SelectorDescuento` (`Aplicacion/Politicas/`).
+- **Nuevo motor de base de datos** → nueva implementación del puerto + ajuste
+  **solo** en `Program.cs`. Ninguna página Razor se modifica.
 
 ### L — Sustitución de Liskov (Liskov Substitution Principle)
 
-Cada implementación concreta implementa el contrato completo de su interfaz y
-respeta las invariantes que las páginas esperan. Por ejemplo,
-`MySqlProductoRepository` implementa `IProductoRepository`
-(`Repositories/IProductoRepository.cs:3`) y la página lo consume por la
-abstracción (`Pages/Productos.cshtml.cs:28`):
-
-```csharp
-ListProductos = _productoRepository.ObtenerTodos();
-```
-
-Cualquier otra implementación de `IProductoRepository` (SQL Server, mock de
-pruebas) puede **sustituir** a la actual sin alterar el comportamiento esperado
-por la página.
+Cada implementación respeta el contrato de su puerto. Los **fakes** de las
+pruebas (`FERRETERIA__Joel.Pruebas/Compartido/FakesVenta.cs`) **heredan** de los
+repositorios MySQL concretos (pasando `null!` al constructor) y sobrescriben sus
+métodos `virtual`, respetando el mismo contrato; las fachadas funcionan igual con
+ambos. Las pruebas unitarias del módulo de ventas se ejecutan sin base de datos
+gracias a esta sustitución.
 
 ### I — Segregación de Interfaces (Interface Segregation Principle)
 
-Cada interfaz expone solo lo que su cliente necesita; no existen interfaces
-"gordas". El mejor ejemplo es la granularidad del sistema:
+Puertos pequeños y específicos; ningún consumidor recibe métodos que no usa:
 
 ```csharp
-// Repositories/IEmpleadoRepository.cs
-public interface IEmpleadoRepository
+// Dominio/Puertos/IRepository.cs  (contrato mínimo)
+public interface IRepository<T>
 {
-    List<Empleado> ObtenerActivos();          // una sola responsabilidad
+    Task<List<T>> ObtenerTodosAsync();
+    Task<int> InsertarAsync(T entidad);
 }
 
-// Repositories/IHistoricoPrecioRepository.cs
-public interface IHistoricoPrecioRepository
+// Dominio/Puertos/IGestionarRepository.cs  (solo añade gestión de catálogo)
+public interface IGestionarRepository<T> : IRepository<T>
 {
-    List<HistoricoPrecio> ObtenerPorProducto(int idProducto);
-    void Insertar(HistoricoPrecio historicoPrecio);
-    HistoricoPrecio? ObtenerPrecioVigente(int idProducto);
-    void CerrarPrecioVigente(int idProducto);
+    Task ActualizarAsync(T entidad);
+    Task CambiarEstadoAsync(int id, int idEmpleado);
+    Task<List<T>> MostrarActivosAsync();
 }
 ```
 
-Un Page Model que solo necesita el catálogo de empleados recibe
-`IEmpleadoRepository` y no una interfaz amplia con métodos de pagos, reportes o
-auditoría que no usa.
-
 ### D — Inversión de Dependencias (Dependency Inversion Principle)
 
-Los módulos de alto nivel (páginas) dependen de **abstracciones**, no de clases
-concretas. Ejemplo real en `Pages/ProductoEditar.cshtml.cs:28-40`:
+Los módulos de alto nivel dependen de **abstracciones**, no de clases concretas.
+Ejemplo real (`FERRETERIA  Joel/Pages/Venta.cshtml.cs`): el Page Model recibe
+**solo** la fachada y el logger, nunca repositorios ni conexiones:
 
 ```csharp
-public ProductoEditarModel(
-    IProductoRepository productoRepository,
-    ICategoriaRepository categoriaRepository,
-    IEmpleadoRepository empleadoRepository,
-    IHistoricoPrecioRepository historicoPrecioRepository,
-    ILogger<ProductoEditarModel> logger)
+public VentaModel(FachadaVenta fachadaVenta, ILogger<VentaModel> logger)
 {
-    _productoRepository = productoRepository;
-    _categoriaRepository = categoriaRepository;
-    _empleadoRepository = empleadoRepository;
-    _historicoPrecioRepository = historicoPrecioRepository;
+    _fachadaVenta = fachadaVenta;
     _logger = logger;
 }
 ```
 
-La inyección se resuelve mediante el contenedor de DI de ASP.NET Core
-(`Program.cs:8-13`) y **las páginas nunca instancian sus repositorios**,
-evitando la dependencia directa sobre MySQL en la capa de presentación.
+La fachada, a su vez, depende de abstracciones y de repositorios concretos
+(`IGestionarRepository<T>`, `IUnidadDeTrabajo`, `IContextoUsuario`, más los
+repositorios de operación especial) que la Infraestructura implementa.
 
-## 3.4 Clean Code aplicado
+## 4.6 Patrones de diseño aplicados
+
+Se implementan **cinco patrones** (se exigía un mínimo de tres, con Facade
+obligatorio):
+
+| Patrón | Dónde | Propósito |
+|--------|-------|-----------|
+| **Facade** | `FachadaVenta`, `FachadaAnulacion`, `FachadaActualizacionStock` | Una única puerta de entrada por pantalla a un subsistema de varios servicios/repositorios/transacción |
+| **Factory Method** | `RepositoryCreator<TContrato>` + `Infraestructura/Factories/*` | Crear repositorios sin que el caso de uso conozca las clases concretas |
+| **Strategy** | `IPoliticaDescuento`, `DescuentoPorMonto`, `DescuentoPorCantidad`, `SelectorDescuento` | Intercambiar la política de descuento sin modificar la fachada |
+| **Repository** | `MySql*Repository` (11) | Separar la persistencia (SQL) de la lógica de dominio |
+| **Unit of Work** | `IUnidadDeTrabajo` / `MySqlUnidadDeTrabajo` | Agrupar varias operaciones en **una sola transacción** (todo o nada) |
+
+**Facade (detalle):** `FachadaVenta` expone el caso de uso completo
+(`BuscarClientesAsync`, `BuscarProductosAsync`, `CalcularLineaAsync`,
+`CalcularResumen`, `RegistrarVentaAsync`, `ObtenerComprobanteAsync`). Las páginas
+`Venta.cshtml.cs` y `Ventas.cshtml.cs` no conocen `IUnidadDeTrabajo` ni los
+repositorios.
+
+**Strategy (detalle):** `SelectorDescuento` evalúa todas las políticas y aplica
+la que otorgue el **mayor beneficio**; si ninguna aplica, el descuento es 0.
+Agregar una política nueva no modifica el selector (Open/Closed).
+
+## 4.7 Clean Code aplicado
 
 | Buena práctica | Ejemplo |
 |----------------|---------|
-| **Nombres con intención** | `CargarCatalogo()`, `CerrarPrecioVigente()`, `ExisteNit(...)`, `MapearProducto(...)` |
-| **Métodos pequeños / una tarea** | `NormalizarDatos()`, `Validar()`, `Insertar()` en los Page Models |
-| **Consultas como constantes** | `const string query = "..."` en todos los repositorios |
+| **Nombres con intención** | `ReponerAsync`, `DescontarAsync`, `MapearLineasAsync`, `CerrarPrecioVigenteAsync` |
+| **Métodos pequeños / una tarea** | `FachadaVenta` separa búsqueda, cálculo y registro |
+| **Sin duplicación (DRY)** | `Mapear*` por repositorio centraliza el mapeo de filas |
+| **Asincronía consistente** | `async`/`await` en puertos, repositorios, servicios y páginas |
+| **Consultas como constantes** | `const string query = "..."` en los repositorios |
 | **Lectura tipada del reader** | `reader.GetInt32(...)`, `reader.GetDecimal(...)`, `reader.GetDateTime(...)` |
-| **Manejo seguro de nulos** | `(object?)Producto.Descripcion ?? DBNull.Value`; `reader["Campo"] == DBNull.Value ? null : ...` |
-| **Construcción defensiva** | Lanzamiento claro si falta la cadena de conexión: `?? throw new InvalidOperationException("No se encontró la cadena de conexión MySqlConnection.")` |
-| **Uso seguro de recursos** | `using MySqlConnection` / `using MySqlCommand` / `using MySqlDataReader` |
-| **Manejo de errores** | `try/catch` con `ILogger.LogError(ex, "...{Id}...", id)` y mensajes genéricos al usuario |
-| **Sin duplicación** | `Mapear*` por repositorio centraliza el mapeo de filas (DRY) |
-| **Código muerto eliminado** | Commits específicos de limpieza en el historial del repositorio |
+| **Manejo seguro de nulos** | `reader["Campo"] == DBNull.Value ? null : ...` |
+| **Construcción defensiva** | `?? throw new InvalidOperationException("No se encontró la cadena de conexión MySqlConnection.")` |
+| **Uso seguro de recursos** | `using`/`await using` de conexión, comando y reader |
+| **Manejo de errores** | `try/catch` + `ILogger.LogError(ex, "...{Id}...", id)` y mensajes genéricos al usuario |
 
-## 3.5 Control de datos históricos en una tabla (Producto)
+## 4.8 Control de datos históricos en una tabla (Producto)
 
-**Tabla seleccionada:** **Producto** (la de mayor volatilidad de negocio, por los
+**Tabla seleccionada:** **Producto** (la de mayor volatilidad de negocio por los
 cambios frecuentes de precio de venta).
 
 **Modelo implementado — `historico_precio` por vigencia:**
@@ -626,77 +683,141 @@ cambios frecuentes de precio de venta).
 | `MotivoCambio` | Razón del cambio ("Precio inicial", "Cambio de precio") |
 | `IdEmpleadoResponsable` | Quién registró el cambio |
 
-**Flujo real en el código:**
+**Flujo real en el código (`Aplicacion/Servicios/ServicioProducto.cs`):**
 
-1. **Al crear un producto** (`Pages/ProductoNuevo.cshtml.cs:173-187`), tras el
-   `INSERT` se registra la primera versión con motivo *"Precio inicial"*:
+1. **Al crear un producto** (`CrearAsync`), dentro de una transacción
+   (`IUnidadDeTrabajo`) se inserta el producto y se registra la primera versión
+   con motivo *"Precio inicial"*.
+2. **Al actualizar** (`ActualizarAsync`, también transaccional) se obtiene el
+   precio vigente (`ObtenerPrecioVigenteAsync`); si el precio **cambió**, se
+   cierra el vigente (`CerrarPrecioVigenteAsync`) y se inserta la nueva versión
+   con motivo *"Cambio de precio"*; producto e histórico se confirman o revierten
+   juntos.
+3. **Siempre hay un solo precio vigente**: la fila con `FechaFinVigencia = NULL`.
+4. **Vista del histórico**: `Pages/ProductoHistoricoPrecio.cshtml` lista los
+   cambios ordenados por fecha, con el badge **"Vigente"**, el motivo y el
+   empleado responsable.
 
-```csharp
-int idProducto = _productoRepository.Insertar(Producto);
+**Detalle SQL:** `CerrarPrecioVigenteAsync` ejecuta
+`UPDATE ... SET FechaFinVigencia = NOW() WHERE IdProducto = @id AND FechaFinVigencia IS NULL`.
 
-HistoricoPrecio historicoPrecio = new()
-{
-    IdProducto = idProducto,
-    Precio = Producto.PrecioVenta,
-    MotivoCambio = "Precio inicial",
-    IdEmpleadoResponsable = Producto.IdEmpleadoResponsable
-};
+Este modelo permite gestionar el historial **a futuro**: agregar una versión no
+obliga a modificar la tabla `producto` ni el CRUD existente.
 
-_historicoPrecioRepository.Insertar(historicoPrecio);
-```
+## 4.9 Módulo de ventas: transacción, anulación y stock
 
-2. **Al actualizar un producto** (`Pages/ProductoEditar.cshtml.cs:182-214`) se
-   obtiene el precio vigente, se actualiza el producto y, si el precio cambió,
-   se **cierra** el vigente y se inserta la nueva versión:
+**Registro (`FachadaVenta.RegistrarVentaAsync`):** abre la unidad de trabajo y,
+en **una sola transacción**:
 
-```csharp
-HistoricoPrecio? precioVigente =
-    _historicoPrecioRepository.ObtenerPrecioVigente(Producto.IdProducto);
+1. **n `INSERT`** en `detalle_venta` (uno por línea).
+2. **n `UPDATE`** de `producto.CantidadStock` (descuento vía
+   `FachadaActualizacionStock.DescontarAsync`).
+3. `ConfirmarAsync`; ante cualquier fallo, `RevertirAsync`: **nada** queda
+   persistido.
+4. **Idempotencia:** repetir la misma venta (misma `ClaveIdempotencia`) no la
+   duplica.
 
-_productoRepository.Actualizar(Producto);
+**Anulación (`FachadaAnulacion.AnularVentaAsync`)** — borrado **lógico**:
 
-bool cambioPrecio =
-    precioVigente is null ||
-    precioVigente.Precio != Producto.PrecioVenta;
+1. `UPDATE venta SET EstadoVenta = 'Anulada'` (+ motivo, empleado y fecha).
+2. **`detalle_venta` NO se toca**: se usa como fuente para reponer.
+3. **n `UPDATE`** de reposición de stock (uno por línea, vía
+   `FachadaActualizacionStock.ReponerAsync`).
+4. Todo en la misma transacción: `ConfirmarAsync` / `RevertirAsync`.
 
-if (cambioPrecio)
-{
-    if (precioVigente is not null)
-    {
-        _historicoPrecioRepository.CerrarPrecioVigente(Producto.IdProducto);
-    }
+**Concurrencia (garantizada en la base de datos):**
 
-    _historicoPrecioRepository.Insertar(new HistoricoPrecio
-    {
-        IdProducto = Producto.IdProducto,
-        Precio = Producto.PrecioVenta,
-        MotivoCambio = "Cambio de precio",
-        IdEmpleadoResponsable = Producto.IdEmpleadoResponsable
-    });
-}
-```
+| Escenario | Mecanismo |
+|-----------|-----------|
+| Dos ventas simultáneas de la última unidad | `UPDATE producto SET CantidadStock = CantidadStock - @c WHERE IdProducto=@id AND CantidadStock >= @c` (descuento atómico condicional) |
+| Códigos de venta únicos | Correlativo por `IdVenta` (`V-YYYYMMDD-######`) + índice `UNIQUE_CODIGO_VENTA` |
+| Idempotencia | `UNIQUE_VENTA_IDEMPOTENCIA` + relectura de la venta por clave ante carrera |
+| Anulación concurrente | `UPDATE venta ... WHERE EstadoVenta='Registrada'` (afecta una sola fila) + reposición en la misma transacción |
 
-3. **Vista de histórico** (`Pages/ProductoHistoricoPrecio.cshtml`): una página
-   Razor que lista los cambios del producto ordenados por fecha de inicio de
-   vigencia. Muestra Precio, Inicio/Fin de vigencia (con el badge **"Vigente"**
-   cuando `FechaFinVigencia` es `NULL`), Motivo y Empleado responsable. Es el
-   acceso al histórico de cambios que exige la rúbrica.
+**Comprobante:** `FachadaVenta.ObtenerComprobanteAsync` arma el comprobante
+(cliente, empleado responsable y líneas con código/nombre del producto) y
+`Dominio/Utilidades/NumeroALetras.cs` convierte el total a letras.
 
-Este modelo cumple el requisito de "gestionar el historial **a futuro**":
-agregar una versión no obliga a tocar la estructura de la tabla `producto` ni a
-reescribir el CRUD existente, y queda preparado para diferencias de precios,
-reportes y la lógica de descuentos por compra mayorista.
+> La anulación está disponible para el rol **`EmpleadoVenta`** (ver
+> `RolesSistema`, `FachadaAnulacion` y el botón/handler en
+> `FERRETERIA  Joel/Pages/Ventas.cshtml(.cs)`); el `Administrador` solo visualiza
+> las ventas.
+
+## 4.10 Asincronía de extremo a extremo
+
+Todo el acceso a E/S es `async` para no bloquear hilos del servidor bajo carga
+(escenario de ventas concurrentes). Verificado: **sin `Task.Run` ni `async void`**.
+
+- **Puertos:** `Task`/`Task<T>` (`ObtenerTodosAsync`, `InsertarAsync`,
+  `IniciarAsync`, …).
+- **Repositorios MySQL:** `OpenAsync`, `ExecuteReaderAsync`, `ReadAsync`,
+  `ExecuteNonQueryAsync`, `ExecuteScalarAsync`.
+- **Servicios y fachadas:** `async`/`await` (`RegistrarVentaAsync`,
+  `AnularVentaAsync`, …).
+- **Transacción:** `BeginTransactionAsync` / `CommitAsync` / `RollbackAsync`.
+- **Páginas:** `OnGetAsync` / `OnPost...Async`.
+
+Se mantienen **sincrónicos** solo los cálculos en memoria (por ejemplo, el
+`CalcularResumen` de la venta y el hash de contraseña), que no son E/S.
+
+## 4.11 Roles y seguridad
+
+`Dominio/Constantes/RolesSistema.cs`:
+
+| Rol | Alcance |
+|-----|---------|
+| `Administrador` | **Gestión total** del catálogo (Productos, Categorías, Marcas, Proveedores e histórico de precios). En ventas **solo las visualiza**, no las anula |
+| `EmpleadoVenta` | Registra ventas, consulta el historial y **puede anularlas** |
+
+- El login es **solo para empleados** (`ServicioInicioSesion`); los clientes ya no
+  tienen usuario ni contraseña.
+- `RolesSistema.Personal` agrupa `"Administrador,EmpleadoVenta"` y
+  `RolesSistema.Normalizar(rol)` convierte cualquier valor desconocido en
+  `EmpleadoVenta`.
+- Las páginas de gestión usan `[Authorize(Roles = RolesSistema.Administrador)]`,
+  la anulación `[Authorize(Roles = RolesSistema.EmpleadoVenta)]` y el resto del
+  módulo de ventas `[Authorize(Roles = RolesSistema.Personal)]`; `Program.cs`
+  registra las convenciones `AuthorizePage("/...")`.
+- El rol se guarda en la **cookie** al iniciar sesión (`ServicioInicioSesion`) y
+  `ContextoUsuarioHttp` lo expone a las fachadas vía `IContextoUsuario`.
+- Las **contraseñas** se almacenan con **Argon2**
+  (`Infraestructura/Seguridad/Argon2HasheadorContrasena.cs`); el login detecta
+  hashes heredados en texto plano y los **re-hashea** al autenticar.
+- La **bitácora de sesiones** (`ServicioBitacora`) registra cada inicio y cierre
+  de sesión.
 
 ---
 
-# 4. Repositorio de control de versiones
+# 5. Pruebas
 
-## 4.1 URL del repositorio
+El proyecto `FERRETERIA__Joel.Pruebas` (xUnit) cubre lógica de dominio, políticas,
+servicios, fachadas (con fakes) e integración real contra MySQL.
+
+```
+dotnet test "FERRETERIA  Joel.slnx"
+```
+
+| Suite | Archivo | Qué verifica |
+|-------|---------|--------------|
+| Fachada de venta (unitarias) | `Servicios/FachadaVentaPruebas.cs` | Registro, descuentos, stock insuficiente, idempotencia, anulación, comprobante |
+| Cliente | `Servicios/ServicioClientePruebas.cs` | Alta válida, campos obligatorios, búsqueda de activos |
+| Strategy | `Politicas/SelectorDescuentoPruebas.cs` | Elección del mayor beneficio |
+| Utilidades | `Utilidades/NumeroALetrasPruebas.cs` | Conversión de número a letras |
+| Integración | `Integracion/FachadaVentaIntegracionPruebas.cs` | Concurrencia e idempotencia contra MySQL real (se omite sin cadena de conexión) |
+
+Resultado actual: **59/59 pruebas correctas** y `dotnet build` con **0
+advertencias y 0 errores**.
+
+---
+
+# 6. Repositorio de control de versiones
+
+## 6.1 URL del repositorio
 
 - Repositorio: **https://github.com/Macacofig/FERRETERIA-Joel**
 - Plataforma: GitHub (acceso otorgado al docente).
 
-## 4.2 Organización del repositorio
+## 6.2 Organización del repositorio
 
 El trabajo se organizó con **commits atómicos y descriptivos** siguiendo una
 convención de mensajes con prefijos de tipo (`feat`, `fix`, `refactor`, `refact`),
@@ -711,106 +832,93 @@ y con **ramas temáticas** por funcionalidad:
 | `validaciones-categoria` | Validaciones del módulo de categorías |
 | `datos-historicos` | Histórico de precios de productos |
 | `origin/pagehome` | Ventana Home y menú de opciones |
-| `Frontend-Productos` / `Frontend-Productos-SubRamaDeProductos` | Estilos y UI del módulo de productos |
+| `Frontend-Productos` | Estilos y UI del módulo de productos |
+| `feature/ventas-integracion-login` | Integración del módulo de ventas con la seguridad, compactación en 3 fachadas y asincronía total |
 
 Ejemplos del historial de commits (integración mediante *pull requests*):
 
 ```
-e9c279e refat: Ultimos Refacts
-3247a06 Merge pull request #9 from Macacofig/validaciones-categoria
-0ef3346 refact: Proovedor SOLID
-7428412 Merge pull request #8 from Macacofig/datos-historicos
+refact: extracción de fachadas de venta y anulación
+refact: conversión asíncrona de puertos, repositorios, servicios y páginas
+feat: módulo de ventas con transacción, idempotencia y anulación
 67364aa feat: Historial de precios añadido
-c83639c Merge pull request #7 from Macacofig/origin/pagehome
-a0551f6 creacion del home
-449f3c6 Merge pull request #6 from Macacofig/validaciones-categoria
 e5f4d8e refact: Solid en Productos
 dd6d99b feat: Agregar campo PorcentajeGanancia a Categoria
-3783754 Feat: Ajuste en paleta de colores
-cb673ac refactor: mejorar código y consultas del módulo de categorías
-fgf8cde... (historial completo en GitHub)
 ```
 
 Los commits tipo `refactor:`/`refact:` y la integración por *pull requests*
 evidencian la evolución del código: el patrón Repository comenzó en Categorías
-como piloto y luego se aplicó a Productos, Proveedores, Empleados e Histórico de
-precios.
+como piloto y luego se aplicó a Productos, Marcas, Proveedores, Empleados,
+Histórico de precios y Ventas.
 
 ---
 
-# 5. Conclusiones
+# 7. Conclusiones
 
-## 5.1 Aprendizajes del grupo sobre el uso de SOLID
+## 7.1 Aprendizajes del grupo sobre el uso de SOLID
 
 - La **inversión de dependencias combinada con el patrón Repository** simplificó
   el cambio de capa de datos: con unas pocas líneas de registro en `Program.cs`
   todo el sistema puede usar otra base de datos.
-- Separar las **validaciones** en clases dedicadas hizo los Page Models mucho
-  más legibles y permitió reutilizar reglas entre listado, creación y edición.
+- La **arquitectura hexagonal por proyectos** demostró en la práctica la regla de
+  dependencia: el compilador impide que el Dominio conozca MySQL o ASP.NET.
+- El **Facade** fue clave para que la UI del proceso de ventas no se acoplara a la
+  transacción ni a los repositorios: cada pantalla consume una sola fachada.
 - El **principio de responsabilidad única** nos obligó a pensar "¿quién debe
-  hacer esto?" antes de escribir cada método, lo que redujo clases "todopoderosas".
+  hacer esto?" antes de escribir cada método, reduciendo clases "todopoderosas".
 - La **segregación de interfaces** se volvió natural al crecer el sistema:
-  interfaces pequeñas (`IEmpleadoRepository` con un solo método) fueron más
-  fáciles de implementar y de sustituir.
-- Aplicar SOLID **no** significa escribir más código, sino organizarlo mejor.
+  mantener solo contratos genéricos pequeños (`IRepository<T>`,
+  `IGestionarRepository<T>`) y exponer las operaciones especiales como métodos
+  concretos simplificó las implementaciones y su sustitución en pruebas.
+- La **asincronía de extremo a extremo** mejora la escalabilidad del servidor ante
+  ventas concurrentes sin complicar la lógica de negocio.
 
-## 5.2 Dificultades encontradas
+## 7.2 Dificultades encontradas
 
 *Al arrancar no teníamos claro cómo separar la consulta SQL de la lógica de la
 página. Marcamos a Categorías como piloto del patrón Repository y eso nos mostró
 la práctica de la Inversión de Dependencias; después extendimos la misma
-estructura a Productos, Proveedores, Empleados e Histórico de precios. Luego
-tuvimos que combatir la duplicación de consultas (lo resolvimos centralizando la
-lógica de repositorios y con la inyección por constructor) y el manejo de los
-errores de unicidad de código/NIT pidiendo ambas cosas: validación propia antes
-del `INSERT` y captura de la excepción MySQL 1062 para dar mensajes claros. Por
-último, diseñar el histórico sin romper el CRUD nos obligó a pensar en
-versiones y vigencia de precios en lugar de sobrescribir el dato.*
+estructura a Productos, Marcas, Proveedores, Empleados, Histórico de precios y
+Ventas. La separación en proyectos `.csproj` obligó a reorganizar namespaces e
+`using` y a mantener el patrón Factory existente (`RepositoryCreator`), que
+convive con la inyección de dependencias. Diseñar el histórico sin romper el CRUD
+nos llevó a un modelo por vigencia, y aislar la transacción de venta en una
+**unidad de trabajo** fue lo que nos permitió garantizar el "todo o nada" y la
+concurrencia. Finalmente, migrar todo el acceso a datos a `async`/`await` requirió
+tocar puertos, repositorios, servicios y páginas de forma coordinada.*
 
-## 5.3 Recomendaciones para futuros trabajos
+## 7.3 Recomendaciones para futuros trabajos
 
-Basadas en el estado actual del código (patrón Repository completo e histórico
-de precios ya implementados):
-
-1. **Transacciones atómicas para el histórico.** En `ProductoEditarModel.Actualizar()`
-   el `UPDATE` del producto y el cierre + inserción de histórico se ejecutan en
-   dos operaciones separadas. Envolverlas en una sola transacción evitaría
-   inconsistencias si una falla a mitad de camino (cuando ya exista un
-   `IProductoRepository` con `BeginTransaction()`).
-2. **Autenticación y roles.** Diferenciar caja, almacén y atención al cliente,
-   alineados a las responsabilidades reales de la empresa. El menú y las páginas
-   ya están preparados para condicionar acciones por rol.
-3. **Módulos de negocio pendientes.** Inventario (movimientos con
-   `StockAnterior`/`StockPosterior`), Ventas con boleta/recibo y **descuentos
-   por compra mayorista** (el gerente pidió ver ventas, inventario, proveedores
-   y poder contactarlos; esos flujos consumirán los repositorios ya existentes).
-4. **Reportes para gerencia.** Reusar `IHistoricoPrecioRepository` y los
-   listados ordenados para construir vistas de evolución de precios, márgenes
-   por `PorcentajeGanancia` de categoría y top de productos.
-5. **Pruebas unitarias gracias a DIP.** Implementar repositorios en memoria que
-   implementen las interfaces permitirá probar validadores y Page Models sin
-   base de datos.
-6. **Migrar gradualmente a un ORM.** Sustituir el mapeo manual
-   `MySqlDataReader → Modelo` por un ORM bajo la **misma** abstracción de
-   repositorios, respetando el OCP.
-7. **Tipado estricto de parámetros.** Reemplazar `AddWithValue` por
-   `MySqlParameter` tipados mejora el rendimiento y la claridad de las consultas.
+1. **Pruebas de integración continuas.** Ampliar la suite contra MySQL real para
+   cubrir también los repositorios de catálogo, no solo las fachadas de venta.
+2. **Segregación fina de privilegios.** Ampliar los roles más allá de
+   `Administrador` / `EmpleadoVenta` (por ejemplo, separar caja, almacén y
+   atención al cliente) manteniendo el mismo esquema de autorización por página.
+3. **Módulo de inventario con movimientos.** Registrar `StockAnterior`/`StockPosterior`
+   por cada descuento/reposición para auditoría de stock.
+4. **Reportes para gerencia.** Reutilizar los repositorios existentes para vistas
+   de evolución de precios, márgenes por `PorcentajeGanancia` y top de productos.
+5. **Tipado estricto de parámetros.** Reemplazar `AddWithValue` por
+   `MySqlParameter` tipados para mejorar rendimiento y claridad.
+6. **Migrar gradualmente a un ORM** bajo la **misma** abstracción de repositorios,
+   respetando el principio Open/Closed.
 
 ---
 
-# 6. Bibliografía / Fuentes consultadas
+# 8. Bibliografía / Fuentes consultadas
 
 1. MARTIN, Robert C. *Clean Code: A Handbook of Agile Software Craftsmanship.*
    Prentice Hall, 2008.
 2. MARTIN, Robert C. *Agile Software Development, Principles, Patterns, and
    Practices.* Prentice Hall, 2002. (Fuente original de los principios SOLID).
-3. MARTIN, Robert C. **The Principles of OOD (SRP, OCP, LSP, ISP, DIP)** —
+3. COCKBURN, Alistair. *Hexagonal Architecture (Ports and Adapters).*
+4. MARTIN, Robert C. **The Principles of OOD (SRP, OCP, LSP, ISP, DIP)** —
    *Uncle Bob.* Disponible en: http://butunclebob.com/ArticleS.UncleBob.PrinciplesOfOod
-4. MICROSOFT. *ASP.NET Core Razor Pages.* Documentación oficial.
+5. MICROSOFT. *ASP.NET Core Razor Pages.* Documentación oficial.
    Disponible en: https://learn.microsoft.com/es-es/aspnet/core/razor-pages/
-5. MICROSOFT. *Dependency injection in ASP.NET Core.* Documentación oficial.
+6. MICROSOFT. *Dependency injection in ASP.NET Core.* Documentación oficial.
    Disponible en: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/dependency-injection
-6. OXLEY, Anthony et al. **PlantUML — Class Diagram documentation.**
+7. OXLEY, Anthony et al. **PlantUML — Class Diagram documentation.**
    Disponible en: https://plantuml.com/class-diagram
-7. OWASP Foundation. *Input Validation Cheat Sheet.*
+8. OWASP Foundation. *Input Validation Cheat Sheet.*
    Disponible en: https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html

@@ -14,7 +14,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         {
             _repositorio = new ClienteRepositorioFake();
             _servicio = new ServicioCliente(
-                new CreadorFake<Dominio.Puertos.IClienteRepository>(_repositorio),
+                _repositorio,
                 new ContextoUsuarioFake(idEmpleado: 42));
         }
 
@@ -24,15 +24,13 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
             var resultado = await _servicio.CrearAsync(
                 "Ana",
                 "Mamani",
-                "7111-2222",
-                "ana@correo.com");
+                "7111-2222");
 
             Assert.True(resultado.Exito);
             Assert.NotNull(resultado.Cliente);
             Assert.Equal("Ana", resultado.Cliente.Nombre);
             Assert.Equal("Mamani", resultado.Cliente.Apellido);
             Assert.Equal("7111-2222", resultado.Cliente.Telefono);
-            Assert.Equal("ana@correo.com", resultado.Cliente.CorreoElectronico);
             Assert.Equal(42, resultado.Cliente.IdEmpleadoResponsable);
             Assert.Single(await _repositorio.ObtenerTodosAsync());
         }
@@ -43,8 +41,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
             var resultado = await _servicio.CrearAsync(
                 "   ",
                 "Mamani",
-                "7111-2222",
-                null);
+                "7111-2222");
 
             Assert.False(resultado.Exito);
             Assert.Null(resultado.Cliente);
@@ -57,8 +54,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
             var resultado = await _servicio.CrearAsync(
                 "Ana",
                 " ",
-                "7111-2222",
-                null);
+                "7111-2222");
 
             Assert.False(resultado.Exito);
             Assert.Empty(await _repositorio.ObtenerTodosAsync());
@@ -70,8 +66,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
             var resultado = await _servicio.CrearAsync(
                 "Ana",
                 "Mamani",
-                "",
-                null);
+                "");
 
             Assert.False(resultado.Exito);
             Assert.Empty(await _repositorio.ObtenerTodosAsync());

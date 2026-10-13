@@ -32,7 +32,7 @@ namespace FERRETERIA__Joel.Pages
             _logger = logger;
         }
 
-        public IActionResult OnGet()
+        public async Task<IActionResult> OnGetAsync()
         {
             ViewData["ActiveMenu"] = "Login";
 
@@ -48,7 +48,7 @@ namespace FERRETERIA__Joel.Pages
         {
             ViewData["ActiveMenu"] = "Login";
 
-            ResultadoInicioSesion resultado = _servicio.Iniciar(Solicitud);
+            ResultadoInicioSesion resultado = await _servicio.IniciarAsync(Solicitud);
 
             if (!resultado.Exitoso || resultado.Usuario is null)
             {
@@ -80,7 +80,7 @@ namespace FERRETERIA__Joel.Pages
                 CookieAuthenticationDefaults.AuthenticationScheme,
                 new ClaimsPrincipal(identidad));
 
-            RegistrarBitacoraLogin(resultado.Usuario);
+            await RegistrarBitacoraLoginAsync(resultado.Usuario);
 
             TempData["Mensaje"] =
                 $"Bienvenido, {resultado.Usuario.NombreCompleto}.";
@@ -94,11 +94,11 @@ namespace FERRETERIA__Joel.Pages
             return RedirectToPage("/Index");
         }
 
-        private void RegistrarBitacoraLogin(SesionUsuario usuario)
+        private async Task RegistrarBitacoraLoginAsync(SesionUsuario usuario)
         {
             try
             {
-                _bitacora.RegistrarLogin(
+                await _bitacora.RegistrarLoginAsync(
                     usuario.Id,
                     usuario.NombreCompleto,
                     usuario.Rol);

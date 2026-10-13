@@ -10,17 +10,17 @@ namespace FERRETERIA__Joel.Pages
     /// <summary>
     /// Listado de ventas con modal de detalle (solo lectura) y
     /// anulación lógica con motivo. La anulación restaura el stock y
-    /// registra el responsable. La anulación queda restringida al rol
-    /// Administrador (verificado contra el sistema de autenticación).
+    /// registra el responsable. Consume únicamente la fachada de
+    /// anulación (que a su vez delega el stock en su propia fachada).
     /// Todos los manejadores son asíncronos.
     /// </summary>
-    [Authorize(Roles = RolesSistema.Empleado)]
+    [Authorize(Roles = RolesSistema.Personal)]
     public class VentasModel : PageModel
     {
-        private readonly FachadaVenta _fachada;
+        private readonly FachadaAnulacion _fachada;
         private readonly ILogger<VentasModel> _logger;
 
-        public VentasModel(FachadaVenta fachada, ILogger<VentasModel> logger)
+        public VentasModel(FachadaAnulacion fachada, ILogger<VentasModel> logger)
         {
             _fachada = fachada;
             _logger = logger;
@@ -97,7 +97,7 @@ namespace FERRETERIA__Joel.Pages
 
         public async Task<IActionResult> OnPostAnularAsync()
         {
-            if (!User.IsInRole(RolesSistema.Administrador))
+            if (!User.IsInRole(RolesSistema.EmpleadoVenta))
             {
                 return Forbid();
             }

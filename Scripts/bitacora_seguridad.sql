@@ -15,7 +15,7 @@ SET NAMES utf8mb4;
 --   Accion        -> 'login' o 'logout'
 --   IdUsuario     -> id del usuario/empleado autenticado (opcional)
 --   NombreUsuario -> nombre completo del usuario (opcional)
---   TipoUsuario   -> 'Usuario' o 'Empleado'
+--   TipoUsuario   -> 'Administrador' o 'EmpleadoVenta'
 --   FechaHora     -> momento exacto del evento
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS bitacora_sesion
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS bitacora_sesion
     Accion        VARCHAR(20)  NOT NULL COMMENT 'login | logout',
     IdUsuario     INT          NULL DEFAULT NULL,
     NombreUsuario VARCHAR(150) NULL DEFAULT NULL,
-    TipoUsuario   VARCHAR(50)  NOT NULL COMMENT 'Usuario | Empleado',
+    TipoUsuario   VARCHAR(50)  NOT NULL COMMENT 'Administrador | EmpleadoVenta',
     FechaHora     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (IdBitacora),
     KEY IDX_BITACORA_FECHA (FechaHora),

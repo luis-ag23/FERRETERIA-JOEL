@@ -2,7 +2,6 @@ using FERRETERIA__Joel.Aplicacion.Modelos;
 using FERRETERIA__Joel.Aplicacion.Politicas;
 using FERRETERIA__Joel.Aplicacion.Servicios;
 using FERRETERIA__Joel.Dominio.Constantes;
-using FERRETERIA__Joel.Dominio.Puertos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -11,33 +10,25 @@ namespace FERRETERIA__Joel.Pages
 {
     /// <summary>
     /// Pantalla de registro de venta. La presentación solo consume la
-    /// fachada de ventas: nunca accede a repositorios ni transacciones.
+    /// fachada de venta: nunca accede a repositorios ni transacciones.
     /// El precio y los totales siempre se resuelven en el dominio.
     /// Todos los manejadores son asíncronos.
     /// </summary>
-    [Authorize(Roles = RolesSistema.Empleado)]
+    [Authorize(Roles = RolesSistema.EmpleadoVenta)]
     public class VentaModel : PageModel
     {
         private readonly FachadaVenta _fachada;
-        private readonly ServicioCliente _servicioCliente;
-        private readonly IContextoUsuario _contextoUsuario;
         private readonly ILogger<VentaModel> _logger;
 
         public VentaModel(
             FachadaVenta fachada,
-            ConfiguracionDescuentos descuentos,
-            ServicioCliente servicioCliente,
-            IContextoUsuario contextoUsuario,
             ILogger<VentaModel> logger)
         {
             _fachada = fachada;
-            _servicioCliente = servicioCliente;
-            _contextoUsuario = contextoUsuario;
             _logger = logger;
-            Descuentos = descuentos;
         }
 
-        public ConfiguracionDescuentos Descuentos { get; }
+        public ConfiguracionDescuentos Descuentos => _fachada.Descuentos;
 
         public IReadOnlyList<string> MetodosPago { get; } = new[]
         {
@@ -63,9 +54,10 @@ namespace FERRETERIA__Joel.Pages
 
         public ResultadoVenta? VentaRegistrada { get; set; }
 
-        public void OnGet()
+        public Task OnGetAsync()
         {
             ClaveIdempotencia = NuevaClave();
+            return Task.CompletedTask;
         }
 
         public async Task<IActionResult> OnGetBuscarClientesAsync(string? termino)
@@ -119,22 +111,14 @@ namespace FERRETERIA__Joel.Pages
         public async Task<IActionResult> OnPostCrearClienteAsync(
             string? nuevoClienteNombre,
             string? nuevoClienteApellido,
-            string? nuevoClienteTelefono,
-            string? nuevoClienteCorreo)
+            string? nuevoClienteTelefono)
         {
-            if (_contextoUsuario.IdEmpleado <= 0)
-                return new JsonResult(new { exito = false, mensaje = "Debe iniciar sesión para registrar clientes." })
-                {
-                    StatusCode = StatusCodes.Status401Unauthorized
-                };
-
             try
             {
-                ResultadoCliente resultado = await _servicioCliente.CrearAsync(
+                ResultadoCliente resultado = await _fachada.CrearClienteAsync(
                     nuevoClienteNombre ?? string.Empty,
                     nuevoClienteApellido ?? string.Empty,
-                    nuevoClienteTelefono ?? string.Empty,
-                    nuevoClienteCorreo);
+                    nuevoClienteTelefono ?? string.Empty);
 
                 if (!resultado.Exito || resultado.Cliente is null)
                     return BadRequest(new { exito = false, mensaje = resultado.Mensaje });

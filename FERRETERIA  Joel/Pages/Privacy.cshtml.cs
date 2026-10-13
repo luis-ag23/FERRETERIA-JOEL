@@ -5,8 +5,9 @@ namespace FERRETERIA__Joel.Pages
 {
     public class PrivacyModel : PageModel
     {
-        public void OnGet()
+        public Task OnGetAsync()
         {
+            return Task.CompletedTask;
         }
     }
 

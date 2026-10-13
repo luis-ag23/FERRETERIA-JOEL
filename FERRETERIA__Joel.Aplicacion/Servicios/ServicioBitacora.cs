@@ -1,5 +1,5 @@
 using FERRETERIA__Joel.Dominio.Constantes;
-using FERRETERIA__Joel.Dominio.Puertos;
+using FERRETERIA__Joel.Infraestructura.Repositorios;
 
 namespace FERRETERIA__Joel.Aplicacion.Servicios
 {
@@ -11,47 +11,51 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
         private const string AccionLogout = "logout";
 
-        private readonly RepositoryCreator<IBitacoraRepository> _creador;
-        private IBitacoraRepository? _repositorio;
+        private readonly MySqlBitacoraRepository _repositorio;
 
-        public ServicioBitacora(
-            RepositoryCreator<IBitacoraRepository> creador)
+        public ServicioBitacora(MySqlBitacoraRepository repositorio)
         {
-            _creador = creador;
+            _repositorio = repositorio;
         }
 
-        private IBitacoraRepository Repositorio =>
-            _repositorio ??= _creador.CreateRepository();
-
-        public void RegistrarLogin(
+        public async Task RegistrarLoginAsync(
             int? idUsuario,
             string? nombreUsuario,
             string tipoUsuario)
         {
-            Registrar(AccionLogin, idUsuario, nombreUsuario, tipoUsuario);
+            await RegistrarAsync(
+                AccionLogin,
+                idUsuario,
+                nombreUsuario,
+                tipoUsuario);
         }
 
-        public void RegistrarLogout(
+        public async Task RegistrarLogoutAsync(
             int? idUsuario,
             string? nombreUsuario,
             string tipoUsuario)
         {
-            Registrar(AccionLogout, idUsuario, nombreUsuario, tipoUsuario);
+            await RegistrarAsync(
+                AccionLogout,
+                idUsuario,
+                nombreUsuario,
+                tipoUsuario);
         }
 
-        private void Registrar(
+        private async Task RegistrarAsync(
             string accion,
             int? idUsuario,
             string? nombreUsuario,
             string tipoUsuario)
         {
-            Repositorio.Registrar(
+            await _repositorio.RegistrarAsync(
                 accion,
                 idUsuario,
                 nombreUsuario,
                 string.IsNullOrWhiteSpace(tipoUsuario)
-                    ? RolesSistema.Usuario
+                    ? RolesSistema.EmpleadoVenta
                     : tipoUsuario);
         }
     }
 }
+

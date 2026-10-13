@@ -19,7 +19,14 @@ Se completó el módulo de **Ventas** con estas piezas:
 - **Comprobante/recibo** con los elementos del Anexo 2, obtenido por token y protegido por autorización.
 - Backend asíncrono de extremo a extremo con **Facade + Factory Method + Strategy + Unit of Work**, control de stock, idempotencia y concurrencia.
 
-Resultados verificados: **32/32 pruebas unitarias** y **6/6 pruebas de integración** contra MySQL, con **build sin advertencias ni errores**.
+Resultados verificados: **59/59 pruebas** (unitarias + integración) contra MySQL, con **build sin advertencias ni errores**.
+
+> Nota de vigencia: este reporte describe el módulo de Ventas. Tras su entrega, la
+> solución se consolidó: los puertos específicos por entidad se eliminaron
+> (quedan `IRepository<T>` / `IGestionarRepository<T>`), las fábricas se redujeron
+> a contratos genéricos y los roles pasaron a `Administrador` / `EmpleadoVenta`.
+> Ver `Informe_SOLID_FerreteriaJoel.md` y `Guia_Defensa_SOLID.md` para el estado
+> final.
 
 ---
 
@@ -29,14 +36,14 @@ Resultados verificados: **32/32 pruebas unitarias** y **6/6 pruebas de integraci
 
 - El caso de uso de venta completo (registro, listado, detalle, comprobante y anulación).
 - La fachada, las fábricas, las estrategias de descuento y la unidad de trabajo del proceso de venta.
-- Los repositorios MySQL de venta, detalle de venta, cliente, inventario y empleado-venta.
+- Los repositorios MySQL de venta, detalle de venta, inventario y cliente.
 - La asincronía real y los mecanismos de concurrencia del flujo de venta.
 
 **NO es trabajo propio (se respeta como dependencia ajena):**
 
 - **Login, roles y sesiones:** el módulo de autenticación pertenece a otro compañero. Ventas **no** implementa autenticación; solo consume la identidad ya resuelta (ver sección 8).
 - **CRUD de Categorías, Marcas, Productos, Proveedores y demás catálogos:** pertenecen a otros entregables. Aquí solo se usan como contexto (por ejemplo, el stock de un producto) y no se modificaron como trabajo propio.
-- **Restricciones por rol** aplicadas en la carpeta de Ventas (`[Authorize]` y rol administrador para anular) son únicamente **puntos de enganche** con la seguridad del equipo, no un sistema de roles propio.
+- **Restricciones por rol** aplicadas en la carpeta de Ventas (`[Authorize]` y rol `EmpleadoVenta` para anular) son únicamente **puntos de enganche** con la seguridad del equipo, no un sistema de roles propio.
 
 ---
 
@@ -46,7 +53,7 @@ Arquitectura **hexagonal por capas**, con la regla de dependencia apuntando haci
 
 ```
 FERRETERIA__Joel.Dominio          -> contratos (puertos) y modelos. No depende de ASP.NET ni de MySql.Data.
-FERRETERIA__Joel.Aplicacion       -> caso de uso de venta (fachada, políticas, DTOs). Depende solo del dominio.
+FERRETERIA__Joel.Aplicacion       -> caso de uso de venta (fachadas, políticas, DTOs). Depende del dominio y de las implementaciones concretas/fábricas de Infraestructura.
 FERRETERIA__Joel.Infraestructura  -> adaptadores MySQL (repositorios, conexión transaccional, unidad de trabajo, fábricas).
 FERRETERIA  Joel (Web)            -> Razor Pages y adaptador de identidad. Inyecta la fachada por DI.
 FERRETERIA__Joel.Pruebas          -> pruebas unitarias (fakes) e integración (MySQL real).
@@ -61,13 +68,13 @@ Regla verificada: la capa Web (Page Models) **solo** inyecta `FachadaVenta` y `S
 ### 4.1 Facade — `FachadaVenta`
 - **Archivo:** `FERRETERIA__Joel.Aplicacion/Servicios/FachadaVenta.cs`
 - Única puerta de entrada al subsistema de ventas.
-- Métodos de caso de uso (todos asíncronos, ver sección 5): `BuscarClientesAsync`, `BuscarProductosAsync`, `ObtenerProductoAsync`, `CalcularLineaAsync`, `RegistrarVentaAsync`, `ListarVentasAsync`, `ListarVentasListadoAsync`, `ObtenerVentaAsync`, `ObtenerComprobanteAsync`, `AnularVentaAsync`.
+- Métodos de caso de uso (todos asíncronos, ver sección 5): `BuscarClientesAsync`, `BuscarProductosAsync`, `ObtenerProductoAsync`, `CalcularLineaAsync`, `CalcularResumen`, `RegistrarVentaAsync`, `ObtenerComprobanteAsync`. El historial y la anulación se movieron a `FachadaAnulacion` (`ListarVentasListadoAsync`, `ObtenerVentaAsync`, `AnularVentaAsync`).
 - Desacople: `Venta.cshtml.cs` y `Ventas.cshtml.cs` no conocen `IUnidadDeTrabajo` ni los repositorios.
 
 ### 4.2 Factory Method — `RepositoryCreator<TContrato>`
-- **Puerto (base):** `Dominio/Puertos/RepositoryCreator.cs` → `abstract class RepositoryCreator<TContrato> { abstract TContrato CreateRepository(); }`
-- **Fábricas concretas (Ventas):** `ClienteRepositoryCreator`, `VentaRepositoryCreator`, `DetalleVentaRepositoryCreator`, `InventarioRepositoryCreator`, `EmpleadoVentaRepositoryCreator`.
-- **Uso en la fachada:** recibe `RepositoryCreator<...>` y obtiene cada repositorio con `CreateRepository()`. No hay `new MySql*Repository(...)` dentro del caso de uso: cambiar de motor solo exige otra fábrica.
+- **Base (abstracta):** `Infraestructura/Factories/RepositoryCreator.cs` → `abstract class RepositoryCreator<TContrato> { public abstract TContrato CreateRepository(); }`
+- **Fábricas concretas:** `ProductoRepositoryCreator`, `CategoriaRepositoryCreator`, `MarcaRepositoryCreator`, `ProveedorRepositoryCreator` y `EmpleadoRepositoryCreator` (todas en `Infraestructura/Factories/`). Los repositorios de operación especial del módulo de venta se inyectan como clase concreta.
+- **Uso:** los servicios piden, p. ej., `RepositoryCreator<IGestionarRepository<Producto>>` y obtienen el repositorio con `CreateRepository()`. No hay `new MySql*Repository(...)` dentro del caso de uso: cambiar de motor solo exige otra fábrica.
 
 ### 4.3 Strategy — descuentos
 - **Interfaz:** `IPoliticaDescuento` (`Calcular(subtotal, unidades)`).
@@ -81,9 +88,9 @@ Regla verificada: la capa Web (Page Models) **solo** inyecta `FachadaVenta` y `S
 - **Uso:** `RegistrarVentaAsync` y `AnularVentaAsync` abren **una sola transacción MySQL por operación** (`IniciarAsync`), aplican descuento/reposición de stock + inserción/estado de la venta, y cierran con `ConfirmarAsync`; ante cualquier error, `RevertirAsync`. Resultado: o todo, o nada.
 
 ### 4.5 Puertos y adaptadores (Hexagonal)
-- **Puertos (Dominio):** `IClienteRepository`, `IVentaRepository`, `IDetalleVentaRepository`, `IInventarioRepository`, `IEmpleadoVentaRepository`, `IUnidadDeTrabajo`, `IContextoUsuario`.
+- **Puertos (Dominio):** `IRepository<T>`, `IGestionarRepository<T>`, `IUnidadDeTrabajo`, `IContextoUsuario`.
 - **Contratos de infraestructura:** `IConexionTransaccional` (agnóstica del caso de uso).
-- **Adaptadores:** repositorios MySQL en `Infraestructura/Repositorios` y el adaptador de identidad `ContextoUsuarioHttp` en Web.
+- **Adaptadores:** repositorios MySQL en `Infraestructura/Repositorios` (los de operación especial del módulo de venta se inyectan como clase concreta) y el adaptador de identidad `ContextoUsuarioHttp` en Web.
 - El **dominio no depende** de ASP.NET ni de `MySql.Data`.
 
 ---
@@ -136,7 +143,7 @@ Consideración de errores transaccionales: si el `UPDATE` atómico no afecta fil
 El módulo de Ventas **no** implementa login, roles ni sesiones. La identidad se obtiene a través del puerto:
 
 - **Puerto:** `Dominio/Puertos/IContextoUsuario.cs` → `IdEmpleado`, `NombreCompleto`, `Rol`.
-- **Contrato documentado:** `IdEmpleado` devuelve `0` cuando no hay autenticación; Ventas **rechaza** registrar o anular venta si `IdEmpleado <= 0`. El rol administrador se usa para habilitar la anulación, pero la autorización definitiva corresponde al módulo de seguridad.
+- **Contrato documentado:** `IdEmpleado` devuelve `0` cuando no hay autenticación; Ventas **rechaza** registrar o anular venta si `IdEmpleado <= 0`. El rol `EmpleadoVenta` habilita la anulación (el `Administrador` solo visualiza las ventas), pero la autorización definitiva corresponde al módulo de seguridad.
 - **Adaptador temporal:** `Servicios/ContextoUsuarioHttp.cs` resuelve la identidad desde las claims del usuario autenticado; es reemplazable por la implementación del compañero **sin tocar el código de Ventas**.
 - **En el flujo:** `Venta.IdEmpleadoResponsable` (emisor) e `IdEmpleadoAnulacion` (autor de la anulación) provienen de este puerto.
 
@@ -145,14 +152,14 @@ El módulo de Ventas **no** implementa login, roles ni sesiones. La identidad se
 ## 9. Clases implementadas / adaptadas (módulo de Ventas)
 
 **Dominio (puertos):**
-`IClienteRepository`, `IVentaRepository`, `IDetalleVentaRepository`, `IInventarioRepository`, `IEmpleadoVentaRepository`, `IUnidadDeTrabajo`, `IContextoUsuario`, `RepositoryCreator<TContrato>`.
+`IRepository<T>`, `IGestionarRepository<T>`, `IUnidadDeTrabajo`, `IContextoUsuario`.
 
 **Aplicación:**
-`FachadaVenta`, `ServicioCliente`, `SelectorDescuento`, `IPoliticaDescuento`, `DescuentoPorMonto`, `DescuentoPorCantidad`, `ConfiguracionDescuentos`.
+`FachadaVenta`, `FachadaAnulacion`, `FachadaActualizacionStock`, `ServicioCliente`, `SelectorDescuento`, `IPoliticaDescuento`, `DescuentoPorMonto`, `DescuentoPorCantidad`, `ConfiguracionDescuentos`.
 Modelos/DTOs: `SolicitudVenta`, `LineaVentaSolicitada`, `ResultadoVenta`, `ResultadoCliente`, `ComprobanteVenta`, `VentaListado`, `LineaVentaDetalle`, `SeleccionDescuento`.
 
 **Infraestructura:**
-`MySqlConexionTransaccional`, `MySqlUnidadDeTrabajo`, `MySqlClienteRepository`, `MySqlVentaRepository`, `MySqlDetalleVentaRepository`, `MySqlInventarioRepository`, `MySqlEmpleadoVentaRepository`, y las fábricas `ClienteRepositoryCreator`, `VentaRepositoryCreator`, `DetalleVentaRepositoryCreator`, `InventarioRepositoryCreator`, `EmpleadoVentaRepositoryCreator`.
+`MySqlConexionTransaccional`, `MySqlUnidadDeTrabajo`, `MySqlClienteRepository`, `MySqlVentaRepository`, `MySqlDetalleVentaRepository`, `MySqlInventarioRepository`, y las fábricas `ProductoRepositoryCreator`, `CategoriaRepositoryCreator`, `MarcaRepositoryCreator`, `ProveedorRepositoryCreator`, `EmpleadoRepositoryCreator`.
 
 **Web (Razor Pages):**
 `Venta.cshtml(.cs)`, `Ventas.cshtml(.cs)`, `VentaComprobante.cshtml(.cs)`, y el adaptador `ContextoUsuarioHttp`.
@@ -167,13 +174,15 @@ Modelos/DTOs: `SolicitudVenta`, `LineaVentaSolicitada`, `ResultadoVenta`, `Resul
 Comando base:
 `dotnet test "FERRETERIA__Joel.Pruebas\FERRETERIA__Joel.Pruebas.csproj"`
 
-### 10.1 Unitarias (con fakes, sin base de datos)
+### 10.1 Suite completa (unitarias con fakes, políticas y utilidades)
 
 ```
-Passed!  - Failed: 0, Passed: 32, Skipped: 0, Total: 32   (~70 ms)
+Passed!  - Failed: 0, Passed: 59, Skipped: 0, Total: 59
 ```
 
-Cubren: registro correcto (stock, totales, descuentos por monto y por cantidad), agrupación de líneas duplicadas, stock insuficiente, cliente inactivo, idempotencia, anulación (estado no registrada falla), empleado inválido (`IdEmpleado <= 0`) en registrar y anular, listado con y sin filtro de cliente, comprobante con líneas y catálogo, comprobante inexistente; y `ServicioCliente` (alta válida, campos obligatorios, empleado responsable, búsqueda solo de activos).
+Cubren: registro correcto (stock, totales, descuentos por monto y por cantidad), agrupación de líneas duplicadas, stock insuficiente, cliente inactivo, idempotencia, anulación (estado no registrada falla), empleado inválido (`IdEmpleado <= 0`) en registrar y anular, listado con y sin filtro de cliente, comprobante con líneas y catálogo, comprobante inexistente; `ServicioCliente` (alta válida, campos obligatorios, empleado responsable, búsqueda solo de activos); elección de descuento y conversión de número a letras.
+
+> Las 6 pruebas de integración (sección 10.2) se **omiten sin fallar** cuando no hay cadena de conexión; por eso pueden reportarse por separado.
 
 ### 10.2 Integración real contra MySQL (`bdferreteria_dev`)
 
@@ -220,7 +229,7 @@ Rama **`feature/ventas-scope-cleanup`** (aislada, sin merge a `master`):
 - Rama `feature/ventas-scope-cleanup` aislada; **no se hizo merge a `master`**.
 - La base principal `bdferreteria` **no fue modificada**; todo el trabajo y las pruebas usaron `bdferreteria_dev`.
 - `appsettings.json` permanece **sin versionar** (contiene la cadena de conexión).
-- Build limpio y suites en verde (32 unitarias + 6 integración).
+- Build limpio y suites en verde (59 pruebas).
 - Login, roles, sesiones y los CRUD de catálogo **no** se reclaman como trabajo de este módulo.
 
 ---

@@ -1,108 +1,149 @@
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
+using FERRETERIA__Joel.Infraestructura.Factories;
 
 namespace FERRETERIA__Joel.Aplicacion.Servicios
 {
+    /// <summary>
+    /// Caso de uso de productos. El alta y, sobre todo, la actualización de
+    /// precio se ejecutan dentro de una unidad de trabajo: el producto, el
+    /// cierre del precio vigente y el nuevo registro del histórico se
+    /// confirman o revierten juntos.
+    /// </summary>
     public class ServicioProducto
     {
         private readonly RepositoryCreator<IGestionarRepository<Producto>> _creador;
         private readonly ServicioHistoricoPrecio _historicoPrecio;
+        private readonly IUnidadDeTrabajo _unidadDeTrabajo;
         private IGestionarRepository<Producto>? _repositorio;
 
         public ServicioProducto(
             RepositoryCreator<IGestionarRepository<Producto>> creador,
-            ServicioHistoricoPrecio historicoPrecio)
+            ServicioHistoricoPrecio historicoPrecio,
+            IUnidadDeTrabajo unidadDeTrabajo)
         {
             _creador = creador;
             _historicoPrecio = historicoPrecio;
+            _unidadDeTrabajo = unidadDeTrabajo;
         }
 
         private IGestionarRepository<Producto> Repositorio =>
             _repositorio ??= _creador.CreateRepository();
 
-        public List<Producto> ObtenerTodos()
+        public async Task<List<Producto>> ObtenerTodosAsync()
         {
-            return Repositorio.ObtenerTodos();
+            return await Repositorio.ObtenerTodosAsync();
         }
 
-        public List<Producto> ObtenerActivas()
+        public async Task<List<Producto>> ObtenerActivasAsync()
         {
-            return Repositorio.MostrarActivos();
+            return await Repositorio.MostrarActivosAsync();
         }
 
-        public List<Producto> Listar(bool soloActivos)
+        public async Task<List<Producto>> ListarAsync(bool soloActivos)
         {
             return soloActivos
-                ? ObtenerActivas()
-                : ObtenerTodos();
+                ? await ObtenerActivasAsync()
+                : await ObtenerTodosAsync();
         }
 
-        public Producto? ObtenerPorId(int id)
+        public async Task<Producto?> ObtenerPorIdAsync(int id)
         {
-            return Repositorio
-                .ObtenerTodos()
-                .FirstOrDefault(p => p.IdProducto == id);
+            List<Producto> productos = await Repositorio.ObtenerTodosAsync();
+
+            return productos.FirstOrDefault(p => p.IdProducto == id);
         }
 
-        public string SiguienteCodigo()
+        public async Task<string> SiguienteCodigoAsync()
         {
-            return $"PROD-{Repositorio.ObtenerTodos().Count + 1:D3}";
+            List<Producto> productos = await Repositorio.ObtenerTodosAsync();
+
+            return $"PROD-{productos.Count + 1:D3}";
         }
 
-        public int Crear(Producto producto)
+        public async Task<int> CrearAsync(Producto producto)
         {
-            int idProducto = Repositorio.Insertar(producto);
+            await _unidadDeTrabajo.IniciarAsync();
 
-            HistoricoPrecio historicoPrecio = new()
+            try
             {
-                IdProducto = idProducto,
-                Precio = producto.PrecioVenta,
-                MotivoCambio = "Precio inicial",
-                IdEmpleadoResponsable = producto.IdEmpleadoResponsable
-            };
+                int idProducto = await Repositorio.InsertarAsync(producto);
 
-            _historicoPrecio.Registrar(historicoPrecio);
+                HistoricoPrecio historicoPrecio = new()
+                {
+                    IdProducto = idProducto,
+                    Precio = producto.PrecioVenta,
+                    MotivoCambio = "Precio inicial",
+                    IdEmpleadoResponsable = producto.IdEmpleadoResponsable
+                };
 
-            return idProducto;
-        }
+                await _historicoPrecio.RegistrarAsync(historicoPrecio);
 
-        public void Actualizar(Producto producto)
-        {
-            HistoricoPrecio? precioVigente =
-                _historicoPrecio.ObtenerPrecioVigente(
-                    producto.IdProducto);
+                await _unidadDeTrabajo.ConfirmarAsync();
 
-            Repositorio.Actualizar(producto);
-
-            bool cambioPrecio =
-                precioVigente is null ||
-                precioVigente.Precio != producto.PrecioVenta;
-
-            if (!cambioPrecio)
-            {
-                return;
+                return idProducto;
             }
-
-            if (precioVigente is not null)
+            catch
             {
-                _historicoPrecio.CerrarPrecioVigente(
-                    producto.IdProducto);
+                await _unidadDeTrabajo.RevertirAsync();
+                throw;
             }
-
-            HistoricoPrecio nuevoHistorico = new()
-            {
-                IdProducto = producto.IdProducto,
-                Precio = producto.PrecioVenta,
-                MotivoCambio = "Cambio de precio",
-                IdEmpleadoResponsable = producto.IdEmpleadoResponsable
-            };
-
-            _historicoPrecio.Registrar(nuevoHistorico);
         }
 
-        public void CambiarEstado(int idProducto, int idEmpleadoResponsable)
+        public async Task ActualizarAsync(Producto producto)
         {
-            Repositorio.CambiarEstado(idProducto, idEmpleadoResponsable);
+            await _unidadDeTrabajo.IniciarAsync();
+
+            try
+            {
+                HistoricoPrecio? precioVigente =
+                    await _historicoPrecio.ObtenerPrecioVigenteAsync(
+                        producto.IdProducto);
+
+                await Repositorio.ActualizarAsync(producto);
+
+                bool cambioPrecio =
+                    precioVigente is null ||
+                    precioVigente.Precio != producto.PrecioVenta;
+
+                if (!cambioPrecio)
+                {
+                    await _unidadDeTrabajo.ConfirmarAsync();
+                    return;
+                }
+
+                if (precioVigente is not null)
+                {
+                    await _historicoPrecio.CerrarPrecioVigenteAsync(
+                        producto.IdProducto);
+                }
+
+                HistoricoPrecio nuevoHistorico = new()
+                {
+                    IdProducto = producto.IdProducto,
+                    Precio = producto.PrecioVenta,
+                    MotivoCambio = "Cambio de precio",
+                    IdEmpleadoResponsable = producto.IdEmpleadoResponsable
+                };
+
+                await _historicoPrecio.RegistrarAsync(nuevoHistorico);
+
+                await _unidadDeTrabajo.ConfirmarAsync();
+            }
+            catch
+            {
+                await _unidadDeTrabajo.RevertirAsync();
+                throw;
+            }
+        }
+
+        public async Task CambiarEstadoAsync(
+            int idProducto,
+            int idEmpleadoResponsable)
+        {
+            await Repositorio.CambiarEstadoAsync(
+                idProducto,
+                idEmpleadoResponsable);
         }
     }
 }

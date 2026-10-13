@@ -6,7 +6,8 @@
 -- Cambios:
 --   venta    : estado de venta, auditoria de anulacion, idempotencia,
 --              snapshot de descuento y CodigoVenta diferido (NULL + UPDATE)
---   cliente  : Contrasena opcional + auditoria del empleado que lo registra
+--   cliente  : sin credenciales (ya no inicia sesion); solo auditoria del
+--              empleado que lo registra
 -- ============================================================
 
 USE bdferreteria_dev;
@@ -50,14 +51,20 @@ ALTER TABLE venta
 -- CLIENTE
 -- ------------------------------------------------------------
 
--- Cliente de mostrador: la contrasena no aplica.
+-- Los clientes ya no inician sesion: se eliminan las credenciales y la
+-- auto-referencia de responsable. Si la base ya venia del esquema anterior.
 ALTER TABLE cliente
-    MODIFY COLUMN Contrasena VARCHAR(255) NULL DEFAULT NULL;
+    DROP FOREIGN KEY FK_cliente_responsable;
+
+ALTER TABLE cliente
+    DROP COLUMN IdClienteResponsable,
+    DROP COLUMN CorreoElectronico,
+    DROP COLUMN Contrasena;
 
 -- Auditoria: empleado que registro el cliente.
 ALTER TABLE cliente
     ADD COLUMN IdEmpleadoResponsable INT NULL DEFAULT NULL
-        AFTER IdClienteResponsable;
+        AFTER FechaActualizacion;
 
 ALTER TABLE cliente
     ADD CONSTRAINT FK_cliente_empleado

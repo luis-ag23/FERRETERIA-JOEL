@@ -2,24 +2,26 @@ namespace FERRETERIA__Joel.Dominio.Constantes
 {
     /// <summary>
     /// Roles del sistema usados en la autenticación y en las políticas de
-    /// autorización. El rol distingue a los clientes (acceso de solo lectura)
-    /// de los empleados (acceso total a la gestión).
+    /// autorización. Solo el personal interno accede al sistema; los clientes
+    /// se registran dentro del flujo de venta y no inician sesión.
     /// </summary>
     public static class RolesSistema
     {
-        public const string Usuario = "Usuario";
-
-        public const string Empleado = "Empleado";
-
-        // Ventas conserva la anulación restringida a este rol. El módulo de
-        // autenticación del equipo todavía no emite 'Administrador': la
-        // operación permanece protegida a la espera de que el responsable de
-        // seguridad defina qué empleados pueden anular ventas.
+        // Gestiona el catálogo y el inventario. En ventas solo consulta el
+        // historial y el detalle: no registra ni anula.
         public const string Administrador = "Administrador";
 
-        // Rol operativo legado usado por las pruebas del módulo de Ventas.
-        public const string Vendedor = "Vendedor";
+        // Registra ventas, consulta el historial y puede anular ventas.
+        public const string EmpleadoVenta = "EmpleadoVenta";
 
+        // Lista de roles de personal admitidos por la autorización por rol.
+        public const string Personal = Administrador + "," + EmpleadoVenta;
+
+        /// <summary>
+        /// Normaliza el rol almacenado en la tabla <c>empleado</c> a uno de
+        /// los dos roles válidos. Cualquier valor distinto de "Administrador"
+        /// se trata como <see cref="EmpleadoVenta"/>.
+        /// </summary>
         public static string Normalizar(string rol)
         {
             return string.Equals(
@@ -27,7 +29,7 @@ namespace FERRETERIA__Joel.Dominio.Constantes
                 Administrador,
                 StringComparison.OrdinalIgnoreCase)
                 ? Administrador
-                : Vendedor;
+                : EmpleadoVenta;
         }
     }
 }

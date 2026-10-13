@@ -9,7 +9,7 @@ using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
-    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Empleado)]
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Administrador)]
     public class CategoriaEditarModel : PageModel
     {
         private readonly ServicioCategoria _servicio;
@@ -30,7 +30,7 @@ namespace FERRETERIA__Joel.Pages
             _logger = logger;
         }
 
-        public IActionResult OnGet(string token)
+        public async Task<IActionResult> OnGetAsync(string token)
         {
             string? texto = UrlProtector.Descifrar(token);
 
@@ -40,7 +40,7 @@ namespace FERRETERIA__Joel.Pages
                 return RedirectToPage("Categorias");
             }
 
-            var categoria = _servicio.ObtenerPorId(id);
+            var categoria = await _servicio.ObtenerPorIdAsync(id);
             if (categoria == null)
             {
                 TempData["MensajeError"] = "La categoría solicitada no existe.";
@@ -51,9 +51,9 @@ namespace FERRETERIA__Joel.Pages
             return Page();
         }
 
-        public IActionResult OnPost()
+        public async Task<IActionResult> OnPostAsync()
         {
-            Categoria? categoriaActual = _servicio.ObtenerPorId(CategoriaEdit.IdCategoria);
+            Categoria? categoriaActual = await _servicio.ObtenerPorIdAsync(CategoriaEdit.IdCategoria);
             if (categoriaActual is null)
             {
                 TempData["MensajeError"] = "La categoría solicitada no existe.";
@@ -74,7 +74,7 @@ namespace FERRETERIA__Joel.Pages
 
             try
             {
-                _servicio.Actualizar(CategoriaEdit);
+                await _servicio.ActualizarAsync(CategoriaEdit);
                 TempData["Mensaje"] = "Categoría actualizada con éxito.";
                 return RedirectToPage("Categorias");
             }

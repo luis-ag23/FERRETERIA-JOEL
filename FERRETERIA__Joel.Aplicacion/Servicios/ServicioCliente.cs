@@ -1,46 +1,48 @@
 using FERRETERIA__Joel.Aplicacion.Modelos;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
+using FERRETERIA__Joel.Infraestructura.Repositorios;
 
 namespace FERRETERIA__Joel.Aplicacion.Servicios
 {
     /// <summary>
     /// Caso de uso de clientes. Permite dar de alta un cliente desde el
     /// propio flujo de venta (sin abandonar la pantalla) y consultar el
-    /// catálogo de clientes activos. Todas las operaciones son asíncronas.
+    /// catálogo de clientes activos. El cliente no tiene credenciales: el
+    /// empleado en sesión queda registrado como responsable del alta.
     /// </summary>
     public class ServicioCliente
     {
-        private readonly RepositoryCreator<IClienteRepository> _creador;
+        private readonly MySqlClienteRepository _repositorio;
         private readonly IContextoUsuario _contextoUsuario;
-        private IClienteRepository? _repositorio;
 
         public ServicioCliente(
-            RepositoryCreator<IClienteRepository> creador,
+            MySqlClienteRepository repositorio,
             IContextoUsuario contextoUsuario)
         {
-            _creador = creador;
+            _repositorio = repositorio;
             _contextoUsuario = contextoUsuario;
         }
 
-        private IClienteRepository Repositorio =>
-            _repositorio ??= _creador.CreateRepository();
-
-        public Task<List<Cliente>> ListarAsync()
+        public async Task<List<Cliente>> ListarAsync()
         {
-            return Repositorio.ObtenerTodosAsync();
+            return await _repositorio.ObtenerTodosAsync();
         }
 
-        public Task<List<Cliente>> BuscarAsync(string termino)
+        public async Task<List<Cliente>> BuscarAsync(string termino)
         {
-            return Repositorio.BuscarAsync(termino);
+            return await _repositorio.BuscarAsync(termino);
+        }
+
+        public async Task<Cliente?> ObtenerPorIdAsync(int idCliente)
+        {
+            return await _repositorio.ObtenerPorIdAsync(idCliente);
         }
 
         public async Task<ResultadoCliente> CrearAsync(
             string nombre,
             string apellido,
-            string telefono,
-            string? correo)
+            string telefono)
         {
             int idEmpleado = _contextoUsuario.IdEmpleado;
             if (idEmpleado <= 0)
@@ -55,9 +57,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             nombre = nombre?.Trim() ?? string.Empty;
             apellido = apellido?.Trim() ?? string.Empty;
             telefono = telefono?.Trim() ?? string.Empty;
-            correo = string.IsNullOrWhiteSpace(correo)
-                ? null
-                : correo.Trim();
 
             if (string.IsNullOrEmpty(nombre))
             {
@@ -91,13 +90,12 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 Nombre = nombre,
                 Apellido = apellido,
                 Telefono = telefono,
-                CorreoElectronico = correo,
                 Estado = 1,
                 FechaRegistro = DateTime.Now,
                 IdEmpleadoResponsable = idEmpleado
             };
 
-            int idCliente = await Repositorio.InsertarAsync(cliente);
+            int idCliente = await _repositorio.InsertarAsync(cliente);
             cliente.IdCliente = idCliente;
 
             return new ResultadoCliente

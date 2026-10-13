@@ -3,6 +3,7 @@ using FERRETERIA__Joel.Aplicacion.Politicas;
 using FERRETERIA__Joel.Aplicacion.Servicios;
 using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
+using FERRETERIA__Joel.Dominio.Puertos;
 using FERRETERIA__Joel.Pruebas.Compartido;
 
 namespace FERRETERIA__Joel.Pruebas.Servicios
@@ -12,6 +13,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         private sealed class Escenario
         {
             public required FachadaVenta Fachada { get; init; }
+            public required FachadaAnulacion Anulacion { get; init; }
             public required InventarioRepositorioFake Inventario { get; init; }
             public required VentaRepositorioFake Ventas { get; init; }
             public required DetalleVentaRepositorioFake Detalles { get; init; }
@@ -20,6 +22,13 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         }
 
         private static Escenario CrearEscenario(params Producto[] productos)
+        {
+            return CrearEscenarioCon(new ContextoUsuarioFake(), productos);
+        }
+
+        private static Escenario CrearEscenarioCon(
+            IContextoUsuario contexto,
+            params Producto[] productos)
         {
             ClienteRepositorioFake clientesRepo = new();
             VentaRepositorioFake ventasRepo = new();
@@ -41,7 +50,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                 IdEmpleado = 42,
                 Nombre = "Usuario",
                 Apellido = "De Prueba",
-                Rol = RolesSistema.Vendedor
+                Rol = RolesSistema.EmpleadoVenta
             });
 
             foreach (Producto producto in productos)
@@ -55,19 +64,35 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                 new DescuentoPorCantidad(cantidadMinima: 12, porcentaje: 3m)
             });
 
+            CreadorFake<IRepository<Empleado>> creadorEmpleados = new(empleadosRepo);
+
+            FachadaActualizacionStock stock = new(inventarioRepo);
+
+            ServicioCliente servicioCliente = new(clientesRepo, contexto);
+
             FachadaVenta fachada = new(
-                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IClienteRepository>(clientesRepo),
-                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IVentaRepository>(ventasRepo),
-                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IDetalleVentaRepository>(detallesRepo),
-                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IInventarioRepository>(inventarioRepo),
-                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IEmpleadoVentaRepository>(empleadosRepo),
+                ventasRepo,
+                detallesRepo,
+                creadorEmpleados,
                 unidadDeTrabajo,
                 selector,
-                new ContextoUsuarioFake());
+                contexto,
+                stock,
+                servicioCliente,
+                new ConfiguracionDescuentos());
+
+            FachadaAnulacion anulacion = new(
+                ventasRepo,
+                detallesRepo,
+                servicioCliente,
+                unidadDeTrabajo,
+                contexto,
+                stock);
 
             return new Escenario
             {
                 Fachada = fachada,
+                Anulacion = anulacion,
                 Inventario = inventarioRepo,
                 Ventas = ventasRepo,
                 Detalles = detallesRepo,
@@ -299,37 +324,11 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         [Fact]
         public async Task RegistrarVenta_EmpleadoInvalido_FallaAsync()
         {
-            ClienteRepositorioFake clientesRepo = new();
-            VentaRepositorioFake ventasRepo = new();
-            DetalleVentaRepositorioFake detallesRepo = new();
-            InventarioRepositorioFake inventarioRepo = new();
-            EmpleadoVentaRepositorioFake empleadosRepo = new();
-            inventarioRepo.Agregar(CrearProducto(1, 100m, 10));
+            Escenario escenario = CrearEscenarioCon(
+                new ContextoUsuarioFake(idEmpleado: 0),
+                CrearProducto(1, 100m, 10));
 
-            clientesRepo.Agregar(new Cliente
-            {
-                Nombre = "Juan",
-                Apellido = "Perez",
-                Telefono = "7777-0000",
-                Estado = 1
-            });
-
-            SelectorDescuento selector = new(new IPoliticaDescuento[]
-            {
-                new DescuentoPorMonto(montoMinimo: 1000m, porcentaje: 5m)
-            });
-
-            FachadaVenta fachada = new(
-                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IClienteRepository>(clientesRepo),
-                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IVentaRepository>(ventasRepo),
-                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IDetalleVentaRepository>(detallesRepo),
-                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IInventarioRepository>(inventarioRepo),
-                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IEmpleadoVentaRepository>(empleadosRepo),
-                new UnidadDeTrabajoFake(),
-                selector,
-                new ContextoUsuarioFake(idEmpleado: 0));
-
-            ResultadoVenta resultado = await fachada.RegistrarVentaAsync(
+            ResultadoVenta resultado = await escenario.Fachada.RegistrarVentaAsync(
                 new SolicitudVenta
                 {
                     IdCliente = 1,
@@ -341,8 +340,8 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                 });
 
             Assert.False(resultado.Exito);
-            Assert.Equal(0, ventasRepo.VecesInsertar);
-            Assert.Equal(10, inventarioRepo.Stock(1));
+            Assert.Equal(0, escenario.Ventas.VecesInsertar);
+            Assert.Equal(10, escenario.Inventario.Stock(1));
         }
 
         [Fact]
@@ -363,7 +362,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
 
             Assert.Equal(6, escenario.Inventario.Stock(1));
 
-            ResultadoVenta anulada = await escenario.Fachada.AnularVentaAsync(
+            ResultadoVenta anulada = await escenario.Anulacion.AnularVentaAsync(
                 venta.IdVenta,
                 "Producto defectuoso");
 
@@ -389,8 +388,8 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                     }
                 });
 
-            await escenario.Fachada.AnularVentaAsync(venta.IdVenta, "Primera anulación");
-            ResultadoVenta segunda = await escenario.Fachada.AnularVentaAsync(
+            await escenario.Anulacion.AnularVentaAsync(venta.IdVenta, "Primera anulación");
+            ResultadoVenta segunda = await escenario.Anulacion.AnularVentaAsync(
                 venta.IdVenta,
                 "Segunda anulación");
 
@@ -400,37 +399,12 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         [Fact]
         public async Task AnularVenta_EmpleadoInvalido_FallaAsync()
         {
-            ClienteRepositorioFake clientesRepo = new();
-            VentaRepositorioFake ventasRepo = new();
-            DetalleVentaRepositorioFake detallesRepo = new();
-            InventarioRepositorioFake inventarioRepo = new();
-            EmpleadoVentaRepositorioFake empleadosRepo = new();
-            inventarioRepo.Agregar(CrearProducto(1, 100m, 10));
+            Escenario escenario = CrearEscenarioCon(
+                new ContextoUsuarioFake(idEmpleado: 0),
+                CrearProducto(1, 100m, 10));
 
-            clientesRepo.Agregar(new Cliente
-            {
-                Nombre = "Juan",
-                Apellido = "Perez",
-                Telefono = "7777-0000",
-                Estado = 1
-            });
-
-            SelectorDescuento selector = new(new IPoliticaDescuento[]
-            {
-                new DescuentoPorMonto(montoMinimo: 1000m, porcentaje: 5m)
-            });
-
-            FachadaVenta fachada = new(
-                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IClienteRepository>(clientesRepo),
-                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IVentaRepository>(ventasRepo),
-                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IDetalleVentaRepository>(detallesRepo),
-                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IInventarioRepository>(inventarioRepo),
-                new CreadorFake<FERRETERIA__Joel.Dominio.Puertos.IEmpleadoVentaRepository>(empleadosRepo),
-                new UnidadDeTrabajoFake(),
-                selector,
-                new ContextoUsuarioFake(idEmpleado: 0));
-
-            ResultadoVenta resultado = await fachada.AnularVentaAsync(1, "Intento anónimo");
+            ResultadoVenta resultado =
+                await escenario.Anulacion.AnularVentaAsync(1, "Intento anónimo");
 
             Assert.False(resultado.Exito);
         }
@@ -484,7 +458,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                     }
                 });
 
-            List<VentaListado> lista = await escenario.Fachada.ListarVentasListadoAsync();
+            List<VentaListado> lista = await escenario.Anulacion.ListarVentasListadoAsync();
 
             Assert.Single(lista);
             Assert.Equal("Juan Perez", lista[0].NombreCliente);
@@ -503,7 +477,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                 MontoTotal = 50m
             });
 
-            List<VentaListado> lista = await escenario.Fachada.ListarVentasListadoAsync();
+            List<VentaListado> lista = await escenario.Anulacion.ListarVentasListadoAsync();
 
             Assert.Single(lista);
             Assert.Equal("Cliente eliminado", lista[0].NombreCliente);

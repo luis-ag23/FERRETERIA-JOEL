@@ -13,9 +13,9 @@ namespace FERRETERIA__Joel.Dominio.Puertos
     /// devuelve 0 cuando no hay autenticación (Ventas rechaza registrar o
     /// anular venta si es menor o igual a 0).</item>
     /// <item><c>NombreCompleto</c>: nombre para mostrar.</item>
-    /// <item><c>Rol</c>: rol del usuario; Ventas exige administrador para
-    /// anular, pero la autorización definitiva corresponde al módulo de
-    /// seguridad.</item>
+        /// <item><c>Rol</c>: rol del usuario; Ventas permite la anulación al
+        /// rol Empleado, pero la autorización definitiva corresponde al módulo
+        /// de seguridad.</item>
     /// </list>
     /// Mientras ese módulo no exista, la capa Web aporta el adaptador
     /// temporal <c>ContextoUsuarioHttp</c>, reemplazable sin tocar Ventas.

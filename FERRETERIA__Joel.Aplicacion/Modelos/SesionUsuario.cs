@@ -1,8 +1,8 @@
 namespace FERRETERIA__Joel.Aplicacion.Modelos
 {
     /// <summary>
-    /// Datos de la identidad autenticada, independientemente de si proviene de
-    /// la tabla de clientes (rol Usuario) o de empleados (rol Empleado).
+    /// Datos de la identidad autenticada. Solo los empleados inician sesión,
+    /// con rol operativo Administrador o EmpleadoVenta.
     /// </summary>
     public class SesionUsuario
     {
@@ -12,7 +12,7 @@ namespace FERRETERIA__Joel.Aplicacion.Modelos
 
         public string CorreoElectronico { get; init; } = string.Empty;
 
-        /// <summary>Tipo de cuenta: "Usuario" o "Empleado".</summary>
+        /// <summary>Rol operativo: Administrador o EmpleadoVenta.</summary>
         public string Rol { get; init; } = string.Empty;
     }
 }

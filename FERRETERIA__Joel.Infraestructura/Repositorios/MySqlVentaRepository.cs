@@ -6,7 +6,13 @@ using MySql.Data.MySqlClient;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
 {
-    public class MySqlVentaRepository : IVentaRepository
+    /// <summary>
+    /// Repositorio de ventas. Implementa el contrato genérico
+    /// <see cref="IRepository{T}"/> y expone las operaciones propias del flujo
+    /// de venta (folios, idempotencia y anulación) como métodos concretos que
+    /// se inyectan directamente por DI. Participa de la transacción ambiente.
+    /// </summary>
+    public class MySqlVentaRepository : IRepository<Venta>
     {
         private const string Columnas = @"
             IdVenta,
@@ -36,9 +42,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
         private async Task<MySqlCommand> CrearComandoAsync(string query)
         {
-            MySqlConnection conexion = await _conexion.ObtenerConexionAsync();
-
-            MySqlCommand command = new(query, conexion);
+            MySqlCommand command = new(query, await _conexion.ObtenerConexionAsync());
 
             if (_conexion.Transaccion is not null)
             {
@@ -48,7 +52,9 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return command;
         }
 
-        public async Task<List<Venta>> ObtenerTodosAsync()
+        // ================== Contrato genérico ==================
+
+        public virtual async Task<List<Venta>> ObtenerTodosAsync()
         {
             List<Venta> ventas = new();
 
@@ -69,7 +75,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return ventas;
         }
 
-        public async Task<int> InsertarAsync(Venta venta)
+        public virtual async Task<int> InsertarAsync(Venta venta)
         {
             const string query = @"
                 INSERT INTO venta
@@ -121,7 +127,9 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return Convert.ToInt32(command.LastInsertedId);
         }
 
-        public async Task AsignarCodigoAsync(int idVenta)
+        // ================== Operaciones propias de Ventas ==================
+
+        public virtual async Task AsignarCodigoAsync(int idVenta)
         {
             const string query = @"
                 UPDATE venta
@@ -139,7 +147,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             await command.ExecuteNonQueryAsync();
         }
 
-        public async Task<Venta?> ObtenerPorIdAsync(int idVenta)
+        public virtual async Task<Venta?> ObtenerPorIdAsync(int idVenta)
         {
             string query = $@"
                 SELECT {Columnas}
@@ -156,7 +164,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return await reader.ReadAsync() ? MapearVenta(reader) : null;
         }
 
-        public async Task<Venta?> ObtenerPorClaveIdempotenciaAsync(
+        public virtual async Task<Venta?> ObtenerPorClaveIdempotenciaAsync(
             string claveIdempotencia)
         {
             string query = $@"
@@ -174,7 +182,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return await reader.ReadAsync() ? MapearVenta(reader) : null;
         }
 
-        public async Task<bool> MarcarAnuladaAsync(
+        public virtual async Task<bool> MarcarAnuladaAsync(
             int idVenta,
             int idEmpleadoAnulacion,
             string motivo)

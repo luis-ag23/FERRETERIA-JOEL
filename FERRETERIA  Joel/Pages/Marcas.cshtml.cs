@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace FERRETERIA__Joel.Pages
 {
-    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Empleado)]
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Administrador)]
     public class MarcasModel : PageModel
     {
         private readonly ServicioMarca _servicio;
@@ -31,15 +31,15 @@ namespace FERRETERIA__Joel.Pages
             return UrlProtector.Cifrar(id.ToString());
         }
 
-        public void OnGet(bool? soloActivos)
+        public async Task OnGetAsync(bool? soloActivos)
         {
             SoloActivos = soloActivos ?? false;
 
             try
             {
                 ListMarcas = SoloActivos
-                    ? _servicio.ObtenerActivas()
-                    : _servicio.ObtenerTodas();
+                    ? await _servicio.ObtenerActivasAsync()
+                    : await _servicio.ObtenerTodasAsync();
             }
             catch (Exception ex)
             {
@@ -48,11 +48,11 @@ namespace FERRETERIA__Joel.Pages
             }
         }
 
-        public IActionResult OnPostEliminar(int id)
+        public async Task<IActionResult> OnPostEliminarAsync(int id)
         {
             try
             {
-                _servicio.CambiarEstado(
+                await _servicio.CambiarEstadoAsync(
                     id,
                     EmpleadoSesion.ObtenerIdEmpleado(User));
                 TempData["Mensaje"] = "Marca desactivada correctamente.";

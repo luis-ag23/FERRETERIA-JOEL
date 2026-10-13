@@ -1,11 +1,15 @@
 using FERRETERIA__Joel.Dominio.Entidades;
-using FERRETERIA__Joel.Dominio.Puertos;
 using FERRETERIA__Joel.Infraestructura.Conexion;
 using MySql.Data.MySqlClient;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
 {
-    public class MySqlInventarioRepository : IInventarioRepository
+    /// <summary>
+    /// Repositorio de inventario: operaciones de stock sobre producto. No
+    /// encaja en un contrato genérico CRUD, por lo que se inyecta como clase
+    /// concreta en <c>FachadaActualizacionStock</c> (operación especial).
+    /// </summary>
+    public class MySqlInventarioRepository
     {
         private const string ColumnasProducto = @"
             p.IdProducto,
@@ -44,7 +48,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return command;
         }
 
-        public async Task<Producto?> ObtenerParaVentaAsync(int idProducto)
+        public virtual async Task<Producto?> ObtenerParaVentaAsync(int idProducto)
         {
             string query = $@"
                 SELECT {ColumnasProducto}
@@ -68,7 +72,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return MapearProducto(reader);
         }
 
-        public async Task<bool> DescontarAsync(int idProducto, int cantidad)
+        public virtual async Task<bool> DescontarAsync(int idProducto, int cantidad)
         {
             const string query = @"
                 UPDATE producto
@@ -87,7 +91,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return await command.ExecuteNonQueryAsync() == 1;
         }
 
-        public async Task ReponerAsync(int idProducto, int cantidad)
+        public virtual async Task ReponerAsync(int idProducto, int cantidad)
         {
             const string query = @"
                 UPDATE producto
@@ -104,7 +108,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             await command.ExecuteNonQueryAsync();
         }
 
-        public async Task<List<Producto>> ListarActivosAsync()
+        public virtual async Task<List<Producto>> ListarActivosAsync()
         {
             List<Producto> productos = new();
 
@@ -127,7 +131,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return productos;
         }
 
-        public async Task<List<Producto>> ObtenerPorIdsAsync(
+        public virtual async Task<List<Producto>> ObtenerPorIdsAsync(
             IReadOnlyCollection<int> ids)
         {
             List<Producto> productos = new();

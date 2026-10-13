@@ -33,7 +33,7 @@ namespace FERRETERIA__Joel.Servicios
 
                 bool esPersonal = string.Equals(
                     rol,
-                    RolesSistema.Empleado,
+                    RolesSistema.EmpleadoVenta,
                     StringComparison.Ordinal) ||
                     string.Equals(
                         rol,

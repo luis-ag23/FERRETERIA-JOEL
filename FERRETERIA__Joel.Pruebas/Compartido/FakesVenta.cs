@@ -1,6 +1,8 @@
 using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
+using FERRETERIA__Joel.Infraestructura.Factories;
+using FERRETERIA__Joel.Infraestructura.Repositorios;
 
 namespace FERRETERIA__Joel.Pruebas.Compartido
 {
@@ -61,12 +63,20 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
 
         public int IdEmpleado { get; }
         public string NombreCompleto => "Usuario de prueba";
-        public string Rol => RolesSistema.Vendedor;
+        public string Rol => RolesSistema.EmpleadoVenta;
     }
 
-    public sealed class ClienteRepositorioFake : IClienteRepository
+    /// <summary>
+    /// Repositorio falso de clientes. Hereda de la implementación real y
+    /// sustituye (métodos virtuales) el acceso a la base de datos.
+    /// </summary>
+    public sealed class ClienteRepositorioFake : MySqlClienteRepository
     {
         private readonly List<Cliente> _clientes = new();
+
+        public ClienteRepositorioFake() : base(null!)
+        {
+        }
 
         public void Agregar(Cliente cliente)
         {
@@ -74,25 +84,25 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
             _clientes.Add(cliente);
         }
 
-        public Task<List<Cliente>> ObtenerTodosAsync()
+        public override Task<List<Cliente>> ObtenerTodosAsync()
         {
             return Task.FromResult(_clientes.ToList());
         }
 
-        public Task<int> InsertarAsync(Cliente entidad)
+        public override Task<int> InsertarAsync(Cliente entidad)
         {
             entidad.IdCliente = _clientes.Count + 1;
             _clientes.Add(entidad);
             return Task.FromResult(entidad.IdCliente);
         }
 
-        public Task<Cliente?> ObtenerPorIdAsync(int idCliente)
+        public override Task<Cliente?> ObtenerPorIdAsync(int idCliente)
         {
             return Task.FromResult(
                 _clientes.FirstOrDefault(c => c.IdCliente == idCliente));
         }
 
-        public Task<List<Cliente>> BuscarAsync(string termino)
+        public override Task<List<Cliente>> BuscarAsync(string termino)
         {
             List<Cliente> resultado = _clientes
                 .Where(c => c.Estado == 1 &&
@@ -101,61 +111,25 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
                 .ToList();
             return Task.FromResult(resultado);
         }
-
-        // Contrato sincrónico del módulo de autenticación.
-
-        public List<Cliente> ObtenerTodos()
-        {
-            return _clientes.ToList();
-        }
-
-        public int Insertar(Cliente entidad)
-        {
-            entidad.IdCliente = _clientes.Count + 1;
-            _clientes.Add(entidad);
-            return entidad.IdCliente;
-        }
-
-        public bool ExisteCorreo(string correo)
-        {
-            return _clientes.Any(c => string.Equals(
-                c.CorreoElectronico,
-                correo,
-                StringComparison.OrdinalIgnoreCase));
-        }
-
-        public Cliente? ObtenerPorCorreo(string correo)
-        {
-            return _clientes.FirstOrDefault(c => string.Equals(
-                c.CorreoElectronico,
-                correo,
-                StringComparison.OrdinalIgnoreCase));
-        }
-
-        public void ActualizarContrasena(int id, string contrasena)
-        {
-            Cliente? cliente = _clientes.FirstOrDefault(c => c.IdCliente == id);
-
-            if (cliente is not null)
-            {
-                cliente.Contrasena = contrasena;
-            }
-        }
     }
 
-    public sealed class VentaRepositorioFake : IVentaRepository
+    public sealed class VentaRepositorioFake : MySqlVentaRepository
     {
         private readonly List<Venta> _ventas = new();
         private int _secuencia;
 
+        public VentaRepositorioFake() : base(null!)
+        {
+        }
+
         public int VecesInsertar { get; private set; }
 
-        public Task<List<Venta>> ObtenerTodosAsync()
+        public override Task<List<Venta>> ObtenerTodosAsync()
         {
             return Task.FromResult(_ventas.ToList());
         }
 
-        public Task<int> InsertarAsync(Venta entidad)
+        public override Task<int> InsertarAsync(Venta entidad)
         {
             entidad.IdVenta = ++_secuencia;
             entidad.FechaRegistro = DateTime.Now;
@@ -164,7 +138,7 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
             return Task.FromResult(entidad.IdVenta);
         }
 
-        public Task AsignarCodigoAsync(int idVenta)
+        public override Task AsignarCodigoAsync(int idVenta)
         {
             Venta? venta = _ventas.FirstOrDefault(v => v.IdVenta == idVenta);
             if (venta is not null)
@@ -174,20 +148,20 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
             return Task.CompletedTask;
         }
 
-        public Task<Venta?> ObtenerPorIdAsync(int idVenta)
+        public override Task<Venta?> ObtenerPorIdAsync(int idVenta)
         {
             return Task.FromResult(
                 _ventas.FirstOrDefault(v => v.IdVenta == idVenta));
         }
 
-        public Task<Venta?> ObtenerPorClaveIdempotenciaAsync(string claveIdempotencia)
+        public override Task<Venta?> ObtenerPorClaveIdempotenciaAsync(string claveIdempotencia)
         {
             return Task.FromResult(
                 _ventas.FirstOrDefault(v =>
                     v.ClaveIdempotencia == claveIdempotencia));
         }
 
-        public Task<bool> MarcarAnuladaAsync(
+        public override Task<bool> MarcarAnuladaAsync(
             int idVenta,
             int idEmpleadoAnulacion,
             string motivo)
@@ -209,12 +183,21 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
         }
     }
 
-    public sealed class DetalleVentaRepositorioFake : IDetalleVentaRepository
+    public sealed class DetalleVentaRepositorioFake : MySqlDetalleVentaRepository
     {
         private readonly List<DetalleVenta> _detalles = new();
         private int _secuencia;
 
-        public Task<List<DetalleVenta>> ObtenerPorVentaAsync(int idVenta)
+        public DetalleVentaRepositorioFake() : base(null!)
+        {
+        }
+
+        public override Task<List<DetalleVenta>> ObtenerTodosAsync()
+        {
+            return Task.FromResult(_detalles.ToList());
+        }
+
+        public override Task<List<DetalleVenta>> ObtenerPorVentaAsync(int idVenta)
         {
             List<DetalleVenta> resultado = _detalles
                 .Where(d => d.IdVenta == idVenta)
@@ -222,7 +205,7 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
             return Task.FromResult(resultado);
         }
 
-        public Task<int> InsertarAsync(DetalleVenta entidad)
+        public override Task<int> InsertarAsync(DetalleVenta entidad)
         {
             entidad.IdDetalleVenta = ++_secuencia;
             _detalles.Add(entidad);
@@ -230,31 +213,39 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
         }
     }
 
-    public sealed class EmpleadoVentaRepositorioFake : IEmpleadoVentaRepository
+    public sealed class EmpleadoVentaRepositorioFake : MySqlEmpleadoRepository
     {
         private readonly List<Empleado> _empleados = new();
+
+        public EmpleadoVentaRepositorioFake() : base(null!)
+        {
+        }
 
         public void Agregar(Empleado empleado)
         {
             _empleados.Add(empleado);
         }
 
-        public Task<List<Empleado>> ListarAsync()
+        public override Task<List<Empleado>> ObtenerTodosAsync()
         {
             return Task.FromResult(_empleados.ToList());
         }
     }
 
-    public sealed class InventarioRepositorioFake : IInventarioRepository
+    public sealed class InventarioRepositorioFake : MySqlInventarioRepository
     {
         private readonly Dictionary<int, Producto> _productos = new();
+
+        public InventarioRepositorioFake() : base(null!)
+        {
+        }
 
         public void Agregar(Producto producto)
         {
             _productos[producto.IdProducto] = producto;
         }
 
-        public Task<Producto?> ObtenerParaVentaAsync(int idProducto)
+        public override Task<Producto?> ObtenerParaVentaAsync(int idProducto)
         {
             Producto? resultado = _productos.TryGetValue(idProducto, out Producto? producto) &&
                                    producto.Estado == 1
@@ -263,7 +254,7 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
             return Task.FromResult(resultado);
         }
 
-        public Task<bool> DescontarAsync(int idProducto, int cantidad)
+        public override Task<bool> DescontarAsync(int idProducto, int cantidad)
         {
             if (!_productos.TryGetValue(idProducto, out Producto? producto) ||
                 producto.Estado != 1 ||
@@ -276,7 +267,7 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
             return Task.FromResult(true);
         }
 
-        public Task ReponerAsync(int idProducto, int cantidad)
+        public override Task ReponerAsync(int idProducto, int cantidad)
         {
             if (_productos.TryGetValue(idProducto, out Producto? producto))
             {
@@ -285,7 +276,7 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
             return Task.CompletedTask;
         }
 
-        public Task<List<Producto>> ListarActivosAsync()
+        public override Task<List<Producto>> ListarActivosAsync()
         {
             List<Producto> resultado = _productos.Values
                 .Where(p => p.Estado == 1)
@@ -293,7 +284,7 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
             return Task.FromResult(resultado);
         }
 
-        public Task<List<Producto>> ObtenerPorIdsAsync(IReadOnlyCollection<int> ids)
+        public override Task<List<Producto>> ObtenerPorIdsAsync(IReadOnlyCollection<int> ids)
         {
             HashSet<int> conjunto = new(ids);
             List<Producto> resultado = _productos.Values

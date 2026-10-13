@@ -5,7 +5,12 @@ using MySql.Data.MySqlClient;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
 {
-    public class MySqlDetalleVentaRepository : IDetalleVentaRepository
+    /// <summary>
+    /// Repositorio de detalle de venta. Implementa el contrato genérico
+    /// <see cref="IRepository{T}"/> y expone la consulta por venta como método
+    /// concreto inyectado por DI. Participa de la transacción ambiente.
+    /// </summary>
+    public class MySqlDetalleVentaRepository : IRepository<DetalleVenta>
     {
         private const string Columnas = @"
             IdDetalleVenta,
@@ -26,9 +31,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
         private async Task<MySqlCommand> CrearComandoAsync(string query)
         {
-            MySqlConnection conexion = await _conexion.ObtenerConexionAsync();
-
-            MySqlCommand command = new(query, conexion);
+            MySqlCommand command = new(query, await _conexion.ObtenerConexionAsync());
 
             if (_conexion.Transaccion is not null)
             {
@@ -38,19 +41,18 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return command;
         }
 
-        public async Task<List<DetalleVenta>> ObtenerPorVentaAsync(int idVenta)
+        // ================== Contrato genérico ==================
+
+        public virtual async Task<List<DetalleVenta>> ObtenerTodosAsync()
         {
             List<DetalleVenta> detalles = new();
 
             string query = $@"
                 SELECT {Columnas}
                 FROM detalle_venta
-                WHERE IdVenta = @idVenta
                 ORDER BY IdDetalleVenta ASC";
 
             using MySqlCommand command = await CrearComandoAsync(query);
-
-            command.Parameters.AddWithValue("@idVenta", idVenta);
 
             using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
 
@@ -62,7 +64,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return detalles;
         }
 
-        public async Task<int> InsertarAsync(DetalleVenta detalleVenta)
+        public virtual async Task<int> InsertarAsync(DetalleVenta detalleVenta)
         {
             const string query = @"
                 INSERT INTO detalle_venta
@@ -98,6 +100,32 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             await command.ExecuteNonQueryAsync();
 
             return Convert.ToInt32(command.LastInsertedId);
+        }
+
+        // ================== Operaciones propias de Ventas ==================
+
+        public virtual async Task<List<DetalleVenta>> ObtenerPorVentaAsync(int idVenta)
+        {
+            List<DetalleVenta> detalles = new();
+
+            string query = $@"
+                SELECT {Columnas}
+                FROM detalle_venta
+                WHERE IdVenta = @idVenta
+                ORDER BY IdDetalleVenta ASC";
+
+            using MySqlCommand command = await CrearComandoAsync(query);
+
+            command.Parameters.AddWithValue("@idVenta", idVenta);
+
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                detalles.Add(MapearDetalleVenta(reader));
+            }
+
+            return detalles;
         }
 
         private static DetalleVenta MapearDetalleVenta(MySqlDataReader reader)

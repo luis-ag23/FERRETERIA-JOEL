@@ -1,314 +1,422 @@
-# Guía de Defensa — Ferretería Joel (SOLID, Clean Code, Arquitectura, DI)
+# Guía de Defensa — Ferretería Joel (Arquitectura, Patrones, SOLID, Async)
 
-Guía de estudio para responder preguntas del panel. Cada respuesta tiene la
+Guía de estudio para responder preguntas del panel. Cada respuesta sigue la
 fórmula: **concepto → ejemplo en el proyecto → ubicación exacta**.
 
+> Estado actual del código: solución .NET 10, **5 proyectos por capa**,
+> arquitectura **hexagonal (puertos y adaptadores)** dentro de un **monolito
+> por responsabilidad técnica**, **3 fachadas** en el módulo de ventas y
+> **todo el flujo asíncrono** (`async`/`await` de extremo a extremo).
+
 ---
 
-## 1. ¿Qué arquitectura seguimos y por qué separamos los archivos así?
+## 1. ¿Qué arquitectura seguimos y por qué?
 
 **Respuesta corta:**
-Seguimos una **arquitectura en capas por funcionalidad (folder-by-feature)** con
-separación de responsabilidades, sobre **ASP.NET Core Razor Pages**. Dividimos el
-proyecto en carpetas, cada una con una responsabilidad:
+Es un **monolito** (un único despliegue: la app web) organizado internamente
+como **arquitectura hexagonal (puertos y adaptadores)**, con el código dividido
+en **proyectos por responsabilidad técnica**.
 
-| Carpeta | Responsabilidad |
-|---------|-----------------|
-| `Models/` | Clases que representan las tablas (Categoria, Producto, Proveedor, Empleado, HistoricoPrecio) |
-| `Repositories/` | Acceso a datos: `Interfaz*` (contrato) + `MySql*` (implementación con SQL) |
-| `Validaciones/` | Reglas de negocio (cada clase valida una entidad) |
-| `Pages/` | Página Razor = archivo `.cshtml` (vista) + `.cshtml.cs` (Page Model / controlador) |
-| `wwwroot/` | Archivos estáticos (CSS, JS, imágenes) |
-| `Program.cs` | Registro de servicios e **inyección de dependencias** (composición) |
+- **Monolito** → un solo ejecutable (el proyecto web `FERRETERIA  Joel`) que
+  contiene todos los módulos: catálogo, seguridad, ventas.
+- **Hexagonal** → el núcleo de negocio (**Dominio**) define **puertos**
+  (interfaces) y expone **casos de uso** (**Aplicación**); los detalles de
+  infraestructura (MySQL, claims HTTP, hash Argon2) se conectan como
+  **adaptadores** (**Infraestructura** y **Web**). El núcleo no conoce MySQL ni
+  ASP.NET.
 
-**¿Por qué?**
+### Mapa de la solución (proyectos)
+
+| Proyecto | Responsabilidad | Depende de |
+|----------|-----------------|------------|
+| `FERRETERIA__Joel.Dominio` | Núcleo: `Entidades/`, `Puertos/`, `Validaciones/`, `ConfiguracionValidacion/`, `Constantes/`, `Utilidades/` | (nada) |
+| `FERRETERIA__Joel.Aplicacion` | Casos de uso: `Servicios/` (servicios + **fachadas**), `Modelos/` (DTOs) y `Politicas/` (restricciones de descuento) | Dominio |
+| `FERRETERIA__Joel.Infraestructura` | Adaptadores de salida: `Repositorios/` (MySQL), `Conexion/`, `Factories/`, `Seguridad/` (Argon2) y `MySqlUnidadDeTrabajo` | Dominio |
+| `FERRETERIA  Joel` (Web) | Adaptador de entrada: `Pages/` (Razor Pages), `Servicios/ContextoUsuarioHttp`, `Helpers/` y `Program.cs` (**Composition Root**) | Dominio + Aplicación + Infraestructura |
+| `FERRETERIA__Joel.Pruebas` | Pruebas unitarias e integración (xUnit) | Todas |
+
+**¿Por qué esta separación?**
 - Cada capa tiene **una sola razón para cambiar** (responsabilidad única).
-- La página ya **no sabe ni le importa** cómo se guardan los datos (MySQL).
-- Si mañana cambiamos de base de datos, solo tocamos `Repositories/MySql*` y el
-  registro en `Program.cs`. Las vistas no cambian.
-- Es más fácil **mantener** y **probar** (puedo probar las páginas con
-  repositorios falsos).
+- La UI **no conoce** MySQL: depende de **puertos** y de **casos de uso**.
+- Cambiar de base de datos = cambiar `Repositorios/` y los `Factories/`; el
+  Dominio, la Aplicación y las páginas no se tocan.
+- Es **testeable**: los `Puertos` se sustituyen por fakes en memoria
+  (`FERRETERIA__Joel.Pruebas/Compartido/FakesVenta.cs`).
+
+**Regla de dependencias (para dibujar en la pizarra):**
+```
+Web ─▶ Aplicacion ─▶ Dominio ◀─ Infraestructura
+```
+Las flechas **siempre apuntan hacia el Dominio**. Infraestructura implementa los
+puertos del Dominio (inversión de dependencias); Web los compone y los consume.
 
 ---
 
-## 2. ¿Qué es una interfaz? ¿Por qué las usamos?
+## 2. Puertos y adaptadores (hexagonal) con ejemplos exactos
 
-**Respuesta corta:**
-Una **interfaz** es un **contrato**: declara *qué* debe hacer una clase, pero no
-* cómo*. Es como "la lista de compromisos" de una clase.
+**Puertos (definidos en el Dominio):** `FERRETERIA__Joel.Dominio/Puertos/`
 
-Ejemplo real — `Repositories/IProductoRepository.cs:3-18`:
+| Puerto | Rol |
+|--------|-----|
+| `IRepository<T>` | Contrato base: `Task<List<T>> ObtenerTodosAsync()`, `Task<int> InsertarAsync(T)` |
+| `IGestionarRepository<T>` | Extiende el anterior: `ActualizarAsync`, `CambiarEstadoAsync`, `MostrarActivosAsync` |
+| `IUnidadDeTrabajo` | Transacción (Unit of Work) |
+| `IHasheadorContrasena` | Hash/verificación de contraseñas |
+| `IContextoUsuario` | Identidad del usuario en sesión |
 
-```csharp
-public interface IProductoRepository
-{
-    List<Models.Producto> ObtenerTodos();
-    Models.Producto? ObtenerPorId(int idProducto);
-    int Insertar(Models.Producto producto);
-    void Actualizar(Models.Producto producto);
-    void CambiarEstado(int idProducto);
-    bool ExisteCodigo(string codigo, int? idProductoExcluir = null);
-    bool ExisteCategoriaActiva(short idCategoria);
-}
-```
+> Ya **no** existen puertos específicos por entidad (`IVentaRepository`,
+> `IClienteRepository`, …). Los repositorios concretos implementan **solo** los
+> dos contratos genéricos; las operaciones que no encajan en un CRUD
+> (folios/venta, idempotencia, anulación, stock, precio vigente, bitácora) se
+> exponen como **métodos concretos** e se inyectan directamente por DI.
 
-La interfaz **solo dice** "todo el que me implemente debe tener `ObtenerTodos()`,
-`Insertar()`...". La implementación concreta (`Repositories/MySqlProductoRepository.cs`)
-es la que escribe el color SQL con ADO .NET.
+**Factory Method (mecanismo, ya no en el Dominio):**
+`FERRETERIA__Joel.Infraestructura/Factories/RepositoryCreator.cs` define
+`RepositoryCreator<TContrato>` abstracto; hay un creador por contrato genérico
+(`ProductoRepositoryCreator`, `CategoriaRepositoryCreator`, `MarcaRepositoryCreator`,
+`ProveedorRepositoryCreator`, `EmpleadoRepositoryCreator`).
 
-**¿Por qué las usamos?**
-- Permiten depender de **abstracciones** y no de clases concretas (**DIP**).
-- Cuando el Page Model inyecta `IProductoRepository`, la página no necesita
-  conocer MySQL; cualquier clase que cumpla el contrato la sustituye (**LSP**).
-- Facilita pruebas: puedo crear un `ProductoRepositoryFalso` (en memoria) para
-  hacer pruebas unitarias sin base de datos.
+**Adaptadores (implementados en Infraestructura/Web):**
+- `MySql*Repository` implementan `IRepository<T>` / `IGestionarRepository<T>`
+  (los métodos de operaciones especiales se marcan `virtual` para poder
+  sustituirlos en pruebas).
+- Los repositorios concretos de operación especial (`MySqlVentaRepository`,
+  `MySqlDetalleVentaRepository`, `MySqlInventarioRepository`,
+  `MySqlHistoricoPrecioRepository`, `MySqlBitacoraRepository`) se inyectan como
+  clase concreta.
+- `MySqlUnidadDeTrabajo` implementa `IUnidadDeTrabajo`.
+- `Argon2HasheadorContrasena` implementa `IHasheadorContrasena`.
+- `ContextoUsuarioHttp` (en Web) implementa `IContextoUsuario` leyendo las
+  *claims* de la cookie.
+
+**Clave de defensa:** *"El Dominio declara el 'qué' (puertos); la
+Infraestructura aporta el 'cómo' (adaptadores). Por eso puedo cambiar MySQL por
+otro motor sin tocar la lógica de negocio."*
 
 ---
 
 ## 3. ¿Qué es inyección de dependencias (DI) y dónde la hacemos?
 
-**Respuesta corta:**
-DI es entregarle a una clase **las cosas que necesita** (sus dependencias) en
-lugar de que ella misma las cree con `new`. En nuestro proyecto:
+**Respuesta corta:** DI = entregar a cada clase sus dependencias por
+**constructor** en lugar de crearlas con `new`. En el proyecto:
 
-**Paso 1 — Registro (composición):** en `Program.cs:8-13` registramos cada
-interfaz con su implementación:
-
-```csharp
-builder.Services.AddScoped<ICategoriaRepository, MySqlCategoriaRepository>();
-builder.Services.AddScoped<IProductoRepository, MySqlProductoRepository>();
-builder.Services.AddScoped<IProveedorRepository, MySqlProveedorRepository>();
-builder.Services.AddScoped<IEmpleadoRepository, MySqlEmpleadoRepository>();
-builder.Services.AddScoped<IHistoricoPrecioRepository, MySqlHistoricoPrecioRepository>();
-```
-
-- `AddScoped<T>` = se crea una instancia por request HTTP (ciclo de vida).
-- `Program.cs` es el **Composition Root**: único lugar donde se conocen
-  implementaciones concretas.
-
-**Paso 2 — Consumo (constructor):** el Page Model recibe las dependencias por
-constructor y el contenedor se las inyecta. `Pages/ProductoNuevo.cshtml.cs:30-42`:
+**Paso 1 — Composición (`FERRETERIA  Joel/Program.cs`)** — es el *Composition
+Root*, único lugar donde se conocen las implementaciones concretas:
 
 ```csharp
-public ProductoNuevoModel(
-    IProductoRepository productoRepository,
-    ICategoriaRepository categoriaRepository,
-    IEmpleadoRepository empleadoRepository,
-    IHistoricoPrecioRepository historicoPrecioRepository,
-    ILogger<ProductoNuevoModel> logger)
-{
-    _productoRepository = productoRepository;
-    _categoriaRepository = categoriaRepository;
-    _empleadoRepository = empleadoRepository;
-    _historicoPrecioRepository = historicoPrecioRepository;
-    _logger = logger;
-}
+// Puertos base
+builder.Services.AddSingleton<IDbConnectionFactory, MySqlConnectionFactory>();
+builder.Services.AddScoped<IConexionTransaccional, MySqlConexionTransaccional>();
+builder.Services.AddScoped<IUnidadDeTrabajo, MySqlUnidadDeTrabajo>();
+
+// Factory Method: un RepositoryCreator<> por contrato genérico
+builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Producto>>, ProductoRepositoryCreator>();
+builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Categoria>>, CategoriaRepositoryCreator>();
+builder.Services.AddScoped<RepositoryCreator<IRepository<Empleado>>, EmpleadoRepositoryCreator>();
+// ...
+
+// Repositorios de operación especial (se inyectan como clase concreta)
+builder.Services.AddScoped<MySqlVentaRepository>();
+builder.Services.AddScoped<MySqlInventarioRepository>();
+builder.Services.AddScoped<MySqlClienteRepository>();
+
+// Casos de uso
+builder.Services.AddScoped<ServicioProducto>();
+builder.Services.AddScoped<ServicioInicioSesion>();
+
+// Fachadas del módulo de ventas (patrón Facade)
+builder.Services.AddScoped<FachadaActualizacionStock>();
+builder.Services.AddScoped<FachadaVenta>();
+builder.Services.AddScoped<FachadaAnulacion>();
+
+// Adaptadores
+builder.Services.AddScoped<IContextoUsuario, ContextoUsuarioHttp>();
+builder.Services.AddSingleton<IHasheadorContrasena, Argon2HasheadorContrasena>();
 ```
 
-**¿Por qué no `new MySqlProductoRepository()` dentro de la página?**
-- La página dependería de la clase concreta (violaría DIP).
-- Difícil de probar (siempre pegaría a MySQL).
-- Acoplada: cambiar BD = cambiar la página.
-Por eso el comentario en `Program.cs:8` literalmente dice
-*"Inyección de dependencias para Categoría (SOLID - Inversión de dependencias)"*.
+- `AddScoped` = una instancia por request HTTP; `AddSingleton` = una para toda
+  la app (el hasheador no tiene estado, la fábrica de conexión tampoco).
+
+**Paso 2 — Consumo (constructor del Page Model).** Ejemplo
+`FERRETERIA  Joel/Pages/Venta.cshtml.cs`: el modelo recibe **solo** la fachada
+de venta y el `ILogger`; nunca crea repositorios ni conexiones.
+
+**¿Por qué no `new MySqlProductoRepository()` dentro de la página?** Porque
+acoplaría la UI a MySQL (violaría DIP) y haría imposible probar sin base de
+datos.
 
 ---
 
-## 4. Aplicación de cada principio SOLID (con ejemplos exactos)
+## 4. Patrones de diseño usados (para la rúbrica de "Patrones")
 
-### S — Single Responsibility (Responsabilidad Única)
-*"Una clase debe tener una sola razón para cambiar."*
+Se piden **al menos 3**, con **Facade obligatorio**. Aquí hay 5:
 
-**¿Dónde?** Separamos responsabilidades:
-- **Persistir** → `Repositories/` (ej. `Repositories/MySqlProductoRepository.cs:6`)
-- **Validar** → `Validaciones/ProductoValidaciones.cs:3` (métodos como
-  `EsPrecioValido`, `EsCodigoValido`, `EsUnidadMedidaValida`)
-- **Orquestar HTTP** → Page Model. `Pages/ProductoNuevo.cshtml.cs:49-58`:
-  `OnPost()` solo llama `NormalizarDatos()` → `Validar()` → si hay errores
-  vuelve a la página → si no, guarda y redirige. No hace SQL.
-- **Mapear fila→modelo** → método privado `MapearProducto`
-  (`Repositories/MySqlProductoRepository.cs:325-371`). Un solo lugar.
+### 4.1 Facade (fachadas del módulo de ventas) — obligatorio
+`FERRETERIA__Joel.Aplicacion/Servicios/`
 
-**Clave para defender:** *"Cada clase tiene un solo motivo por el cual podría
-ser modificada: la validación cambia en Validaciones, la consulta en el
-Repository, la lógica HTTP en el Page Model."*
+- **`FachadaVenta`** → registro de venta: `BuscarClientesAsync`,
+  `BuscarProductosAsync`, `ObtenerProductoAsync`, `CrearClienteAsync`,
+  `CalcularLineaAsync`, `CalcularResumen`, `RegistrarVentaAsync`,
+  `ObtenerComprobanteAsync`. Consume la fachada de stock y `ServicioCliente`.
+- **`FachadaAnulacion`** → historial y anulación: `ListarVentasListadoAsync`,
+  `ObtenerVentaAsync`, `AnularVentaAsync`. También delega el stock.
+- **`FachadaActualizacionStock`** → inventario: `ListarActivosAsync`,
+  `ObtenerParaVentaAsync`, `ObtenerPorIdsAsync`, `DescontarAsync`,
+  `ReponerAsync`, `MapearLineasAsync`.
 
-### O — Open/Closed (Abierto/Cerrado)
-*"Abierto a la extensión, cerrado a la modificación."*
+**Por qué:** cada **pantalla consume UNA sola fachada**. `Venta.cshtml.cs` usa
+`FachadaVenta`; `Ventas.cshtml.cs` usa `FachadaAnulacion`. La UI queda
+desacoplada de repositorios, transacciones y SQL. La fachada delgada crea el
+subsistema de stock reutilizable por venta y anulación.
 
-**Respuesta:** Todas las páginas dependen de interfaces
-(`IProductoRepository`, `ICategoriaRepository`…). Si quiero:
+### 4.2 Factory Method
+- **`RepositoryCreator<TContrato>`**
+  (`Infraestructura/Factories/RepositoryCreator.cs`) es una fábrica abstracta:
+  `TContrato CreateRepository()`.
+- Cada creador concreto vive también en `Infraestructura/Factories/`
+  (`ProductoRepositoryCreator`, `CategoriaRepositoryCreator`, `MarcaRepositoryCreator`,
+  `ProveedorRepositoryCreator`, `EmpleadoRepositoryCreator`) y decide qué
+  implementación entregar. Los servicios piden, p. ej.,
+  `RepositoryCreator<IGestionarRepository<Producto>>` y obtienen un repositorio
+  **ligado a la transacción ambiente**.
 
-- Usar otra base de datos → creo `SqlServerProductoRepository` e **únicamente**
-  cambio el registro en `Program.cs:9-13`. No modifico ninguna página.
-- Hacer pruebas rápidas → creo `ProductoRepositoryEnMemoria`.
+### 4.3 Strategy
+- **`Politicas/IPoliticaDescuento`** con estrategias concretas
+  `DescuentoPorMonto` y `DescuentoPorCantidad`.
+- **`Politicas/SelectorDescuento`** es el contexto: evalúa todas las políticas y
+  aplica la que otorgue el **mayor beneficio**; si ninguna aplica, descuento 0.
+- Agregar una política nueva = agregar una clase `IPoliticaDescuento`, sin tocar
+  el selector (Open/Closed).
 
-Las páginas **no se tocan** para agregar funcionalidad nueva: están cerradas a
-la modificación y el sistema abierto a extensión.
+### 4.4 Repository
+- Los `MySql*Repository` encapsulan el SQL/ADO.NET; la lógica no ve tablas, solo
+  entidades. `MySqlProductoRepository`, `MySqlVentaRepository`, etc.
 
-### L — Sustitución de Liskov (LSP)
-*"Cualquier implementación debe poder sustituir a la interfaz sin romper el
-programa."*
-
-**Respuesta:** `Repositories/MySqlProductoRepository.cs` implementa completo el
-contrato de `IProductoRepository.cs:3-18`. Cualquier otra clase que implemente la
-misma interfaz respetando las mismas reglas funciona en `Pages/Productos.cshtml.cs`
-que consume `ObtenerTodos()`. El programa espera **el contrato**, no la clase.
-
-### I — Segregación de Interfaces (ISP)
-*"Interfaces pequeñas y específicas; nadie usa métodos que no necesita."*
-
-**Respuesta:** No existen interfaces "gordas". Ejemplo perfecto —
-`Repositories/IEmpleadoRepository.cs` tiene **un solo método** (`ObtenerActivos()`),
-y `Repositories/IHistoricoPrecioRepository.cs:5-11` tiene solo 4 métodos:
-
-```csharp
-List<HistoricoPrecio> ObtenerPorProducto(int idProducto);
-void Insertar(HistoricoPrecio historicoPrecio);
-HistoricoPrecio? ObtenerPrecioVigente(int idProducto);
-void CerrarPrecioVigente(int idProducto);
-```
-
-Un Page Model que solo necesita el catálogo de empleados no recibe una interfaz
-con métodos de pagos o reportes que no usa.
-
-### D — Inversión de Dependencias (DIP)
-*"Depender de abstracciones, no de clases concretas."*
-
-**Respuesta:** Los módulos de alto nivel (páginas) dependen de las **interfaces**
-y no de las clases concretas MySQL:
-- Registro: `Program.cs:9-13`
-- La página **jamás** instancia `new MySqlProductoRepository()`. Recibe
-  `IProductoRepository` por constructor (`Pages/ProductoNuevo.cshtml.cs:30-42`).
+### 4.5 Unit of Work + transacción
+- **`IUnidadDeTrabajo`** (Dominio) con `IniciarAsync` / `ConfirmarAsync` /
+  `RevertirAsync`; implementada por **`MySqlUnidadDeTrabajo`** sobre
+  `IConexionTransaccional` (`MySqlConexionTransaccional`, que abre una conexión y
+  una transacción **async**: `BeginTransactionAsync`, `CommitAsync`,
+  `RollbackAsync`).
 
 ---
 
-## 5. ¿Qué es Clean Code y dónde se aplica?
+## 5. Módulo de ventas: transacción, anulación y stock
+
+**Registro (`FachadaVenta.RegistrarVentaAsync`):** abre la unidad de trabajo y,
+en **una sola transacción**:
+1. **n inserts** en `detalle_venta` (uno por línea).
+2. **n updates** de `producto.CantidadStock` (descuento vía
+   `FachadaActualizacionStock.DescontarAsync`).
+3. `ConfirmarAsync`. Si falla algo (p. ej. stock insuficiente), `RevertirAsync`:
+   **nada** queda persistido.
+4. Clave de **idempotencia**: repetir la misma venta no duplica.
+
+**Anulación (`FachadaAnulacion.AnularVentaAsync`)** — borrado **lógico**:
+1. `UPDATE venta SET EstadoVenta = 'Anulada'` (+ motivo, empleado y fecha).
+2. **`detalle_venta` NO se toca**: se usa como fuente para reponer.
+3. **n updates** de reposición de stock (uno por línea, vía
+   `FachadaActualizacionStock.ReponerAsync`).
+4. Todo en la misma transacción: `ConfirmarAsync` / `RevertirAsync`.
+
+> La anulación está disponible para el rol **`EmpleadoVenta`** (ver
+> `RolesSistema`, `FachadaAnulacion` y el botón/handler en
+> `FERRETERIA  Joel/Pages/Ventas.cshtml(.cs)`). El `Administrador` solo ve las
+> ventas, no las anula.
+
+**Comprobante:** `FachadaVenta.ObtenerComprobanteAsync` arma el comprobante
+(cliente, empleado responsable y líneas con código/nombre del producto) y
+`Utilidades/NumeroALetras` convierte el total a letras.
+
+---
+
+## 6. Aplicación de cada principio SOLID (con ejemplos)
+
+### S — Single Responsibility
+Cada clase/archivo hace **una cosa**:
+- Persistir → `Infraestructura/Repositorios/MySql*Repository.cs`
+- Validar → `Dominio/Validaciones/*` (`ProductoValidaciones`, `MarcaValidaciones`, …)
+- Orquestar HTTP → Page Model (`Pages/*.cshtml.cs`)
+- Caso de uso/fachada → `Aplicacion/Servicios/*`
+- Mapear fila→entidad → método privado `Mapear*` dentro de cada repositorio.
+
+### O — Open/Closed
+- Nuevo descuento → nueva clase `IPoliticaDescuento`, sin tocar
+  `SelectorDescuento`.
+- Nuevo motor de BD → nueva implementación del puerto + ajuste **solo** en
+  `Program.cs`. Ninguna página se modifica.
+
+### L — Liskov
+Los fakes de las pruebas (`FERRETERIA__Joel.Pruebas/Compartido/FakesVenta.cs`)
+**heredan de los repositorios concretos** (`MySql*Repository`, pasando `null!` al
+constructor) y sobrescriben sus métodos `virtual`: respetan el mismo contrato y
+las fachadas funcionan igual con reales o con fakes.
+
+### I — Interface Segregation
+Puertos pequeños y específicos: `IRepository<T>` (2 métodos) e
+`IGestionarRepository<T>` (3 más). Ningún consumidor recibe métodos que no usa;
+las operaciones especiales no contaminan el contrato genérico porque se exponen
+como métodos del repositorio concreto.
+
+### D — Dependency Inversion
+Alto nivel (Aplicación/Web) depende de **abstracciones** (`IGestionarRepository<T>`,
+`IContextoUsuario`, `IUnidadDeTrabajo`, `RepositoryCreator<T>`) definidas o
+usadas por el núcleo; bajo nivel (Infraestructura) **implementa** esos contratos
+y los repositorios concretos. El registro vive en `Program.cs`.
+
+---
+
+## 7. ¿Qué es Clean Code y dónde se aplica?
 
 Clean Code = código **legible, sin duplicación y con intención clara**.
-Ejemplos en nuestro proyecto:
 
 | Práctica | Ejemplo (ubicación) |
 |----------|---------------------|
-| Nombres con intención | `CerrarPrecioVigente()`, `ExisteNit()`, `MapearProducto()` |
-| Métodos pequeños / una tarea | `NormalizarDatos()`, `Validar()`, `CargarCatalogos()` en `Pages/ProductoNuevo.cshtml.cs` |
-| Sin duplicación (DRY) | `MapearProducto` centraliza el mapeo (`MySqlProductoRepository.cs:325-371`) |
-| Lectura tipada del reader | `GetInt32`, `GetDecimal`, `GetDateTime` (sin `ToString()` adivino) |
-| Manejo seguro de nulos | `reader["Descripcion"] == DBNull.Value ? null : ...` (`MySqlProductoRepository.cs:341-344`) |
-| Seguridad de recursos | `using MySqlConnection`, `using MySqlCommand`, `using MySqlDataReader` |
+| Nombres con intención | `ReponerAsync`, `DescontarAsync`, `MapearLineasAsync`, `Coincide` |
+| Métodos pequeños / una tarea | `FachadaVenta` separa búsqueda, cálculo y registro |
+| Sin duplicación (DRY) | `MapearLineasAsync` centraliza producto→línea en una sola fachada de stock |
+| Asincronía consistente | `async`/`await` en puertos, repos, servicios y páginas |
+| Lectura tipada del reader | `GetInt32`, `GetDecimal`, `GetDateTime` (sin `ToString()`) |
+| Manejo seguro de nulos | `reader["X"] == DBNull.Value ? null : ...` |
+| Recursos liberados | `using` / `await using` de conexión, comando y reader |
 | Errores manejados | `try/catch` + `ILogger.LogError` + mensaje genérico al usuario |
-| Constantes SQL | `const string query = "..."` |
+| Constantes | `const string query = "..."` y `RolesSistema.*` |
 
 ---
 
-## 6. Historia de datos / Histórico de precios (esssss: ejemplo pedido)
+## 8. Roles y autorización (se piden ≥2 roles diferenciados)
 
-**¿Cómo funciona el histórico?** ⬅ Pregunta casi segura.
+`Dominio/Constantes/RolesSistema.cs`:
 
-1. **Al crear un producto**: se inserta el producto y se registra su **primera
-   versión** con motivo *"Precio inicial"* (`Pages/ProductoNuevo.cshtml.cs`,
-   método `Insertar()`).
-2. **Al actualizar** (`Pages/ProductoEditar.cshtml.cs`, método `Actualizar()`):
-   se obtiene el precio vigente; si el nuevo precio **cambió**, se cierra el
-   vigente (`CerrarPrecioVigente`) y se inserta el nuevo con motivo
-   *"Cambio de precio"*.
-3. **Siempre hay un solo precio vigente**: el registro con
-   `FechaFinVigencia = NULL`.
-4. **Vista del histórico**: `Pages/ProductoHistoricoPrecio.cshtml` (muestra
-   lista: Precio, Inicio/Fin de vigencia, Motivo, Empleado responsable).
+| Rol | Alcance |
+|-----|---------|
+| `Administrador` | **Gestión total** del catálogo (CRUD de productos, categorías, marcas, proveedores, precios). En ventas **solo las visualiza**, no las anula. |
+| `EmpleadoVenta` | Registra ventas, ve el historial de ventas y **puede anularlas**. |
 
-**Secretos SQL** destacables que conviene saber mencionar:
-- `HistoricoPrecio.Precio` se almacena con `DECIMAL(10,2)`.
-- `CerrarPrecioVigente` hace: `UPDATE ... SET FechaFinVigencia = NOW() WHERE
-  IdProducto = @id AND FechaFinVigencia IS NULL`.
+- El login es **solo para empleados** (`ServicioInicioSesion`); los clientes ya
+  no tienen usuario/contraseña.
+- `RolesSistema.Personal` agrupa `"Administrador,EmpleadoVenta"`;
+  `RolesSistema.Normalizar(rol)` convierte cualquier valor desconocido en
+  `EmpleadoVenta`.
+- Las páginas de gestión usan `[Authorize(Roles = RolesSistema.Administrador)]`,
+  la anulación `[Authorize(Roles = RolesSistema.EmpleadoVenta)]` y el resto del
+  módulo de ventas `[Authorize(Roles = RolesSistema.Personal)]`; el `Program.cs`
+  registra convenciones `AuthorizePage("/...")`.
+- El rol se guarda en la **cookie** al iniciar sesión (`ServicioInicioSesion`),
+  y `ContextoUsuarioHttp` lo expone a las fachadas vía `IContextoUsuario`.
 
 ---
 
-## 7. Otras preguntas clásicas y sus respuestas
+## 9. Histórico de precios (pregunta casi segura)
 
-### ¿Por qué eliminación lógica y no física (DELETE)?
-Porque una ferretería necesita **auditoría**: si elimino un proveedor con
-`DELETE`, el NIT quedaría libre para ser reutilizado y perderíamos el historial.
-Por eso `Producto`/`Proveedor` tienen `CambiarEstado()` que alterna
-`Estado=1`(activo) / `Estado=0`(inactivo) con un `CASE`. Además la llave foránea
-de Categoría↔Producto se protege.
+`Dominio/Entidades/HistoricoPrecio.cs` + `ServicioHistoricoPrecio`.
+
+1. **Al crear un producto**: `ServicioProducto.CrearAsync` inserta el producto y
+   registra su primera versión con motivo *"Precio inicial"*.
+2. **Al actualizar** (`ServicioProducto.ActualizarAsync`, dentro de una
+   **transacción** de `IUnidadDeTrabajo`): obtiene el precio vigente
+   (`ObtenerPrecioVigenteAsync`); si el precio **cambió**, cierra el vigente
+   (`CerrarPrecioVigenteAsync`) e inserta el nuevo con motivo
+   *"Cambio de precio"*. Producto y histórico se confirman o se revierten juntos.
+3. **Siempre hay un solo precio vigente**: la fila con `FechaFinVigencia = NULL`.
+4. **Vista**: `Pages/ProductoHistoricoPrecio.cshtml`.
+
+**Detalle SQL:** `CerrarPrecioVigente` hace
+`UPDATE ... SET FechaFinVigencia = NOW() WHERE IdProducto = @id AND FechaFinVigencia IS NULL`.
+
+---
+
+## 10. Asincronía de extremo a extremo
+
+**Decisión:** todo el acceso a I/O es `async` para **no bloquear hilos** del
+servidor bajo carga (escenario de ventas concurrentes).
+
+- **Puertos:** `Task`/`Task<T>` (p. ej. `ObtenerTodosAsync`, `InsertarAsync`,
+  `IniciarAsync`).
+- **Repositorios MySQL:** `OpenAsync`, `ExecuteReaderAsync`, `ReadAsync`,
+  `ExecuteNonQueryAsync`, `ExecuteScalarAsync`.
+- **Servicios y fachadas:** `async`/`await` (p. ej. `RegistrarVentaAsync`,
+  `AnularVentaAsync`).
+- **Transacción:** `BeginTransactionAsync` / `CommitAsync` / `RollbackAsync`.
+- **Páginas:** `OnGetAsync` / `OnPost...Async`.
+- Se mantienen **sincrónicos** solo los cálculos en memoria (p. ej.
+  `Coincide` del login y el hash de contraseña), que no son I/O.
+
+**Prueba de concurrencia:** `FERRETERIA__Joel.Pruebas/Integracion/FachadaVentaIntegracionPruebas.cs`
+lanza dos registros/anulaciones en paralelo y verifica que **solo una gana**
+(idempotencia y reposición única).
+
+---
+
+## 11. Otras preguntas clásicas
+
+### ¿Por qué eliminación lógica y no `DELETE`?
+Por **auditoría**: `CambiarEstadoAsync` alterna `Estado=1/0` (activo/inactivo).
+En ventas, anular es un `UPDATE ... EstadoVenta='Anulada'`; el `detalle_venta`
+se conserva para reponer stock y para historial.
 
 ### ¿Cómo validas los datos antes de insertar?
-Dos capas:
-1. **Lógica de negocio** en `Validaciones/*` (`EsPrecioValido` = precio > 0,
-   `EsCodigoValido` = no vacío y ≤ 30 caracteres, etc.).
-2. **Integridad de la BD**: aunque se intente ingresar un código/NIT repetido,
-   la **constraint única** de MySQL lanza el error 1062 y lo capturamos en el
-   `catch` para mostrar un mensaje claro al usuario.
+Dos capas: (1) **validaciones de dominio** en `Dominio/Validaciones/*` y
+`ConfiguracionValidacion/*`; (2) **integridad de la BD** (constraints únicas,
+error 1062 capturado en el `catch`).
 
 ### ¿Dónde está la cadena de conexión? (seguridad)
-En `appsettings.json` (y `appsettings.Development.json`), leída mediante
-`builder.Configuration.GetConnectionString("MySqlConnection")`, nunca escrita en
-el código. Nuestros repositorios lanzan lo siguiente si falta (code defensivo):
-`InvalidOperationException("No se encontró la cadena de conexión MySqlConnection.")`.
+En `appsettings*.json` (y variables de entorno), leída por `IDbConnectionFactory`
+(`MySqlConnectionFactory`). **Nunca** en el código.
 
-### ¿Qué hace GetConnectionString y de dónde sale `IConfiguration`?
-`IConfiguration` es inyectado por el contenedor de DI; internamente lee los
-archivos `appsettings*.json` y registros de configuración.
-
-### ¿Qué es `MySqlDataReader`?
-Un lector **solo hacia adelante** (forward-only) que devuelve la fila actual de
-la consulta; con `MapearProducto(reader)` transformamos cada fila a un `Producto`.
-
-### ¿Para qué sirve `ILogger`?
-Para **registrar errores técnicos** con contexto (id del registro, excepción)
-sin exponerlos al usuario. Es la forma recomendada por ASP.NET Core: se inyecta,
-no se crea.
+### ¿Cómo se guardan las contraseñas?
+Con **Argon2** (`Infraestructura/Seguridad/Argon2HasheadorContrasena.cs`,
+adaptador de `IHasheadorContrasena`). El login detecta hashes heredados en texto
+plano y los **re-hashea** al autenticar.
 
 ### ¿Qué es un Page Model?
-`Pages/*.cshtml.cs` = la "capa controladora" de cada página Razor. Maneja
-`OnGet()` (mostrar) y `OnPost()` (enviar formulario), usa `[BindProperty]` para
-enlazar los campos del formulario y se inyectan sus dependencias.
+`Pages/*.cshtml.cs`: la capa de entrada de cada página Razor. Maneja
+`OnGetAsync` / `OnPost...Async`, enlaza campos con `[BindProperty]` y recibe sus
+dependencias por constructor.
 
 ### ¿Cómo se ve el flujo de una petición (request → DB)?
-`HTTP GET/POST` → Razor Page `.cshtml` (vista) → `.cshtml.cs` (Page Model) →
-`I*Repository` (interfaz) → `MySql*Repository` (SQL con ADO .NET) → MySQL → devuelve modelos → se re-renderiza `.cshtml`.
+`HTTP` → `.cshtml` (vista) → `.cshtml.cs` (Page Model, async) → **fachada**
+(`FachadaVenta`/`FachadaAnulacion`) → **servicio/adaptador** →
+`RepositoryCreator<T>` → `MySql*Repository` (SQL async) → MySQL → entidades →
+re-render de la vista.
 
-### ¿Por qué usar `short`/`int` en las claves y `decimal` en precios?
-Para no dejar que el dinero se maneje con `float/double` (podrían acumular
-errores de redondeo). `PrecioVenta` y `PorcentajeGanancia` son `decimal`, y los
-`Id*` son tipos enteros que reflejan su tamaño real en la tabla.
+### ¿Por qué `decimal` en precios y `int`/`short` en claves?
+`decimal` evita errores de redondeo del dinero (`float`/`double`); los `Id*` usan
+tipos enteros acordes a la tabla.
 
-### ¿Por qué usamos Razor Pages y no MVC clásico?
-Porque es la evolución oficial de Microsoft para páginas simples con señal:
-Page Model integrado, sin tener que declarar controladores/views explícitos.
-Elegimos lo que mejor encaja para este tipo de sistema administrativo.
+### ¿Por qué Razor Pages y no MVC clásico?
+Es el modelo recomendado por Microsoft para aplicaciones administrativas: cada
+página agrupa vista + Page Model, sin declarar controladores/vistas por separado.
 
-### ¿Qué pasaría si quitas el `using`? (recursos)
-Los objetos conectados (`MySqlConnection`, `MySqlCommand`, `MySqlDataReader`)
-quedan abiertos hasta que el GC los cierre, problema de **fuga de conexiones**:
-a la larga se agota el pool de MySQL.
+### ¿Por qué `using`/`await using`?
+`MySqlConnection`, `MySqlCommand` y `MySqlDataReader` son recursos conectados;
+sin liberarlos se **fuga el pool** de MySQL. Se usan `using` (o `await using` en
+`MySqlConexionTransaccional`).
 
-### ¿Cómo ordenamos el repositorio Git?
-Ramas temáticas (`validaciones-categoria`, `datos-historicos`, `pagehome`,
-`Crud-de-Productos`, `crud-categoria`, `CRUD-PROVEEDORES`) + pull requests a
-`master`, commits con prefijos (`feat:`, `fix:`, `refactor:`) — ver sección 4 de
-`Informe_SOLID_FerreteriaJoel.md`.
-
-### ¿Esto es "n" capas o "clean architecture"?
-Es una **arquitectura en capas orientada a Razor Pages**: Presentación (Pages) →
-Lógica (Page Model + Validaciones) → Acceso a datos (Repositories) → Base de
-datos. Usamos los **principios** de Clean Architecture (DIP, límites de
-dependencia) dentro de una estructura simple, no una implementación formal de
-Clean/Hexagonal.
+### ¿Es "n" capas o Clean/Hexagonal?
+Es un **monolito con arquitectura hexagonal**: núcleo (Dominio) + casos de uso
+(Aplicación) + adaptadores (Infraestructura y Web). Se aplican los principios de
+Clean Architecture (DIP, regla de dependencias) sin el andamiaje formal.
 
 ---
 
-## 8. Los 3 diagramas del informe (para tener mentalmente)
+## 12. Cómo defender (checklist contra la rúbrica)
 
-1. **Modelos / Repos / Validaciones**: Cómo `I*Repository` ← implementa `MySql*Repository`,
-   y Page Models dependen de las interfaces.
-2. **Páginas (Page Models)**: Cada página apunta a sus repositorios; `ProductoNuevo`
-   y `ProductoEditar` son las dos que tocan `IHistoricoPrecioRepository`.
-3. **Histórico**: `Producto 1 → 0..* HistoricoPrecio`, con `ObtenerPrecioVigente`
-   y `CerrarPrecioVigente`.
+1. **Monolito + Hexagonal** → sección 1 y 2.
+2. **≥3 patrones con Facade** → sección 4 (Facade, Factory Method, Strategy,
+   Repository, Unit of Work).
+3. **≥2 roles diferenciados** → sección 8 (`Administrador` gestiona el catálogo,
+   `EmpleadoVenta` registra y anula ventas).
+4. **Login + Home** → `Pages/Login.cshtml.cs`, `Pages/Index.cshtml.cs`.
+5. **UI del proceso principal (25 pts)** → `Pages/Venta.cshtml(.cs)` (búsqueda de
+   cliente/producto, carrito, totales con descuento en vivo).
+6. **Transacción (10 pts)** → sección 5 (`RegistrarVentaAsync`).
+7. **Anulación lógica (8 pts)** → sección 5 (`AnularVentaAsync`).
+8. **Comprobante (8 pts)** → `FachadaVenta.ObtenerComprobanteAsync` +
+   `Pages/VentaComprobante.cshtml`.
+9. **Patrones/SOLID (12 pts)** → secciones 4 y 6.
+10. **Asincronía** → sección 10.
 
-**Tip para la defensa:** si te piden "¿dónde se aplica X?" nombra en este orden:
-**concepto (1 frase) → archivo exacto (`Pages/ProductoNuevo.cshtml.cs:30-42`) →
-frase que cierra**: *"por eso dependemos de IU, no de MySQL, y por eso lo
-podemos probar fácilmente."*
+**Fórmula de respuesta:** *concepto (1 frase) → archivo/método exacto → frase que
+cierra*: *"por eso dependemos de puertos y no de MySQL, y por eso lo podemos
+probar y cambiar sin tocar la lógica."*

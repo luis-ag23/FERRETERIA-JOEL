@@ -9,7 +9,7 @@ using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
-    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Empleado)]
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Administrador)]
     public class CategoriaNuevaModel : PageModel
     {
         private readonly ServicioCategoria _servicio;
@@ -31,15 +31,15 @@ namespace FERRETERIA__Joel.Pages
             _logger = logger;
         }
 
-        public void OnGet()
+        public async Task OnGetAsync()
         {
             NuevaCategoria.Estado = 1;
-            NuevaCategoria.Codigo = _servicio.SiguienteCodigo();
+            NuevaCategoria.Codigo = await _servicio.SiguienteCodigoAsync();
         }
 
-        public IActionResult OnPost()
+        public async Task<IActionResult> OnPostAsync()
         {
-            NuevaCategoria.Codigo = _servicio.SiguienteCodigo();
+            NuevaCategoria.Codigo = await _servicio.SiguienteCodigoAsync();
             NuevaCategoria.PorcentajeGanancia = 0;
             NuevaCategoria.IdEmpleadoResponsable =
                 EmpleadoSesion.ObtenerIdEmpleado(User);
@@ -53,7 +53,7 @@ namespace FERRETERIA__Joel.Pages
 
             try
             {
-                _servicio.Insertar(NuevaCategoria);
+                await _servicio.InsertarAsync(NuevaCategoria);
 
                 TempData["Mensaje"] =
                     "Categoría registrada con éxito.";

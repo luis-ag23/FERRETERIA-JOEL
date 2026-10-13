@@ -2,10 +2,12 @@ using FERRETERIA__Joel.Aplicacion.Modelos;
 using FERRETERIA__Joel.Aplicacion.Politicas;
 using FERRETERIA__Joel.Aplicacion.Servicios;
 using FERRETERIA__Joel.Dominio.Constantes;
+using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
 using FERRETERIA__Joel.Infraestructura;
 using FERRETERIA__Joel.Infraestructura.Conexion;
 using FERRETERIA__Joel.Infraestructura.Factories;
+using FERRETERIA__Joel.Infraestructura.Repositorios;
 using FERRETERIA__Joel.Pruebas.Compartido;
 using MySql.Data.MySqlClient;
 
@@ -33,21 +35,21 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
                 return;
             }
 
-            int idCategoria = ObtenerPrimerId(cadena, "categoria", "IdCategoria");
-            int idMarca = ObtenerPrimerId(cadena, "marca", "IdMarca");
+            int idCategoria = await ObtenerPrimerIdAsync(cadena, "categoria", "IdCategoria");
+            int idMarca = await ObtenerPrimerIdAsync(cadena, "marca", "IdMarca");
 
             if (idCategoria == 0 || idMarca == 0)
             {
                 return;
             }
 
-            int idProducto = CrearProducto(
+            int idProducto = await CrearProductoAsync(
                 cadena, idCategoria, idMarca, precio: 100m, stock: 10);
-            int idCliente = CrearCliente(cadena);
+            int idCliente = await CrearClienteAsync(cadena);
 
             try
             {
-                (FachadaVenta fachada, MySqlConexionTransaccional conexion) =
+                (FachadaVenta fachada, FachadaAnulacion anulacion, MySqlConexionTransaccional conexion) =
                     CrearFachada(cadena, idEmpleado: 1);
 
                 using (conexion)
@@ -68,25 +70,25 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
                     Assert.NotNull(venta.CodigoVenta);
                     Assert.Equal(300m, venta.Subtotal);
                     Assert.Equal(300m, venta.MontoTotal);
-                    Assert.Equal(7, LeerStock(cadena, idProducto));
+                    Assert.Equal(7, await LeerStockAsync(cadena, idProducto));
                     Assert.Equal(
                         EstadoVenta.Registrada,
-                        LeerEstadoVenta(cadena, venta.IdVenta));
+                        await LeerEstadoVentaAsync(cadena, venta.IdVenta));
 
-                    ResultadoVenta anulada = await fachada.AnularVentaAsync(
+                    ResultadoVenta anulada = await anulacion.AnularVentaAsync(
                         venta.IdVenta,
                         "Prueba de integración");
 
                     Assert.True(anulada.Exito);
-                    Assert.Equal(10, LeerStock(cadena, idProducto));
+                    Assert.Equal(10, await LeerStockAsync(cadena, idProducto));
                     Assert.Equal(
                         EstadoVenta.Anulada,
-                        LeerEstadoVenta(cadena, venta.IdVenta));
+                        await LeerEstadoVentaAsync(cadena, venta.IdVenta));
                 }
             }
             finally
             {
-                Limpiar(cadena, idProducto, idCliente);
+                await LimpiarAsync(cadena, idProducto, idCliente);
             }
         }
 
@@ -100,21 +102,21 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
                 return;
             }
 
-            int idCategoria = ObtenerPrimerId(cadena, "categoria", "IdCategoria");
-            int idMarca = ObtenerPrimerId(cadena, "marca", "IdMarca");
+            int idCategoria = await ObtenerPrimerIdAsync(cadena, "categoria", "IdCategoria");
+            int idMarca = await ObtenerPrimerIdAsync(cadena, "marca", "IdMarca");
 
             if (idCategoria == 0 || idMarca == 0)
             {
                 return;
             }
 
-            int idProducto = CrearProducto(
+            int idProducto = await CrearProductoAsync(
                 cadena, idCategoria, idMarca, precio: 100m, stock: 2);
-            int idCliente = CrearCliente(cadena);
+            int idCliente = await CrearClienteAsync(cadena);
 
             try
             {
-                (FachadaVenta fachada, MySqlConexionTransaccional conexion) =
+                (FachadaVenta fachada, FachadaAnulacion anulacion, MySqlConexionTransaccional conexion) =
                     CrearFachada(cadena, idEmpleado: 1);
 
                 using (conexion)
@@ -131,13 +133,13 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
                         });
 
                     Assert.False(venta.Exito);
-                    Assert.Equal(2, LeerStock(cadena, idProducto));
-                    Assert.Equal(0, ContarVentasDeCliente(cadena, idCliente));
+                    Assert.Equal(2, await LeerStockAsync(cadena, idProducto));
+                    Assert.Equal(0, await ContarVentasDeClienteAsync(cadena, idCliente));
                 }
             }
             finally
             {
-                Limpiar(cadena, idProducto, idCliente);
+                await LimpiarAsync(cadena, idProducto, idCliente);
             }
         }
 
@@ -151,21 +153,21 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
                 return;
             }
 
-            int idCategoria = ObtenerPrimerId(cadena, "categoria", "IdCategoria");
-            int idMarca = ObtenerPrimerId(cadena, "marca", "IdMarca");
+            int idCategoria = await ObtenerPrimerIdAsync(cadena, "categoria", "IdCategoria");
+            int idMarca = await ObtenerPrimerIdAsync(cadena, "marca", "IdMarca");
 
             if (idCategoria == 0 || idMarca == 0)
             {
                 return;
             }
 
-            int idProducto = CrearProducto(
+            int idProducto = await CrearProductoAsync(
                 cadena, idCategoria, idMarca, precio: 100m, stock: 10);
-            int idCliente = CrearCliente(cadena);
+            int idCliente = await CrearClienteAsync(cadena);
 
             try
             {
-                (FachadaVenta fachada, MySqlConexionTransaccional conexion) =
+                (FachadaVenta fachada, FachadaAnulacion anulacion, MySqlConexionTransaccional conexion) =
                     CrearFachada(cadena, idEmpleado: 1);
 
                 using (conexion)
@@ -188,13 +190,13 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
                     Assert.True(segundo.Exito);
                     Assert.True(segundo.Idempotente);
                     Assert.Equal(primero.IdVenta, segundo.IdVenta);
-                    Assert.Equal(1, ContarVentasDeCliente(cadena, idCliente));
-                    Assert.Equal(8, LeerStock(cadena, idProducto));
+                    Assert.Equal(1, await ContarVentasDeClienteAsync(cadena, idCliente));
+                    Assert.Equal(8, await LeerStockAsync(cadena, idProducto));
                 }
             }
             finally
             {
-                Limpiar(cadena, idProducto, idCliente);
+                await LimpiarAsync(cadena, idProducto, idCliente);
             }
         }
 
@@ -208,23 +210,23 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
                 return;
             }
 
-            int idCategoria = ObtenerPrimerId(cadena, "categoria", "IdCategoria");
-            int idMarca = ObtenerPrimerId(cadena, "marca", "IdMarca");
+            int idCategoria = await ObtenerPrimerIdAsync(cadena, "categoria", "IdCategoria");
+            int idMarca = await ObtenerPrimerIdAsync(cadena, "marca", "IdMarca");
 
             if (idCategoria == 0 || idMarca == 0)
             {
                 return;
             }
 
-            int idProducto = CrearProducto(
+            int idProducto = await CrearProductoAsync(
                 cadena, idCategoria, idMarca, precio: 100m, stock: 1);
-            int idCliente = CrearCliente(cadena);
+            int idCliente = await CrearClienteAsync(cadena);
 
             try
             {
-                (FachadaVenta fachadaA, MySqlConexionTransaccional conexionA) =
+                (FachadaVenta fachadaA, _, MySqlConexionTransaccional conexionA) =
                     CrearFachada(cadena, idEmpleado: 1);
-                (FachadaVenta fachadaB, MySqlConexionTransaccional conexionB) =
+                (FachadaVenta fachadaB, _, MySqlConexionTransaccional conexionB) =
                     CrearFachada(cadena, idEmpleado: 1);
 
                 using (conexionA)
@@ -249,13 +251,13 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
                     int exitos = resultados.Count(r => r.Exito);
 
                     Assert.Equal(1, exitos);
-                    Assert.Equal(0, LeerStock(cadena, idProducto));
-                    Assert.Equal(1, ContarVentasDeCliente(cadena, idCliente));
+                    Assert.Equal(0, await LeerStockAsync(cadena, idProducto));
+                    Assert.Equal(1, await ContarVentasDeClienteAsync(cadena, idCliente));
                 }
             }
             finally
             {
-                Limpiar(cadena, idProducto, idCliente);
+                await LimpiarAsync(cadena, idProducto, idCliente);
             }
         }
 
@@ -269,23 +271,23 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
                 return;
             }
 
-            int idCategoria = ObtenerPrimerId(cadena, "categoria", "IdCategoria");
-            int idMarca = ObtenerPrimerId(cadena, "marca", "IdMarca");
+            int idCategoria = await ObtenerPrimerIdAsync(cadena, "categoria", "IdCategoria");
+            int idMarca = await ObtenerPrimerIdAsync(cadena, "marca", "IdMarca");
 
             if (idCategoria == 0 || idMarca == 0)
             {
                 return;
             }
 
-            int idProducto = CrearProducto(
+            int idProducto = await CrearProductoAsync(
                 cadena, idCategoria, idMarca, precio: 100m, stock: 2);
-            int idCliente = CrearCliente(cadena);
+            int idCliente = await CrearClienteAsync(cadena);
 
             try
             {
-                (FachadaVenta fachadaA, MySqlConexionTransaccional conexionA) =
+                (FachadaVenta fachadaA, _, MySqlConexionTransaccional conexionA) =
                     CrearFachada(cadena, idEmpleado: 1);
-                (FachadaVenta fachadaB, MySqlConexionTransaccional conexionB) =
+                (FachadaVenta fachadaB, _, MySqlConexionTransaccional conexionB) =
                     CrearFachada(cadena, idEmpleado: 1);
 
                 using (conexionA)
@@ -318,7 +320,7 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
                         await Task.WhenAll(tareaA, tareaB);
 
                     Assert.Equal(2, resultados.Count(r => r.Exito));
-                    Assert.Equal(0, LeerStock(cadena, idProducto));
+                    Assert.Equal(0, await LeerStockAsync(cadena, idProducto));
 
                     List<int> ids = resultados.Select(r => r.IdVenta).ToList();
                     List<string?> codigos = resultados
@@ -332,7 +334,7 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
             }
             finally
             {
-                Limpiar(cadena, idProducto, idCliente);
+                await LimpiarAsync(cadena, idProducto, idCliente);
             }
         }
 
@@ -346,23 +348,23 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
                 return;
             }
 
-            int idCategoria = ObtenerPrimerId(cadena, "categoria", "IdCategoria");
-            int idMarca = ObtenerPrimerId(cadena, "marca", "IdMarca");
+            int idCategoria = await ObtenerPrimerIdAsync(cadena, "categoria", "IdCategoria");
+            int idMarca = await ObtenerPrimerIdAsync(cadena, "marca", "IdMarca");
 
             if (idCategoria == 0 || idMarca == 0)
             {
                 return;
             }
 
-            int idProducto = CrearProducto(
+            int idProducto = await CrearProductoAsync(
                 cadena, idCategoria, idMarca, precio: 100m, stock: 10);
-            int idCliente = CrearCliente(cadena);
+            int idCliente = await CrearClienteAsync(cadena);
 
             try
             {
                 int idVenta;
 
-                (FachadaVenta fachadaRegistro, MySqlConexionTransaccional conexionRegistro) =
+                (FachadaVenta fachadaRegistro, _, MySqlConexionTransaccional conexionRegistro) =
                     CrearFachada(cadena, idEmpleado: 1);
 
                 using (conexionRegistro)
@@ -380,39 +382,42 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
 
                     Assert.True(venta.Exito);
                     idVenta = venta.IdVenta;
-                    Assert.Equal(6, LeerStock(cadena, idProducto));
+                    Assert.Equal(6, await LeerStockAsync(cadena, idProducto));
                 }
 
-                (FachadaVenta fachadaA, MySqlConexionTransaccional conexionA) =
+                (_, FachadaAnulacion anulacionA, MySqlConexionTransaccional conexionA) =
                     CrearFachada(cadena, idEmpleado: 1);
-                (FachadaVenta fachadaB, MySqlConexionTransaccional conexionB) =
+                (_, FachadaAnulacion anulacionB, MySqlConexionTransaccional conexionB) =
                     CrearFachada(cadena, idEmpleado: 1);
 
                 using (conexionA)
                 using (conexionB)
                 {
                     Task<ResultadoVenta> tareaA =
-                        fachadaA.AnularVentaAsync(idVenta, "Anulación concurrente A");
+                        anulacionA.AnularVentaAsync(idVenta, "Anulación concurrente A");
                     Task<ResultadoVenta> tareaB =
-                        fachadaB.AnularVentaAsync(idVenta, "Anulación concurrente B");
+                        anulacionB.AnularVentaAsync(idVenta, "Anulación concurrente B");
 
                     ResultadoVenta[] resultados =
                         await Task.WhenAll(tareaA, tareaB);
 
                     Assert.Equal(1, resultados.Count(r => r.Exito));
-                    Assert.Equal(10, LeerStock(cadena, idProducto));
+                    Assert.Equal(10, await LeerStockAsync(cadena, idProducto));
                     Assert.Equal(
                         EstadoVenta.Anulada,
-                        LeerEstadoVenta(cadena, idVenta));
+                        await LeerEstadoVentaAsync(cadena, idVenta));
                 }
             }
             finally
             {
-                Limpiar(cadena, idProducto, idCliente);
+                await LimpiarAsync(cadena, idProducto, idCliente);
             }
         }
 
-        private static (FachadaVenta, MySqlConexionTransaccional) CrearFachada(
+        private static (
+            FachadaVenta Venta,
+            FachadaAnulacion Anulacion,
+            MySqlConexionTransaccional Conexion) CrearFachada(
             string cadena,
             int idEmpleado)
         {
@@ -425,73 +430,88 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
                 new DescuentoPorCantidad(cantidadMinima: 12, porcentaje: 3m)
             });
 
-            FachadaVenta fachada = new(
-                new ClienteRepositoryCreator(conexion),
-                new VentaRepositoryCreator(conexion),
-                new DetalleVentaRepositoryCreator(conexion),
-                new InventarioRepositoryCreator(conexion),
-                new EmpleadoVentaRepositoryCreator(conexion),
-                new MySqlUnidadDeTrabajo(conexion),
-                selector,
-                new ContextoUsuarioFake(idEmpleado));
+            IContextoUsuario contexto = new ContextoUsuarioFake(idEmpleado);
 
-            return (fachada, conexion);
+            MySqlVentaRepository ventasRepositorio = new(conexion);
+            MySqlDetalleVentaRepository detallesRepositorio = new(conexion);
+            MySqlInventarioRepository inventarioRepositorio = new(conexion);
+            MySqlClienteRepository clientesRepositorio = new(conexion);
+            RepositoryCreator<IRepository<Empleado>> creadorEmpleados = new EmpleadoRepositoryCreator(fabrica);
+            MySqlUnidadDeTrabajo unidadDeTrabajo = new(conexion);
+
+            FachadaActualizacionStock stock = new(inventarioRepositorio);
+
+            ServicioCliente servicioCliente = new(clientesRepositorio, contexto);
+
+            FachadaVenta venta = new(
+                ventasRepositorio,
+                detallesRepositorio,
+                creadorEmpleados,
+                unidadDeTrabajo,
+                selector,
+                contexto,
+                stock,
+                servicioCliente,
+                new ConfiguracionDescuentos());
+
+            FachadaAnulacion anulacion = new(
+                ventasRepositorio,
+                detallesRepositorio,
+                servicioCliente,
+                unidadDeTrabajo,
+                contexto,
+                stock);
+
+            return (venta, anulacion, conexion);
         }
 
-        private static MySqlConnection Abrir(string cadena)
+        private static async Task<MySqlConnection> AbrirAsync(string cadena)
         {
             MySqlConnection conexion = new(cadena);
-            conexion.Open();
+            await conexion.OpenAsync();
             return conexion;
         }
 
-        private static int EjecutarEscalar(string cadena, string sql, params (string, object)[] parametros)
+        private static async Task<int> EjecutarEscalarAsync(
+            string cadena,
+            string sql,
+            params (string, object)[] parametros)
         {
-            using MySqlConnection conexion = Abrir(cadena);
-            using MySqlCommand comando = new(sql, conexion);
+            await using MySqlConnection conexion = await AbrirAsync(cadena);
+            await using MySqlCommand comando = new(sql, conexion);
 
             foreach ((string nombre, object valor) in parametros)
             {
                 comando.Parameters.AddWithValue(nombre, valor);
             }
 
-            object? resultado = comando.ExecuteScalar();
+            object? resultado = await comando.ExecuteScalarAsync();
 
             return resultado is null || resultado == DBNull.Value
                 ? 0
                 : Convert.ToInt32(resultado);
         }
 
-        private static void Ejecutar(string cadena, string sql, params (string, object)[] parametros)
+        private static Task<int> ObtenerPrimerIdAsync(
+            string cadena,
+            string tabla,
+            string columna)
         {
-            using MySqlConnection conexion = Abrir(cadena);
-            using MySqlCommand comando = new(sql, conexion);
-
-            foreach ((string nombre, object valor) in parametros)
-            {
-                comando.Parameters.AddWithValue(nombre, valor);
-            }
-
-            comando.ExecuteNonQuery();
-        }
-
-        private static int ObtenerPrimerId(string cadena, string tabla, string columna)
-        {
-            return EjecutarEscalar(
+            return EjecutarEscalarAsync(
                 cadena,
                 $"SELECT {columna} FROM {tabla} WHERE Estado = 1 ORDER BY {columna} LIMIT 1");
         }
 
-        private static int CrearProducto(
+        private static async Task<int> CrearProductoAsync(
             string cadena,
             int idCategoria,
             int idMarca,
             decimal precio,
             int stock)
         {
-            using MySqlConnection conexion = Abrir(cadena);
+            await using MySqlConnection conexion = await AbrirAsync(cadena);
 
-            using MySqlCommand comando = new(@"
+            await using MySqlCommand comando = new(@"
                 INSERT INTO producto
                 (
                     IdCategoria, Codigo, Nombre, Marca, UnidadMedida,
@@ -510,16 +530,16 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
             comando.Parameters.AddWithValue("@precio", precio);
             comando.Parameters.AddWithValue("@stock", stock);
 
-            comando.ExecuteNonQuery();
+            await comando.ExecuteNonQueryAsync();
 
             return Convert.ToInt32(comando.LastInsertedId);
         }
 
-        private static int CrearCliente(string cadena)
+        private static async Task<int> CrearClienteAsync(string cadena)
         {
-            using MySqlConnection conexion = Abrir(cadena);
+            await using MySqlConnection conexion = await AbrirAsync(cadena);
 
-            using MySqlCommand comando = new(@"
+            await using MySqlCommand comando = new(@"
                 INSERT INTO cliente
                 (
                     Nombre, Apellido, Telefono, Estado, IdEmpleadoResponsable
@@ -531,68 +551,70 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
 
             comando.Parameters.AddWithValue("@nombre", $"Cliente {Guid.NewGuid():N}"[..20]);
 
-            comando.ExecuteNonQuery();
+            await comando.ExecuteNonQueryAsync();
 
             return Convert.ToInt32(comando.LastInsertedId);
         }
 
-        private static int LeerStock(string cadena, int idProducto)
+        private static Task<int> LeerStockAsync(string cadena, int idProducto)
         {
-            return EjecutarEscalar(
+            return EjecutarEscalarAsync(
                 cadena,
                 "SELECT CantidadStock FROM producto WHERE IdProducto = @id",
                 ("@id", idProducto));
         }
 
-        private static string LeerEstadoVenta(string cadena, int idVenta)
+        private static async Task<string> LeerEstadoVentaAsync(string cadena, int idVenta)
         {
-            using MySqlConnection conexion = Abrir(cadena);
-            using MySqlCommand comando = new(
+            await using MySqlConnection conexion = await AbrirAsync(cadena);
+            await using MySqlCommand comando = new(
                 "SELECT EstadoVenta FROM venta WHERE IdVenta = @id", conexion);
 
             comando.Parameters.AddWithValue("@id", idVenta);
 
-            return comando.ExecuteScalar()?.ToString() ?? string.Empty;
+            object? resultado = await comando.ExecuteScalarAsync();
+
+            return resultado?.ToString() ?? string.Empty;
         }
 
-        private static int ContarVentasDeCliente(string cadena, int idCliente)
+        private static Task<int> ContarVentasDeClienteAsync(string cadena, int idCliente)
         {
-            return EjecutarEscalar(
+            return EjecutarEscalarAsync(
                 cadena,
                 "SELECT COUNT(*) FROM venta WHERE IdCliente = @id",
                 ("@id", idCliente));
         }
 
-        private static void Limpiar(string cadena, int idProducto, int idCliente)
+        private static async Task LimpiarAsync(string cadena, int idProducto, int idCliente)
         {
-            using MySqlConnection conexion = Abrir(cadena);
+            await using MySqlConnection conexion = await AbrirAsync(cadena);
 
-            using (MySqlCommand borrarDetalle = new(
+            await using (MySqlCommand borrarDetalle = new(
                 "DELETE FROM detalle_venta WHERE IdProducto = @id", conexion))
             {
                 borrarDetalle.Parameters.AddWithValue("@id", idProducto);
-                borrarDetalle.ExecuteNonQuery();
+                await borrarDetalle.ExecuteNonQueryAsync();
             }
 
-            using (MySqlCommand borrarVentas = new(
+            await using (MySqlCommand borrarVentas = new(
                 "DELETE FROM venta WHERE IdCliente = @id", conexion))
             {
                 borrarVentas.Parameters.AddWithValue("@id", idCliente);
-                borrarVentas.ExecuteNonQuery();
+                await borrarVentas.ExecuteNonQueryAsync();
             }
 
-            using (MySqlCommand borrarProducto = new(
+            await using (MySqlCommand borrarProducto = new(
                 "DELETE FROM producto WHERE IdProducto = @id", conexion))
             {
                 borrarProducto.Parameters.AddWithValue("@id", idProducto);
-                borrarProducto.ExecuteNonQuery();
+                await borrarProducto.ExecuteNonQueryAsync();
             }
 
-            using (MySqlCommand borrarCliente = new(
+            await using (MySqlCommand borrarCliente = new(
                 "DELETE FROM cliente WHERE IdCliente = @id", conexion))
             {
                 borrarCliente.Parameters.AddWithValue("@id", idCliente);
-                borrarCliente.ExecuteNonQuery();
+                await borrarCliente.ExecuteNonQueryAsync();
             }
         }
     }

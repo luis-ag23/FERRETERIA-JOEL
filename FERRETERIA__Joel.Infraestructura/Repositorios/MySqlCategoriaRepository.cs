@@ -14,7 +14,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             _connectionFactory = connectionFactory;
         }
 
-        public List<Categoria> ObtenerTodos()
+        public virtual async Task<List<Categoria>> ObtenerTodosAsync()
         {
             List<Categoria> categorias = new();
 
@@ -38,12 +38,12 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             using MySqlCommand command =
                 new MySqlCommand(query, connection);
 
-            connection.Open();
+            await connection.OpenAsync();
 
             using MySqlDataReader reader =
-                command.ExecuteReader();
+                (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            while (reader.Read())
+            while (await reader.ReadAsync())
             {
                 categorias.Add(MapearCategoria(reader));
             }
@@ -51,7 +51,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return categorias;
         }
 
-        public int Insertar(Categoria categoria)
+        public virtual async Task<int> InsertarAsync(Categoria categoria)
         {
             const string query = @"INSERT INTO categoria 
                                   (Codigo, Nombre, Descripcion, PorcentajeGanancia, Estado, IdEmpleadoResponsable) 
@@ -71,13 +71,13 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.Parameters.AddWithValue("@Estado", categoria.Estado);
             command.Parameters.AddWithValue("@IdEmpleadoResponsable", categoria.IdEmpleadoResponsable);
 
-            connection.Open();
-            command.ExecuteNonQuery();
+            await connection.OpenAsync();
+            await command.ExecuteNonQueryAsync();
 
             return Convert.ToInt32(command.LastInsertedId);
         }
 
-        public void Actualizar(Categoria categoria)
+        public virtual async Task ActualizarAsync(Categoria categoria)
         {
             const string query = @"UPDATE categoria 
                                   SET Codigo = @Codigo, 
@@ -103,11 +103,11 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.Parameters.AddWithValue("@IdEmpleadoResponsable", categoria.IdEmpleadoResponsable);
             command.Parameters.AddWithValue("@IdCategoria", categoria.IdCategoria);
 
-            connection.Open();
-            command.ExecuteNonQuery();
+            await connection.OpenAsync();
+            await command.ExecuteNonQueryAsync();
         }
 
-        public void CambiarEstado(int id, int idEmpleadoResponsable)
+        public virtual async Task CambiarEstadoAsync(int id, int idEmpleadoResponsable)
         {
             const string query = @"UPDATE categoria 
                                   SET Estado = CASE
@@ -130,11 +130,11 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 "@IdEmpleadoResponsable",
                 idEmpleadoResponsable);
 
-            connection.Open();
-            command.ExecuteNonQuery();
+            await connection.OpenAsync();
+            await command.ExecuteNonQueryAsync();
         }
 
-        public List<Categoria> MostrarActivos()
+        public virtual async Task<List<Categoria>> MostrarActivosAsync()
         {
             List<Categoria> categorias = new();
 
@@ -159,12 +159,12 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             using MySqlCommand command =
                 new MySqlCommand(query, connection);
 
-            connection.Open();
+            await connection.OpenAsync();
 
             using MySqlDataReader reader =
-                command.ExecuteReader();
+                (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            while (reader.Read())
+            while (await reader.ReadAsync())
             {
                 categorias.Add(MapearCategoria(reader));
             }
@@ -174,7 +174,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
         // ================== Funciones fuera del contrato ==================
 
-        public Categoria? ObtenerPorId(int id)
+        public virtual async Task<Categoria?> ObtenerPorIdAsync(int id)
         {
             const string query = @"
                 SELECT
@@ -201,17 +201,17 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 "@IdCategoria",
                 id);
 
-            connection.Open();
+            await connection.OpenAsync();
 
             using MySqlDataReader reader =
-                command.ExecuteReader();
+                (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            return reader.Read()
+            return await reader.ReadAsync()
                 ? MapearCategoria(reader)
                 : null;
         }
 
-        public int Count()
+        public virtual async Task<int> CountAsync()
         {
             const string query = @"
                 SELECT COUNT(*)
@@ -223,9 +223,9 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             using MySqlCommand command =
                 new MySqlCommand(query, connection);
 
-            connection.Open();
+            await connection.OpenAsync();
 
-            return Convert.ToInt32(command.ExecuteScalar());
+            return Convert.ToInt32(await command.ExecuteScalarAsync());
         }
 
         private Categoria MapearCategoria(MySqlDataReader reader)

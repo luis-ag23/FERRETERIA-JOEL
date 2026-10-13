@@ -14,7 +14,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             _connectionFactory = connectionFactory;
         }
 
-        public List<Marca> ObtenerTodos()
+        public virtual async Task<List<Marca>> ObtenerTodosAsync()
         {
             List<Marca> marcas = new();
 
@@ -38,12 +38,12 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             using MySqlCommand command =
                 new MySqlCommand(query, connection);
 
-            connection.Open();
+            await connection.OpenAsync();
 
             using MySqlDataReader reader =
-                command.ExecuteReader();
+                (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            while (reader.Read())
+            while (await reader.ReadAsync())
             {
                 marcas.Add(MapearMarca(reader));
             }
@@ -51,7 +51,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return marcas;
         }
 
-        public int Insertar(Marca marca)
+        public virtual async Task<int> InsertarAsync(Marca marca)
         {
             const string query = @"
                 INSERT INTO marca
@@ -99,14 +99,14 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 "@idEmpleadoResponsable",
                 marca.IdEmpleadoResponsable);
 
-            connection.Open();
+            await connection.OpenAsync();
 
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
 
             return Convert.ToInt32(command.LastInsertedId);
         }
 
-        public void Actualizar(Marca marca)
+        public virtual async Task ActualizarAsync(Marca marca)
         {
             const string query = @"
                 UPDATE marca
@@ -154,12 +154,12 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 "@idEmpleadoResponsable",
                 marca.IdEmpleadoResponsable);
 
-            connection.Open();
+            await connection.OpenAsync();
 
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
         }
 
-        public void CambiarEstado(int id, int idEmpleadoResponsable)
+        public virtual async Task CambiarEstadoAsync(int id, int idEmpleadoResponsable)
         {
             const string query = @"
                 UPDATE marca
@@ -184,12 +184,12 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 "@idEmpleadoResponsable",
                 idEmpleadoResponsable);
 
-            connection.Open();
+            await connection.OpenAsync();
 
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
         }
 
-        public List<Marca> MostrarActivos()
+        public virtual async Task<List<Marca>> MostrarActivosAsync()
         {
             List<Marca> marcas = new();
 
@@ -214,12 +214,12 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             using MySqlCommand command =
                 new MySqlCommand(query, connection);
 
-            connection.Open();
+            await connection.OpenAsync();
 
             using MySqlDataReader reader =
-                command.ExecuteReader();
+                (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            while (reader.Read())
+            while (await reader.ReadAsync())
             {
                 marcas.Add(MapearMarca(reader));
             }

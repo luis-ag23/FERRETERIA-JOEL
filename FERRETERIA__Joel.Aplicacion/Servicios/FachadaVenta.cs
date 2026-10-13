@@ -3,72 +3,69 @@ using FERRETERIA__Joel.Aplicacion.Politicas;
 using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
+using FERRETERIA__Joel.Infraestructura.Factories;
+using FERRETERIA__Joel.Infraestructura.Repositorios;
 
 namespace FERRETERIA__Joel.Aplicacion.Servicios
 {
     /// <summary>
-    /// Patrón Facade (Fachada) para el proceso de ventas. Presenta una
-    /// única interfaz de alto nivel que coordina los subsistemas:
-    /// catálogo, clientes, inventario, repositorios de venta/detalle,
-    /// la unidad de trabajo (transacción), el selector de descuentos
-    /// (Strategy) y la identidad del usuario autenticado.
+    /// Fachada (Facade) del proceso de REGISTRO de venta. Presenta una
+    /// única interfaz de alto nivel a la pantalla de venta, coordinando
+    /// clientes, el subsistema de stock (<see cref="FachadaActualizacionStock"/>),
+    /// la cabecera/detalle de la venta, la unidad de trabajo (transacción)
+    /// y el selector de descuentos (Strategy).
     ///
-    /// Todo el flujo de escritura es asíncrono (async/await) de extremo
-    /// a extremo: la presentación, esta fachada, los repositorios y la
-    /// transacción MySQL. La presentación no conoce repositorios,
-    /// transacciones ni políticas: solo consume esta fachada.
+    /// La pantalla de venta NO conoce repositorios, transacciones ni
+    /// políticas: solo consume esta fachada. A su vez, esta fachada
+    /// delega el inventario en la fachada de stock, de modo que el
+    /// descuento de existencias queda encapsulado en su propio subsistema.
+    /// Todo el flujo es asíncrono (async/await) de extremo a extremo.
     /// </summary>
     public class FachadaVenta
     {
-        private readonly RepositoryCreator<IClienteRepository> _creadorClientes;
-        private readonly RepositoryCreator<IVentaRepository> _creadorVentas;
-        private readonly RepositoryCreator<IDetalleVentaRepository> _creadorDetalles;
-        private readonly RepositoryCreator<IInventarioRepository> _creadorInventario;
-        private readonly RepositoryCreator<IEmpleadoVentaRepository> _creadorEmpleados;
+        private readonly MySqlVentaRepository _ventas;
+        private readonly MySqlDetalleVentaRepository _detalles;
+        private readonly RepositoryCreator<IRepository<Empleado>> _creadorEmpleados;
         private readonly IUnidadDeTrabajo _unidadDeTrabajo;
         private readonly SelectorDescuento _selectorDescuento;
         private readonly IContextoUsuario _contextoUsuario;
+        private readonly FachadaActualizacionStock _stock;
+        private readonly ServicioCliente _servicioCliente;
 
-        private IClienteRepository? _clientes;
-        private IVentaRepository? _ventas;
-        private IDetalleVentaRepository? _detalles;
-        private IInventarioRepository? _inventario;
-        private IEmpleadoVentaRepository? _empleados;
+        private IRepository<Empleado>? _empleados;
 
         public FachadaVenta(
-            RepositoryCreator<IClienteRepository> creadorClientes,
-            RepositoryCreator<IVentaRepository> creadorVentas,
-            RepositoryCreator<IDetalleVentaRepository> creadorDetalles,
-            RepositoryCreator<IInventarioRepository> creadorInventario,
-            RepositoryCreator<IEmpleadoVentaRepository> creadorEmpleados,
+            MySqlVentaRepository ventas,
+            MySqlDetalleVentaRepository detalles,
+            RepositoryCreator<IRepository<Empleado>> creadorEmpleados,
             IUnidadDeTrabajo unidadDeTrabajo,
             SelectorDescuento selectorDescuento,
-            IContextoUsuario contextoUsuario)
+            IContextoUsuario contextoUsuario,
+            FachadaActualizacionStock stock,
+            ServicioCliente servicioCliente,
+            ConfiguracionDescuentos descuentos)
         {
-            _creadorClientes = creadorClientes;
-            _creadorVentas = creadorVentas;
-            _creadorDetalles = creadorDetalles;
-            _creadorInventario = creadorInventario;
+            _ventas = ventas;
+            _detalles = detalles;
             _creadorEmpleados = creadorEmpleados;
             _unidadDeTrabajo = unidadDeTrabajo;
             _selectorDescuento = selectorDescuento;
             _contextoUsuario = contextoUsuario;
+            _stock = stock;
+            _servicioCliente = servicioCliente;
+            Descuentos = descuentos;
         }
 
-        private IClienteRepository Clientes =>
-            _clientes ??= _creadorClientes.CreateRepository();
+        /// <summary>
+        /// Parámetros de descuento vigentes, expuestos a la pantalla de
+        /// venta para la previsualización de totales en el cliente.
+        /// </summary>
+        public ConfiguracionDescuentos Descuentos { get; }
 
-        private IVentaRepository Ventas =>
-            _ventas ??= _creadorVentas.CreateRepository();
-
-        private IDetalleVentaRepository Detalles =>
-            _detalles ??= _creadorDetalles.CreateRepository();
-
-        private IInventarioRepository Inventario =>
-            _inventario ??= _creadorInventario.CreateRepository();
-
-        private IEmpleadoVentaRepository Empleados =>
+        private IRepository<Empleado> Empleados =>
             _empleados ??= _creadorEmpleados.CreateRepository();
+
+        // ---------- Búsquedas previas a la inserción ----------
 
         public async Task<List<Cliente>> BuscarClientesAsync(string termino)
         {
@@ -77,12 +74,12 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 return new List<Cliente>();
             }
 
-            return await Clientes.BuscarAsync(termino.Trim());
+            return await _servicioCliente.BuscarAsync(termino.Trim());
         }
 
         public async Task<List<Producto>> BuscarProductosAsync(string termino)
         {
-            List<Producto> activos = await Inventario.ListarActivosAsync();
+            List<Producto> activos = await _stock.ListarActivosAsync();
 
             if (string.IsNullOrWhiteSpace(termino))
             {
@@ -101,7 +98,22 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
         public Task<Producto?> ObtenerProductoAsync(int idProducto)
         {
-            return Inventario.ObtenerParaVentaAsync(idProducto);
+            return _stock.ObtenerParaVentaAsync(idProducto);
+        }
+
+        /// <summary>
+        /// Alta rápida de un cliente desde la propia pantalla de venta. Se
+        /// delega en el caso de uso de clientes para no duplicar reglas.
+        /// </summary>
+        public Task<ResultadoCliente> CrearClienteAsync(
+            string nombre,
+            string apellido,
+            string telefono)
+        {
+            return _servicioCliente.CrearAsync(
+                nombre,
+                apellido,
+                telefono);
         }
 
         public async Task<(LineaVentaDetalle? Linea, string? Error)> CalcularLineaAsync(
@@ -158,6 +170,8 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 PoliticaDescuento = descuento.Politica
             };
         }
+
+        // ---------- Registro de la venta (transacción) ----------
 
         public async Task<ResultadoVenta> RegistrarVentaAsync(SolicitudVenta solicitud)
         {
@@ -237,21 +251,21 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 if (clave is not null)
                 {
                     Venta? existente =
-                        await Ventas.ObtenerPorClaveIdempotenciaAsync(clave);
+                        await _ventas.ObtenerPorClaveIdempotenciaAsync(clave);
 
                     if (existente is not null)
                     {
                         await _unidadDeTrabajo.ConfirmarAsync();
                         return ArmarResultado(
                             existente,
-                            await MapearDetallesAsync(
-                                await Detalles.ObtenerPorVentaAsync(existente.IdVenta)),
+                            await _stock.MapearLineasAsync(
+                                await _detalles.ObtenerPorVentaAsync(existente.IdVenta)),
                             idempotente: true);
                     }
                 }
 
                 Cliente? cliente =
-                    await Clientes.ObtenerPorIdAsync(solicitud.IdCliente);
+                    await _servicioCliente.ObtenerPorIdAsync(solicitud.IdCliente);
 
                 if (cliente is null || cliente.Estado != 1)
                 {
@@ -268,7 +282,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 foreach (KeyValuePair<int, int> par in cantidades)
                 {
                     Producto? producto =
-                        await Inventario.ObtenerParaVentaAsync(par.Key);
+                        await _stock.ObtenerParaVentaAsync(par.Key);
 
                     if (producto is null)
                     {
@@ -285,7 +299,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                             $"Disponible: {producto.CantidadStock}.");
                     }
 
-                    if (!await Inventario.DescontarAsync(par.Key, par.Value))
+                    if (!await _stock.DescontarAsync(par.Key, par.Value))
                     {
                         await _unidadDeTrabajo.RevertirAsync();
                         return ResultadoVenta.Fallido(
@@ -338,19 +352,19 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                     IdEmpleadoResponsable = idEmpleado
                 };
 
-                int idVenta = await Ventas.InsertarAsync(venta);
-                await Ventas.AsignarCodigoAsync(idVenta);
+                int idVenta = await _ventas.InsertarAsync(venta);
+                await _ventas.AsignarCodigoAsync(idVenta);
 
                 foreach (DetalleVenta detalle in detalles)
                 {
                     detalle.IdVenta = idVenta;
-                    await Detalles.InsertarAsync(detalle);
+                    await _detalles.InsertarAsync(detalle);
                 }
 
                 await _unidadDeTrabajo.ConfirmarAsync();
 
                 Venta guardada =
-                    await Ventas.ObtenerPorIdAsync(idVenta) ?? venta;
+                    await _ventas.ObtenerPorIdAsync(idVenta) ?? venta;
 
                 return ArmarResultado(
                     guardada,
@@ -364,14 +378,14 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 if (clave is not null)
                 {
                     Venta? existente =
-                        await Ventas.ObtenerPorClaveIdempotenciaAsync(clave);
+                        await _ventas.ObtenerPorClaveIdempotenciaAsync(clave);
 
                     if (existente is not null)
                     {
                         return ArmarResultado(
                             existente,
-                            await MapearDetallesAsync(
-                                await Detalles.ObtenerPorVentaAsync(existente.IdVenta)),
+                            await _stock.MapearLineasAsync(
+                                await _detalles.ObtenerPorVentaAsync(existente.IdVenta)),
                             idempotente: true);
                     }
                 }
@@ -381,73 +395,25 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             }
         }
 
-        public Task<List<Venta>> ListarVentasAsync()
-        {
-            return Ventas.ObtenerTodosAsync();
-        }
-
-        public async Task<List<VentaListado>> ListarVentasListadoAsync()
-        {
-            List<Venta> ventas = await Ventas.ObtenerTodosAsync();
-
-            Dictionary<int, string> nombresCliente = new();
-
-            foreach (int idCliente in ventas.Select(v => v.IdCliente).Distinct())
-            {
-                Cliente? cliente = await Clientes.ObtenerPorIdAsync(idCliente);
-
-                if (cliente is not null)
-                {
-                    nombresCliente[idCliente] =
-                        $"{cliente.Nombre} {cliente.Apellido}".Trim();
-                }
-            }
-
-            return ventas
-                .Select(v => new VentaListado
-                {
-                    Venta = v,
-                    NombreCliente = nombresCliente.TryGetValue(
-                        v.IdCliente,
-                        out string? nombre)
-                        ? nombre
-                        : "Cliente eliminado"
-                })
-                .ToList();
-        }
-
-        public async Task<ResultadoVenta?> ObtenerVentaAsync(int idVenta)
-        {
-            Venta? venta = await Ventas.ObtenerPorIdAsync(idVenta);
-
-            if (venta is null)
-            {
-                return null;
-            }
-
-            return ArmarResultado(
-                venta,
-                await MapearDetallesAsync(
-                    await Detalles.ObtenerPorVentaAsync(idVenta)),
-                idempotente: false);
-        }
+        // ---------- Comprobante / recibo ----------
 
         public async Task<ComprobanteVenta?> ObtenerComprobanteAsync(int idVenta)
         {
-            Venta? venta = await Ventas.ObtenerPorIdAsync(idVenta);
+            Venta? venta = await _ventas.ObtenerPorIdAsync(idVenta);
 
             if (venta is null)
             {
                 return null;
             }
 
-            Cliente? cliente = await Clientes.ObtenerPorIdAsync(venta.IdCliente);
+            Cliente? cliente =
+                await _servicioCliente.ObtenerPorIdAsync(venta.IdCliente);
 
             string nombreCliente = cliente is null
                 ? "Cliente eliminado"
                 : $"{cliente.Nombre} {cliente.Apellido}".Trim();
 
-            List<Empleado> todos = await Empleados.ListarAsync();
+            List<Empleado> todos = await Empleados.ObtenerTodosAsync();
 
             return new ComprobanteVenta
             {
@@ -457,8 +423,8 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 NombreEmpleadoAnulacion = venta.IdEmpleadoAnulacion is not null
                     ? NombreDe(todos, venta.IdEmpleadoAnulacion.Value)
                     : null,
-                Lineas = await MapearDetallesAsync(
-                    await Detalles.ObtenerPorVentaAsync(idVenta))
+                Lineas = await _stock.MapearLineasAsync(
+                    await _detalles.ObtenerPorVentaAsync(idVenta))
             };
         }
 
@@ -470,110 +436,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             return empleado is null
                 ? $"Empleado #{idEmpleado}"
                 : $"{empleado.Nombre} {empleado.Apellido}".Trim();
-        }
-
-        public async Task<ResultadoVenta> AnularVentaAsync(int idVenta, string motivo)
-        {
-            if (string.IsNullOrWhiteSpace(motivo))
-            {
-                return ResultadoVenta.Fallido(
-                    "Debe indicar el motivo de la anulación.");
-            }
-
-            int idEmpleado = _contextoUsuario.IdEmpleado;
-
-            if (idEmpleado <= 0)
-            {
-                return ResultadoVenta.Fallido(
-                    "Debe iniciar sesión para anular la venta.");
-            }
-
-            await _unidadDeTrabajo.IniciarAsync();
-
-            try
-            {
-                Venta? venta = await Ventas.ObtenerPorIdAsync(idVenta);
-
-                if (venta is null)
-                {
-                    await _unidadDeTrabajo.RevertirAsync();
-                    return ResultadoVenta.Fallido("La venta no existe.");
-                }
-
-                if (!string.Equals(
-                        venta.EstadoVenta,
-                        EstadoVenta.Registrada,
-                        StringComparison.Ordinal))
-                {
-                    await _unidadDeTrabajo.RevertirAsync();
-                    return ResultadoVenta.Fallido(
-                        "Solo se pueden anular ventas en estado 'Registrada'.");
-                }
-
-                List<DetalleVenta> detalles =
-                    await Detalles.ObtenerPorVentaAsync(idVenta);
-
-                if (!await Ventas.MarcarAnuladaAsync(idVenta, idEmpleado, motivo.Trim()))
-                {
-                    await _unidadDeTrabajo.RevertirAsync();
-                    return ResultadoVenta.Fallido(
-                        "No se pudo anular la venta; pudo haber sido " +
-                        "anulada por otra sesión.");
-                }
-
-                foreach (DetalleVenta detalle in detalles)
-                {
-                    await Inventario.ReponerAsync(detalle.IdProducto, detalle.Cantidad);
-                }
-
-                await _unidadDeTrabajo.ConfirmarAsync();
-
-                Venta actualizada =
-                    await Ventas.ObtenerPorIdAsync(idVenta) ?? venta;
-
-                return ArmarResultado(
-                    actualizada,
-                    await MapearDetallesAsync(detalles),
-                    idempotente: false);
-            }
-            catch (Exception)
-            {
-                await _unidadDeTrabajo.RevertirAsync();
-                return ResultadoVenta.Fallido(
-                    "No se pudo anular la venta. Intente nuevamente.");
-            }
-        }
-
-        private async Task<List<LineaVentaDetalle>> MapearDetallesAsync(
-            IEnumerable<DetalleVenta> detalles)
-        {
-            List<DetalleVenta> lista = detalles.ToList();
-
-            List<Producto> productos = await Inventario.ObtenerPorIdsAsync(
-                lista.Select(d => d.IdProducto).Distinct().ToList());
-
-            Dictionary<int, Producto> productoPorId =
-                productos.ToDictionary(p => p.IdProducto);
-
-            return lista
-                .Select(d =>
-                {
-                    Producto? producto = productoPorId.GetValueOrDefault(
-                        d.IdProducto);
-
-                    return new LineaVentaDetalle
-                    {
-                        IdProducto = d.IdProducto,
-                        Codigo = producto?.Codigo ?? string.Empty,
-                        Nombre = producto?.Nombre
-                            ?? $"Producto #{d.IdProducto}",
-                        UnidadMedida = producto?.UnidadMedida ?? string.Empty,
-                        Cantidad = d.Cantidad,
-                        PrecioUnitario = d.PrecioUnitario,
-                        TotalProducto = d.TotalProducto
-                    };
-                })
-                .ToList();
         }
 
         private static ResultadoVenta ArmarResultado(

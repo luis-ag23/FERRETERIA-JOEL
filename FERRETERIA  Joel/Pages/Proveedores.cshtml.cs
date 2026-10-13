@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace FERRETERIA__Joel.Pages
 {
-    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Empleado)]
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Administrador)]
     public class ProveedoresModel : PageModel
     {
         private readonly ServicioProveedor _servicio;
@@ -30,13 +30,13 @@ namespace FERRETERIA__Joel.Pages
             return UrlProtector.Cifrar(id.ToString());
         }
 
-        public void OnGet(bool? soloActivos)
+        public async Task OnGetAsync(bool? soloActivos)
         {
             SoloActivos = soloActivos ?? false;
 
             try
             {
-                ListProveedores = _servicio.Listar(SoloActivos);
+                ListProveedores = await _servicio.ListarAsync(SoloActivos);
             }
             catch (Exception ex)
             {
@@ -49,11 +49,11 @@ namespace FERRETERIA__Joel.Pages
             }
         }
 
-        public IActionResult OnPostEliminar(int idProveedor)
+        public async Task<IActionResult> OnPostEliminarAsync(int idProveedor)
         {
             try
             {
-                _servicio.CambiarEstado(
+                await _servicio.CambiarEstadoAsync(
                     idProveedor,
                     EmpleadoSesion.ObtenerIdEmpleado(User));
 

@@ -1,4 +1,3 @@
-using FERRETERIA__Joel.Dominio.Puertos;
 using FERRETERIA__Joel.Infraestructura.Conexion;
 using MySql.Data.MySqlClient;
 
@@ -6,9 +5,11 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 {
     /// <summary>
     /// Repositorio MySQL de la bitácora de sesiones. Inserta una fila por cada
-    /// evento (login/logout) con el usuario, su tipo y la fecha/hora.
+    /// evento (login/logout) con el usuario, su tipo y la fecha/hora. Se
+    /// inyecta como clase concreta en <c>ServicioBitacora</c> (operación
+    /// especial que no encaja en un contrato genérico CRUD).
     /// </summary>
-    public class MySqlBitacoraRepository : IBitacoraRepository
+    public class MySqlBitacoraRepository
     {
         private readonly IDbConnectionFactory _connectionFactory;
 
@@ -17,7 +18,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             _connectionFactory = connectionFactory;
         }
 
-        public int Registrar(
+        public virtual async Task<int> RegistrarAsync(
             string accion,
             int? idUsuario,
             string? nombreUsuario,
@@ -59,9 +60,9 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
             command.Parameters.AddWithValue("@tipoUsuario", tipoUsuario);
 
-            connection.Open();
+            await connection.OpenAsync();
 
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
 
             return Convert.ToInt32(command.LastInsertedId);
         }

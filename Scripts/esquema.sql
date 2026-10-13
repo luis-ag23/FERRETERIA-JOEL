@@ -157,16 +157,11 @@ CREATE TABLE cliente
     Nombre                VARCHAR(100) NOT NULL,
     Apellido              VARCHAR(100) NOT NULL,
     Telefono              VARCHAR(20)  NOT NULL,
-    CorreoElectronico     VARCHAR(150) NULL DEFAULT NULL,
-    Contrasena            VARCHAR(255) NULL DEFAULT NULL,
     Estado                TINYINT      NOT NULL DEFAULT 1,
     FechaRegistro         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FechaActualizacion    DATETIME     NULL DEFAULT NULL,
-    IdClienteResponsable  INT          NULL DEFAULT NULL,
     IdEmpleadoResponsable INT          NULL DEFAULT NULL,
     PRIMARY KEY (IdCliente),
-    CONSTRAINT FK_cliente_responsable
-        FOREIGN KEY (IdClienteResponsable) REFERENCES cliente (IdCliente),
     CONSTRAINT FK_cliente_empleado
         FOREIGN KEY (IdEmpleadoResponsable) REFERENCES empleado (IdEmpleado)
 ) ENGINE = InnoDB
@@ -260,7 +255,7 @@ CREATE TABLE historico_precio
 -- DATOS: 10 empleados
 -- Las contraseñas se almacenan como hashes PBKDF2-HMAC-SHA256
 -- (formato pbkdf2$iteraciones$sal$hash). No hay texto plano.
--- Credenciales de prueba: Administrador -> admin123 / Vendedor -> clave123
+-- Credenciales de prueba: Administrador -> admin123 / EmpleadoVenta -> clave123
 -- ============================================================
 INSERT INTO empleado
     (Nombre, Apellido, Rol, Telefono, CorreoElectronico, Contrasena, Estado, IdEmpleadoResponsable)
@@ -270,27 +265,27 @@ VALUES
 INSERT INTO empleado
     (Nombre, Apellido, Rol, Telefono, CorreoElectronico, Contrasena, Estado, IdEmpleadoResponsable)
 VALUES
-    ('Maria',    'Lopez',     'Vendedor', '70000002', 'maria.lopez@ferreteria.com',    'pbkdf2$100000$EiFO247GganlHDHRxibZDw==$ovflhHg31hgKKpNQZVQ3tZjGB1w/w8XDZrnb5axXvm4=', 1, 1),
-    ('Carlos',   'Mendoza',   'Vendedor', '70000003', 'carlos.mendoza@ferreteria.com', 'pbkdf2$100000$ayUjMsgyfL17cWAkvjwSiA==$J3qQUfUFBYMAB3ylW0NOgMvAifND8c7EbnxWFnPPKYM=', 1, 1),
-    ('Ana',      'Gutierrez', 'Cajero',   '70000004', 'ana.gutierrez@ferreteria.com',  'pbkdf2$100000$KXtZXQhBSn5/LDoMSA1J/w==$48er+pEZ2cVPdYmKYZ6CsabCgwesfQWZkNmI86CjX+A=', 1, 1),
-    ('Luis',     'Fernandez', 'Almacen',  '70000005', 'luis.fernandez@ferreteria.com', 'pbkdf2$100000$CFNYcmqMCgdqeSA09yxzcA==$/Om+zTZhiKWd93h3XrZE7POI4QK7Dym8YOkhzwgt5Do=', 1, 1),
-    ('Sofia',    'Ramirez',   'Vendedor', '70000006', 'sofia.ramirez@ferreteria.com',  'pbkdf2$100000$QlYdGoL14VOiIwBvuXr1SA==$xWtOKNuCO6Ww+Pi2ak7kylnmTrrB7crk972Z8N5AzuE=', 1, 1),
-    ('Diego',    'Torres',    'Cajero',   '70000007', 'diego.torres@ferreteria.com',   'pbkdf2$100000$kNf5ZyOi23tYQJwSbhxbvg==$xEUvYHu4mK/gQya8j+ZIxfBAkZTbfm93bHw2Cx3HlU8=', 1, 1),
-    ('Lucia',    'Vargas',    'Almacen',  '70000008', 'lucia.vargas@ferreteria.com',   'pbkdf2$100000$72lYf8pr8D50FmGTnHaaHw==$Pym0xZNlP3gLWsolMIFE9AaYkPb+eKCdnT05Vr84jy4=', 1, 1),
-    ('Pedro',    'Castillo',  'Supervisor','70000009','pedro.castillo@ferreteria.com', 'pbkdf2$100000$TJfoEKh9Yji7JlavWOwDlg==$hFZpDnK6VhKn0dyHmEY0RGX4eC4HROsAt5EdVCvmvA8=', 1, 1),
-    ('Elena',    'Rojas',     'Vendedor', '70000010', 'elena.rojas@ferreteria.com',    'pbkdf2$100000$271ELSu8jKyojeVGCV5b3w==$+cyOdhoBHX5E4XGFZBOWZoEjFvNhibHGJsBrXOQ0z9U=', 1, 1);
+    ('Maria',    'Lopez',     'EmpleadoVenta', '70000002', 'maria.lopez@ferreteria.com',    'pbkdf2$100000$EiFO247GganlHDHRxibZDw==$ovflhHg31hgKKpNQZVQ3tZjGB1w/w8XDZrnb5axXvm4=', 1, 1),
+    ('Carlos',   'Mendoza',   'EmpleadoVenta', '70000003', 'carlos.mendoza@ferreteria.com', 'pbkdf2$100000$ayUjMsgyfL17cWAkvjwSiA==$J3qQUfUFBYMAB3ylW0NOgMvAifND8c7EbnxWFnPPKYM=', 1, 1),
+    ('Ana',      'Gutierrez', 'EmpleadoVenta',   '70000004', 'ana.gutierrez@ferreteria.com',  'pbkdf2$100000$KXtZXQhBSn5/LDoMSA1J/w==$48er+pEZ2cVPdYmKYZ6CsabCgwesfQWZkNmI86CjX+A=', 1, 1),
+    ('Luis',     'Fernandez', 'EmpleadoVenta',  '70000005', 'luis.fernandez@ferreteria.com', 'pbkdf2$100000$CFNYcmqMCgdqeSA09yxzcA==$/Om+zTZhiKWd93h3XrZE7POI4QK7Dym8YOkhzwgt5Do=', 1, 1),
+    ('Sofia',    'Ramirez',   'EmpleadoVenta', '70000006', 'sofia.ramirez@ferreteria.com',  'pbkdf2$100000$QlYdGoL14VOiIwBvuXr1SA==$xWtOKNuCO6Ww+Pi2ak7kylnmTrrB7crk972Z8N5AzuE=', 1, 1),
+    ('Diego',    'Torres',    'EmpleadoVenta',   '70000007', 'diego.torres@ferreteria.com',   'pbkdf2$100000$kNf5ZyOi23tYQJwSbhxbvg==$xEUvYHu4mK/gQya8j+ZIxfBAkZTbfm93bHw2Cx3HlU8=', 1, 1),
+    ('Lucia',    'Vargas',    'EmpleadoVenta',  '70000008', 'lucia.vargas@ferreteria.com',   'pbkdf2$100000$72lYf8pr8D50FmGTnHaaHw==$Pym0xZNlP3gLWsolMIFE9AaYkPb+eKCdnT05Vr84jy4=', 1, 1),
+    ('Pedro',    'Castillo',  'EmpleadoVenta','70000009','pedro.castillo@ferreteria.com', 'pbkdf2$100000$TJfoEKh9Yji7JlavWOwDlg==$hFZpDnK6VhKn0dyHmEY0RGX4eC4HROsAt5EdVCvmvA8=', 1, 1),
+    ('Elena',    'Rojas',     'EmpleadoVenta', '70000010', 'elena.rojas@ferreteria.com',    'pbkdf2$100000$271ELSu8jKyojeVGCV5b3w==$+cyOdhoBHX5E4XGFZBOWZoEjFvNhibHGJsBrXOQ0z9U=', 1, 1);
 
 -- ============================================================
 -- DATOS: 5 clientes (IdEmpleadoResponsable -> empleado)
 -- ============================================================
 INSERT INTO cliente
-    (Nombre, Apellido, Telefono, CorreoElectronico, Estado, IdEmpleadoResponsable)
+    (Nombre, Apellido, Telefono, Estado, IdEmpleadoResponsable)
 VALUES
-    ('Juan',   'Perez',    '71234567', 'juan.perez@example.com',    1, 1),
-    ('Maria',  'Quispe',   '72345678', 'maria.quispe@example.com',  1, 1),
-    ('Carlos', 'Ticona',   '73456789', 'carlos.ticona@example.com', 1, 1),
-    ('Ana',    'Mamani',   '74567890', 'ana.mamani@example.com',    1, 1),
-    ('Luis',   'Choque',   '75678901', 'luis.choque@example.com',   1, 1);
+    ('Juan',   'Perez',    '71234567', 1, 1),
+    ('Maria',  'Quispe',   '72345678', 1, 1),
+    ('Carlos', 'Ticona',   '73456789', 1, 1),
+    ('Ana',    'Mamani',   '74567890', 1, 1),
+    ('Luis',   'Choque',   '75678901', 1, 1);
 
 -- ============================================================
 -- DATOS: 10 marcas

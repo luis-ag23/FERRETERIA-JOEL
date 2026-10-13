@@ -1,54 +1,70 @@
-using FERRETERIA__Joel.Infraestructura.Conexion;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
+using FERRETERIA__Joel.Infraestructura.Conexion;
 using MySql.Data.MySqlClient;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
 {
-    public class MySqlHistoricoPrecioRepository : IHistoricoPrecioRepository
+    /// <summary>
+    /// Repositorio del histórico de precios. Implementa
+    /// <see cref="IRepository{T}"/> y participa de la transacción ambiente:
+    /// cierre del precio vigente y alta del nuevo precio se confirman juntos
+    /// con la actualización del producto.
+    /// </summary>
+    public class MySqlHistoricoPrecioRepository : IRepository<HistoricoPrecio>
     {
-        private readonly IDbConnectionFactory _connectionFactory;
+        private const string Columnas = @"
+            h.IdHistoricoPrecio,
+            h.IdProducto,
+            p.Nombre AS NombreProducto,
+            h.Precio,
+            h.FechaInicioVigencia,
+            h.FechaFinVigencia,
+            h.MotivoCambio,
+            h.FechaRegistro,
+            h.IdEmpleadoResponsable,
+            e.Nombre AS NombreEmpleadoResponsable";
 
-        public MySqlHistoricoPrecioRepository(IDbConnectionFactory connectionFactory)
+        private const string Joins = @"
+            FROM historico_precio h
+            INNER JOIN producto p ON p.IdProducto = h.IdProducto
+            INNER JOIN empleado e ON e.IdEmpleado = h.IdEmpleadoResponsable";
+
+        private readonly IConexionTransaccional _conexion;
+
+        public MySqlHistoricoPrecioRepository(IConexionTransaccional conexion)
         {
-            _connectionFactory = connectionFactory;
+            _conexion = conexion;
         }
 
-        public List<HistoricoPrecio> ObtenerTodos()
+        private async Task<MySqlCommand> CrearComandoAsync(string query)
+        {
+            MySqlCommand command = new(query, await _conexion.ObtenerConexionAsync());
+
+            if (_conexion.Transaccion is not null)
+            {
+                command.Transaction = _conexion.Transaccion;
+            }
+
+            return command;
+        }
+
+        // ================== Contrato genérico ==================
+
+        public virtual async Task<List<HistoricoPrecio>> ObtenerTodosAsync()
         {
             List<HistoricoPrecio> historicos = new();
 
-            const string query = @"
-                SELECT
-                    h.IdHistoricoPrecio,
-                    h.IdProducto,
-                    p.Nombre AS NombreProducto,
-                    h.Precio,
-                    h.FechaInicioVigencia,
-                    h.FechaFinVigencia,
-                    h.MotivoCambio,
-                    h.FechaRegistro,
-                    h.IdEmpleadoResponsable,
-                    e.Nombre AS NombreEmpleadoResponsable
-                FROM historico_precio h
-                INNER JOIN producto p
-                    ON p.IdProducto = h.IdProducto
-                INNER JOIN empleado e
-                    ON e.IdEmpleado = h.IdEmpleadoResponsable
+            string query = $@"
+                SELECT {Columnas}
+                {Joins}
                 ORDER BY h.FechaInicioVigencia DESC";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            while (reader.Read())
+            while (await reader.ReadAsync())
             {
                 historicos.Add(MapearHistoricoPrecio(reader));
             }
@@ -56,305 +72,143 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return historicos;
         }
 
-        public int Insertar(HistoricoPrecio historicoPrecio)
+        public virtual async Task<int> InsertarAsync(HistoricoPrecio historicoPrecio)
         {
             const string query = @"
-        INSERT INTO historico_precio
-        (
-            IdProducto,
-            Precio,
-            FechaInicioVigencia,
-            FechaFinVigencia,
-            MotivoCambio,
-            IdEmpleadoResponsable
-        )
-        VALUES
-        (
-            @idProducto,
-            @precio,
-            CURRENT_TIMESTAMP,
-            NULL,
-            @motivoCambio,
-            @idEmpleadoResponsable
-        )";
+                INSERT INTO historico_precio
+                (
+                    IdProducto,
+                    Precio,
+                    FechaInicioVigencia,
+                    FechaFinVigencia,
+                    MotivoCambio,
+                    IdEmpleadoResponsable
+                )
+                VALUES
+                (
+                    @idProducto,
+                    @precio,
+                    CURRENT_TIMESTAMP,
+                    NULL,
+                    @motivoCambio,
+                    @idEmpleadoResponsable
+                )";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue(
-                "@idProducto",
-                historicoPrecio.IdProducto);
-
-            command.Parameters.AddWithValue(
-                "@precio",
-                historicoPrecio.Precio);
-
-            command.Parameters.AddWithValue(
-                "@motivoCambio",
-                historicoPrecio.MotivoCambio);
-
+            command.Parameters.AddWithValue("@idProducto", historicoPrecio.IdProducto);
+            command.Parameters.AddWithValue("@precio", historicoPrecio.Precio);
+            command.Parameters.AddWithValue("@motivoCambio", historicoPrecio.MotivoCambio);
             command.Parameters.AddWithValue(
                 "@idEmpleadoResponsable",
                 historicoPrecio.IdEmpleadoResponsable);
 
-            connection.Open();
-
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
 
             return Convert.ToInt32(command.LastInsertedId);
         }
 
-        // ================== Funciones fuera del contrato ==================
+        // ================== Operaciones propias ==================
 
-        public List<HistoricoPrecio> ObtenerActivas()
+        public virtual async Task<List<HistoricoPrecio>> ObtenerPorProductoAsync(int idProducto)
         {
             List<HistoricoPrecio> historicos = new();
 
-            const string query = @"
-                SELECT
-                    h.IdHistoricoPrecio,
-                    h.IdProducto,
-                    p.Nombre AS NombreProducto,
-                    h.Precio,
-                    h.FechaInicioVigencia,
-                    h.FechaFinVigencia,
-                    h.MotivoCambio,
-                    h.FechaRegistro,
-                    h.IdEmpleadoResponsable,
-                    e.Nombre AS NombreEmpleadoResponsable
-                FROM historico_precio h
-                INNER JOIN producto p
-                    ON p.IdProducto = h.IdProducto
-                INNER JOIN empleado e
-                    ON e.IdEmpleado = h.IdEmpleadoResponsable
-                WHERE h.FechaFinVigencia IS NULL
+            string query = $@"
+                SELECT {Columnas}
+                {Joins}
+                WHERE h.IdProducto = @idProducto
                 ORDER BY h.FechaInicioVigencia DESC";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            while (reader.Read())
-            {
-                historicos.Add(MapearHistoricoPrecio(reader));
-            }
-
-            return historicos;
-        }
-
-        public HistoricoPrecio? ObtenerPorId(int id)
-        {
-            const string query = @"
-                SELECT
-                    h.IdHistoricoPrecio,
-                    h.IdProducto,
-                    p.Nombre AS NombreProducto,
-                    h.Precio,
-                    h.FechaInicioVigencia,
-                    h.FechaFinVigencia,
-                    h.MotivoCambio,
-                    h.FechaRegistro,
-                    h.IdEmpleadoResponsable,
-                    e.Nombre AS NombreEmpleadoResponsable
-                FROM historico_precio h
-                INNER JOIN producto p
-                    ON p.IdProducto = h.IdProducto
-                INNER JOIN empleado e
-                    ON e.IdEmpleado = h.IdEmpleadoResponsable
-                WHERE h.IdHistoricoPrecio = @id
-                LIMIT 1";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue("@id", id);
-
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            return reader.Read()
-                ? MapearHistoricoPrecio(reader)
-                : null;
-        }
-
-        public List<HistoricoPrecio> ObtenerPorProducto(int idProducto)
-        {
-            List<HistoricoPrecio> historicos = new();
-
-            const string query = @"
-                SELECT
-                    h.IdHistoricoPrecio,
-                    h.IdProducto,
-                    p.Nombre AS NombreProducto,
-                    h.Precio,
-                    h.FechaInicioVigencia,
-                    h.FechaFinVigencia,
-                    h.MotivoCambio,
-                    h.FechaRegistro,
-                    h.IdEmpleadoResponsable,
-                    e.Nombre AS NombreEmpleadoResponsable
-                FROM historico_precio h
-                INNER JOIN producto p
-                    ON p.IdProducto = h.IdProducto
-                INNER JOIN empleado e
-                    ON e.IdEmpleado = h.IdEmpleadoResponsable
-                WHERE h.IdProducto = @IdProducto
-                ORDER BY h.FechaInicioVigencia DESC";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue(
-                "@IdProducto",
-                idProducto);
-
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            while (reader.Read())
-            {
-                historicos.Add(MapearHistoricoPrecio(reader));
-            }
-
-            return historicos;
-        }
-
-        public HistoricoPrecio? ObtenerPrecioVigente(int idProducto)
-        {
-            const string query = @"
-        SELECT
-            IdHistoricoPrecio,
-            IdProducto,
-            Precio,
-            FechaInicioVigencia,
-            FechaFinVigencia,
-            MotivoCambio,
-            FechaRegistro,
-            IdEmpleadoResponsable
-        FROM historico_precio
-        WHERE IdProducto = @idProducto
-        AND FechaFinVigencia IS NULL
-        ORDER BY FechaInicioVigencia DESC
-        LIMIT 1";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
+            using MySqlCommand command = await CrearComandoAsync(query);
 
             command.Parameters.AddWithValue("@idProducto", idProducto);
 
-            connection.Open();
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            using MySqlDataReader reader =
-                command.ExecuteReader();
+            while (await reader.ReadAsync())
+            {
+                historicos.Add(MapearHistoricoPrecio(reader));
+            }
 
-            if (!reader.Read())
+            return historicos;
+        }
+
+        public virtual async Task<HistoricoPrecio?> ObtenerPrecioVigenteAsync(int idProducto)
+        {
+            const string query = @"
+                SELECT
+                    IdHistoricoPrecio,
+                    IdProducto,
+                    Precio,
+                    FechaInicioVigencia,
+                    FechaFinVigencia,
+                    MotivoCambio,
+                    FechaRegistro,
+                    IdEmpleadoResponsable
+                FROM historico_precio
+                WHERE IdProducto = @idProducto
+                  AND FechaFinVigencia IS NULL
+                ORDER BY FechaInicioVigencia DESC
+                LIMIT 1";
+
+            using MySqlCommand command = await CrearComandoAsync(query);
+
+            command.Parameters.AddWithValue("@idProducto", idProducto);
+
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
+
+            if (!await reader.ReadAsync())
+            {
                 return null;
+            }
 
             return new HistoricoPrecio
             {
-                IdHistoricoPrecio =
-                    reader.GetInt32("IdHistoricoPrecio"),
-                IdProducto =
-                    reader.GetInt32("IdProducto"),
-                Precio =
-                    reader.GetDecimal("Precio"),
-                FechaInicioVigencia =
-                    reader.GetDateTime("FechaInicioVigencia"),
-                FechaFinVigencia =
-                    reader["FechaFinVigencia"] == DBNull.Value
-                        ? null
-                        : reader.GetDateTime("FechaFinVigencia"),
-                MotivoCambio =
-                    reader["MotivoCambio"].ToString() ?? "",
-                FechaRegistro =
-                    reader.GetDateTime("FechaRegistro"),
-                IdEmpleadoResponsable =
-                    reader.GetInt32("IdEmpleadoResponsable")
+                IdHistoricoPrecio = reader.GetInt32("IdHistoricoPrecio"),
+                IdProducto = reader.GetInt32("IdProducto"),
+                Precio = reader.GetDecimal("Precio"),
+                FechaInicioVigencia = reader.GetDateTime("FechaInicioVigencia"),
+                FechaFinVigencia = reader["FechaFinVigencia"] == DBNull.Value
+                    ? null
+                    : reader.GetDateTime("FechaFinVigencia"),
+                MotivoCambio = reader["MotivoCambio"].ToString() ?? "",
+                FechaRegistro = reader.GetDateTime("FechaRegistro"),
+                IdEmpleadoResponsable = reader.GetInt32("IdEmpleadoResponsable")
             };
         }
 
-        public void CerrarPrecioVigente(int idProducto)
+        public virtual async Task CerrarPrecioVigenteAsync(int idProducto)
         {
             const string query = @"
-        UPDATE historico_precio
-        SET FechaFinVigencia = CURRENT_TIMESTAMP
-        WHERE IdProducto = @idProducto
-        AND FechaFinVigencia IS NULL";
+                UPDATE historico_precio
+                SET FechaFinVigencia = CURRENT_TIMESTAMP
+                WHERE IdProducto = @idProducto
+                  AND FechaFinVigencia IS NULL";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
+            command.Parameters.AddWithValue("@idProducto", idProducto);
 
-            command.Parameters.AddWithValue(
-                "@idProducto",
-                idProducto);
-
-            connection.Open();
-
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
         }
 
-        private HistoricoPrecio MapearHistoricoPrecio(
-            MySqlDataReader reader)
+        private static HistoricoPrecio MapearHistoricoPrecio(MySqlDataReader reader)
         {
             return new HistoricoPrecio
             {
-                IdHistoricoPrecio =
-                    reader.GetInt32("IdHistoricoPrecio"),
-
-                IdProducto =
-                    reader.GetInt32("IdProducto"),
-
-                NombreProducto =
-                    reader["NombreProducto"].ToString(),
-
-                Precio =
-                    reader.GetDecimal("Precio"),
-
-                FechaInicioVigencia =
-                    reader.GetDateTime("FechaInicioVigencia"),
-
-                FechaFinVigencia =
-                    reader["FechaFinVigencia"] == DBNull.Value
-                        ? null
-                        : reader.GetDateTime("FechaFinVigencia"),
-
-                MotivoCambio =
-                    reader["MotivoCambio"].ToString() ?? "",
-
-                FechaRegistro =
-                    reader.GetDateTime("FechaRegistro"),
-
-                IdEmpleadoResponsable =
-                    reader.GetInt32("IdEmpleadoResponsable"),
-
-                NombreEmpleadoResponsable =
-                    reader["NombreEmpleadoResponsable"].ToString()
+                IdHistoricoPrecio = reader.GetInt32("IdHistoricoPrecio"),
+                IdProducto = reader.GetInt32("IdProducto"),
+                NombreProducto = reader["NombreProducto"].ToString(),
+                Precio = reader.GetDecimal("Precio"),
+                FechaInicioVigencia = reader.GetDateTime("FechaInicioVigencia"),
+                FechaFinVigencia = reader["FechaFinVigencia"] == DBNull.Value
+                    ? null
+                    : reader.GetDateTime("FechaFinVigencia"),
+                MotivoCambio = reader["MotivoCambio"].ToString() ?? "",
+                FechaRegistro = reader.GetDateTime("FechaRegistro"),
+                IdEmpleadoResponsable = reader.GetInt32("IdEmpleadoResponsable"),
+                NombreEmpleadoResponsable = reader["NombreEmpleadoResponsable"].ToString()
             };
         }
     }

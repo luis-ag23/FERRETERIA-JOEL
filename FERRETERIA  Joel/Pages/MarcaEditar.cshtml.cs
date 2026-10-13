@@ -9,7 +9,7 @@ using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
-    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Empleado)]
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Administrador)]
     public class MarcaEditarModel : PageModel
     {
         private readonly ServicioMarca _servicio;
@@ -31,7 +31,7 @@ namespace FERRETERIA__Joel.Pages
             _logger = logger;
         }
 
-        public IActionResult OnGet(string token)
+        public async Task<IActionResult> OnGetAsync(string token)
         {
             string? texto = UrlProtector.Descifrar(token);
 
@@ -41,7 +41,7 @@ namespace FERRETERIA__Joel.Pages
                 return RedirectToPage("Marcas");
             }
 
-            var marca = _servicio.ObtenerPorId(id);
+            var marca = await _servicio.ObtenerPorIdAsync(id);
             if (marca == null)
             {
                 TempData["MensajeError"] = "La marca solicitada no existe.";
@@ -52,9 +52,9 @@ namespace FERRETERIA__Joel.Pages
             return Page();
         }
 
-        public IActionResult OnPost()
+        public async Task<IActionResult> OnPostAsync()
         {
-            Marca? marcaActual = _servicio.ObtenerPorId(MarcaEdit.IdMarca);
+            Marca? marcaActual = await _servicio.ObtenerPorIdAsync(MarcaEdit.IdMarca);
             if (marcaActual is null)
             {
                 TempData["MensajeError"] = "La marca solicitada no existe.";
@@ -73,7 +73,7 @@ namespace FERRETERIA__Joel.Pages
 
             try
             {
-                _servicio.Actualizar(MarcaEdit);
+                await _servicio.ActualizarAsync(MarcaEdit);
                 TempData["Mensaje"] = "Marca actualizada con éxito.";
                 return RedirectToPage("Marcas");
             }
