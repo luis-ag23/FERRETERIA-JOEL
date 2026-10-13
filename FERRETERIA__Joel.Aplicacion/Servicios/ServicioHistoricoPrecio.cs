@@ -1,40 +1,44 @@
 using FERRETERIA__Joel.Dominio.Entidades;
-using FERRETERIA__Joel.Dominio.Puertos;
+using FERRETERIA__Joel.Infraestructura.Repositorios;
 
 namespace FERRETERIA__Joel.Aplicacion.Servicios
 {
+    /// <summary>
+    /// Caso de uso del histórico de precios. Depende del repositorio concreto
+    /// (operación especial: precio vigente y cierre de vigencia) que comparte
+    /// la transacción ambiente con el repositorio de productos.
+    /// </summary>
     public class ServicioHistoricoPrecio
     {
-        private readonly RepositoryCreator<IHistoricoPrecioRepository> _creador;
-        private IHistoricoPrecioRepository? _repositorio;
+        private readonly MySqlHistoricoPrecioRepository _repositorio;
 
         public ServicioHistoricoPrecio(
-            RepositoryCreator<IHistoricoPrecioRepository> creador)
+            MySqlHistoricoPrecioRepository repositorio)
         {
-            _creador = creador;
+            _repositorio = repositorio;
         }
 
-        private IHistoricoPrecioRepository Repositorio =>
-            _repositorio ??= _creador.CreateRepository();
-
-        public List<HistoricoPrecio> ObtenerPorProducto(int idProducto)
+        public async Task<List<HistoricoPrecio>> ObtenerPorProductoAsync(
+            int idProducto)
         {
-            return Repositorio.ObtenerPorProducto(idProducto);
+            return await _repositorio.ObtenerPorProductoAsync(idProducto);
         }
 
-        public HistoricoPrecio? ObtenerPrecioVigente(int idProducto)
+        public async Task<HistoricoPrecio?> ObtenerPrecioVigenteAsync(
+            int idProducto)
         {
-            return Repositorio.ObtenerPrecioVigente(idProducto);
+            return await _repositorio.ObtenerPrecioVigenteAsync(idProducto);
         }
 
-        public void CerrarPrecioVigente(int idProducto)
+        public async Task CerrarPrecioVigenteAsync(int idProducto)
         {
-            Repositorio.CerrarPrecioVigente(idProducto);
+            await _repositorio.CerrarPrecioVigenteAsync(idProducto);
         }
 
-        public int Registrar(HistoricoPrecio historicoPrecio)
+        public async Task<int> RegistrarAsync(
+            HistoricoPrecio historicoPrecio)
         {
-            return Repositorio.Insertar(historicoPrecio);
+            return await _repositorio.InsertarAsync(historicoPrecio);
         }
     }
 }

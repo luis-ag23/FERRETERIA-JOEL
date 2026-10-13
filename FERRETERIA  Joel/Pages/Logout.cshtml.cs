@@ -22,14 +22,14 @@ namespace FERRETERIA__Joel.Pages
             _logger = logger;
         }
 
-        public IActionResult OnGet()
+        public async Task<IActionResult> OnGetAsync()
         {
             return RedirectToPage("/Index");
         }
 
         public async Task<IActionResult> OnPostAsync()
         {
-            RegistrarBitacoraLogout();
+            await RegistrarBitacoraLogoutAsync();
 
             await HttpContext.SignOutAsync(
                 CookieAuthenticationDefaults.AuthenticationScheme);
@@ -39,7 +39,7 @@ namespace FERRETERIA__Joel.Pages
             return RedirectToPage("/Index");
         }
 
-        private void RegistrarBitacoraLogout()
+        private async Task RegistrarBitacoraLogoutAsync()
         {
             if (User.Identity?.IsAuthenticated != true)
             {
@@ -54,7 +54,7 @@ namespace FERRETERIA__Joel.Pages
                     ? valor
                     : null;
 
-                _bitacora.RegistrarLogout(
+                await _bitacora.RegistrarLogoutAsync(
                     id,
                     User.Identity.Name,
                     User.FindFirstValue(ClaimTypes.Role) ?? string.Empty);

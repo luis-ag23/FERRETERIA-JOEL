@@ -1,5 +1,6 @@
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
+using FERRETERIA__Joel.Infraestructura.Factories;
 
 namespace FERRETERIA__Joel.Aplicacion.Servicios
 {
@@ -17,36 +18,38 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         private IGestionarRepository<Marca> Repositorio =>
             _repositorio ??= _creador.CreateRepository();
 
-        public List<Marca> ObtenerTodas()
+        public async Task<List<Marca>> ObtenerTodasAsync()
         {
-            return Repositorio.ObtenerTodos();
+            return await Repositorio.ObtenerTodosAsync();
         }
 
-        public List<Marca> ObtenerActivas()
+        public async Task<List<Marca>> ObtenerActivasAsync()
         {
-            return Repositorio.MostrarActivos();
+            return await Repositorio.MostrarActivosAsync();
         }
 
-        public Marca? ObtenerPorId(int id)
+        public async Task<Marca?> ObtenerPorIdAsync(int id)
         {
-            return Repositorio
-                .ObtenerTodos()
-                .FirstOrDefault(m => m.IdMarca == id);
+            List<Marca> marcas = await Repositorio.ObtenerTodosAsync();
+
+            return marcas.FirstOrDefault(m => m.IdMarca == id);
         }
 
-        public int Insertar(Marca marca)
+        public async Task<int> InsertarAsync(Marca marca)
         {
-            return Repositorio.Insertar(marca);
+            return await Repositorio.InsertarAsync(marca);
         }
 
-        public void Actualizar(Marca marca)
+        public async Task ActualizarAsync(Marca marca)
         {
-            Repositorio.Actualizar(marca);
+            await Repositorio.ActualizarAsync(marca);
         }
 
-        public void CambiarEstado(int id, int idEmpleadoResponsable)
+        public async Task CambiarEstadoAsync(
+            int id,
+            int idEmpleadoResponsable)
         {
-            Repositorio.CambiarEstado(id, idEmpleadoResponsable);
+            await Repositorio.CambiarEstadoAsync(id, idEmpleadoResponsable);
         }
     }
 }

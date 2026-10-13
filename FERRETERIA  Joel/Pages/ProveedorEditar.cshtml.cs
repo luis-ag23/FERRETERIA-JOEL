@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
-    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Empleado)]
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Administrador)]
     public class ProveedorEditarModel : PageModel
     {
         private readonly ServicioProveedor _servicio;
@@ -30,7 +30,7 @@ namespace FERRETERIA__Joel.Pages
             _logger = logger;
         }
 
-        public IActionResult OnGet(string token)
+        public async Task<IActionResult> OnGetAsync(string token)
         {
             string? texto = UrlProtector.Descifrar(token);
 
@@ -42,7 +42,7 @@ namespace FERRETERIA__Joel.Pages
                 return RedirectToPage("Proveedores");
             }
 
-            var proveedor = _servicio.ObtenerPorId(id);
+            var proveedor = await _servicio.ObtenerPorIdAsync(id);
 
             if (proveedor == null)
             {
@@ -57,7 +57,7 @@ namespace FERRETERIA__Joel.Pages
             return Page();
         }
 
-        public IActionResult OnPost()
+        public async Task<IActionResult> OnPostAsync()
         {
             Proveedor.IdEmpleadoResponsable =
                 EmpleadoSesion.ObtenerIdEmpleado(User);
@@ -71,7 +71,7 @@ namespace FERRETERIA__Joel.Pages
 
             try
             {
-                _servicio.Actualizar(Proveedor);
+                await _servicio.ActualizarAsync(Proveedor);
             }
             catch (Exception ex)
             {

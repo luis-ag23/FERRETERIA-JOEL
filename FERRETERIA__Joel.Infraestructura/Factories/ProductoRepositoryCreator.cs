@@ -7,16 +7,16 @@ namespace FERRETERIA__Joel.Infraestructura.Factories
 {
     public class ProductoRepositoryCreator : RepositoryCreator<IGestionarRepository<Producto>>
     {
-        private readonly IDbConnectionFactory _connectionFactory;
+        private readonly IConexionTransaccional _conexion;
 
-        public ProductoRepositoryCreator(IDbConnectionFactory connectionFactory)
+        public ProductoRepositoryCreator(IConexionTransaccional conexion)
         {
-            _connectionFactory = connectionFactory;
+            _conexion = conexion;
         }
 
         public override IGestionarRepository<Producto> CreateRepository()
         {
-            return new MySqlProductoRepository(_connectionFactory);
+            return new MySqlProductoRepository(_conexion);
         }
     }
 }

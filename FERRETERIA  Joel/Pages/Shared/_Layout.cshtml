@@ -43,7 +43,7 @@
                             </li>
                         }
 
-                        @if (User.IsInRole(RolesSistema.Empleado))
+                        @if (User.IsInRole(RolesSistema.Administrador))
                         {
                             <!-- Gestión de Productos -->
                             <li class="fj-menu-item fj-dropdown">
@@ -88,7 +88,7 @@
                             </div>
                         </li>
 
-                        <!-- Ventas y Caja -->
+                        <!-- Ventas y Caja (Administrador: solo consulta) -->
                         <li class="fj-menu-item fj-dropdown">
                             <button class="fj-menu-link fj-dropdown-toggle" type="button"
                                     aria-expanded="false">
@@ -102,7 +102,7 @@
                             </button>
 
                             <div class="fj-dropdown-menu">
-                                <span class="disabled">Historial de ventas</span>
+                                <a asp-page="/Ventas">Historial de ventas</a>
                                 <span class="disabled">Recibos</span>
                                 <span class="disabled">Descuentos mayoristas</span>
                             </div>
@@ -129,13 +129,13 @@
                             </div>
                         </li>
                         }
-                        else
+                        else if (User.IsInRole(RolesSistema.EmpleadoVenta))
                         {
-                            <!-- Consulta (Usuario / solo lectura) -->
+                            <!-- Ventas y Caja (EmpleadoVenta: registra y anula) -->
                             <li class="fj-menu-item fj-dropdown">
                                 <button class="fj-menu-link fj-dropdown-toggle" type="button"
                                         aria-expanded="false">
-                                    <span>Consulta</span>
+                                    <span>Ventas y Caja</span>
                                     <svg class="fj-dropdown-chevron" viewBox="0 0 24 24"
                                          fill="none" stroke="currentColor" stroke-width="1.8"
                                          stroke-linecap="round" stroke-linejoin="round"
@@ -145,10 +145,10 @@
                                 </button>
 
                                 <div class="fj-dropdown-menu">
-                                    <a asp-page="/ProductosUsuario">Productos</a>
-                                    <a asp-page="/CategoriasUsuario">Categorías</a>
-                                    <a asp-page="/MarcasUsuario">Marcas</a>
-                                    <a asp-page="/ProveedoresUsuario">Proveedores</a>
+                                    <a asp-page="/Venta">Registrar venta</a>
+                                    <a asp-page="/Ventas">Historial de ventas</a>
+                                    <span class="disabled">Recibos</span>
+                                    <span class="disabled">Descuentos mayoristas</span>
                                 </div>
                             </li>
                         }

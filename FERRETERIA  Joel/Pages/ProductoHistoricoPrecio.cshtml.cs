@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace FERRETERIA__Joel.Pages
 {
-    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Empleado)]
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Administrador)]
     public class ProductoHistoricoPrecioModel : PageModel
     {
         private readonly ServicioProducto _servicio;
@@ -27,7 +27,7 @@ namespace FERRETERIA__Joel.Pages
             _logger = logger;
         }
 
-        public IActionResult OnGet(string token)
+        public async Task<IActionResult> OnGetAsync(string token)
         {
             string? texto = UrlProtector.Descifrar(token);
 
@@ -39,7 +39,7 @@ namespace FERRETERIA__Joel.Pages
                 return RedirectToPage("Productos");
             }
 
-            var producto = _servicio.ObtenerPorId(id);
+            var producto = await _servicio.ObtenerPorIdAsync(id);
 
             if (producto is null)
             {
@@ -54,7 +54,7 @@ namespace FERRETERIA__Joel.Pages
             try
             {
                 Historicos =
-                    _servicioHistoricoPrecio.ObtenerPorProducto(producto.IdProducto);
+                    await _servicioHistoricoPrecio.ObtenerPorProductoAsync(producto.IdProducto);
             }
             catch (Exception ex)
             {

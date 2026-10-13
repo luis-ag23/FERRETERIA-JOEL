@@ -5,7 +5,7 @@ namespace FERRETERIA__Joel.Pages
 {
     public class IndexModel : PageModel
     {
-        public IActionResult OnGet()
+        public async Task<IActionResult> OnGetAsync()
         {
             ViewData["ActiveMenu"] = "Home";
             return Page();

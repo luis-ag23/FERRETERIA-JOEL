@@ -5,8 +5,27 @@ using MySql.Data.MySqlClient;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
 {
-    public class MySqlEmpleadoRepository : IEmpleadoRepository
+    /// <summary>
+    /// Repositorio de empleados. Implementa el contrato genérico
+    /// <see cref="IRepository{T}"/> y expone operaciones propias de la
+    /// autenticación (búsqueda por correo y actualización de contraseña) que
+    /// se inyectan directamente por DI.
+    /// </summary>
+    public class MySqlEmpleadoRepository : IRepository<Empleado>
     {
+        private const string Columnas = @"
+            IdEmpleado,
+            Nombre,
+            Apellido,
+            Rol,
+            Telefono,
+            CorreoElectronico,
+            Contrasena,
+            Estado,
+            FechaRegistro,
+            FechaActualizacion,
+            IdEmpleadoResponsable";
+
         private readonly IDbConnectionFactory _connectionFactory;
 
         public MySqlEmpleadoRepository(IDbConnectionFactory connectionFactory)
@@ -14,38 +33,28 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             _connectionFactory = connectionFactory;
         }
 
-        public List<Empleado> ObtenerTodos()
+        // ================== Contrato genérico ==================
+
+        public virtual async Task<List<Empleado>> ObtenerTodosAsync()
         {
             List<Empleado> empleados = new();
 
-            const string query = @"
-                SELECT
-                    IdEmpleado,
-                    Nombre,
-                    Apellido,
-                    Rol,
-                    Telefono,
-                    CorreoElectronico,
-                    Contrasena,
-                    Estado,
-                    FechaRegistro,
-                    FechaActualizacion,
-                    IdEmpleadoResponsable
+            string query = $@"
+                SELECT {Columnas}
                 FROM empleado
                 ORDER BY Nombre ASC";
 
             using MySqlConnection connection =
                 _connectionFactory.CreateConnection();
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
+            using MySqlCommand command = new MySqlCommand(query, connection);
 
-            connection.Open();
+            await connection.OpenAsync();
 
             using MySqlDataReader reader =
-                command.ExecuteReader();
+                (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            while (reader.Read())
+            while (await reader.ReadAsync())
             {
                 empleados.Add(MapearEmpleado(reader));
             }
@@ -53,7 +62,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return empleados;
         }
 
-        public int Insertar(Empleado empleado)
+        public virtual async Task<int> InsertarAsync(Empleado empleado)
         {
             const string query = @"
                 INSERT INTO empleado
@@ -82,51 +91,35 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             using MySqlConnection connection =
                 _connectionFactory.CreateConnection();
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
+            using MySqlCommand command = new MySqlCommand(query, connection);
 
             command.Parameters.AddWithValue("@nombre", empleado.Nombre);
-
             command.Parameters.AddWithValue("@apellido", empleado.Apellido);
-
             command.Parameters.AddWithValue("@rol", empleado.Rol);
-
             command.Parameters.AddWithValue("@telefono", empleado.Telefono);
-
             command.Parameters.AddWithValue(
                 "@correoElectronico",
                 (object?)empleado.CorreoElectronico ?? DBNull.Value);
-
             command.Parameters.AddWithValue(
                 "@contrasena",
                 empleado.Contrasena);
-
             command.Parameters.AddWithValue(
                 "@idEmpleadoResponsable",
                 (object?)empleado.IdEmpleadoResponsable ?? DBNull.Value);
 
-            connection.Open();
+            await connection.OpenAsync();
 
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
 
             return Convert.ToInt32(command.LastInsertedId);
         }
 
-        public Empleado? ObtenerPorCorreo(string correo)
+        // ================== Autenticación ==================
+
+        public virtual async Task<Empleado?> ObtenerPorCorreoAsync(string correo)
         {
-            const string query = @"
-                SELECT
-                    IdEmpleado,
-                    Nombre,
-                    Apellido,
-                    Rol,
-                    Telefono,
-                    CorreoElectronico,
-                    Contrasena,
-                    Estado,
-                    FechaRegistro,
-                    FechaActualizacion,
-                    IdEmpleadoResponsable
+            string query = $@"
+                SELECT {Columnas}
                 FROM empleado
                 WHERE CorreoElectronico = @correo
                 LIMIT 1";
@@ -134,24 +127,23 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             using MySqlConnection connection =
                 _connectionFactory.CreateConnection();
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
+            using MySqlCommand command = new MySqlCommand(query, connection);
 
             command.Parameters.AddWithValue("@correo", correo);
 
-            connection.Open();
+            await connection.OpenAsync();
 
             using MySqlDataReader reader =
-                command.ExecuteReader();
+                (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            return reader.Read()
+            return await reader.ReadAsync()
                 ? MapearEmpleado(reader)
                 : null;
         }
 
-        // ================== Funciones fuera del contrato ==================
-
-        public void ActualizarContrasena(int id, string contrasena)
+        public virtual async Task ActualizarContrasenaAsync(
+            int id,
+            string contrasena)
         {
             const string query = @"
                 UPDATE empleado
@@ -163,218 +155,37 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             using MySqlConnection connection =
                 _connectionFactory.CreateConnection();
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
+            using MySqlCommand command = new MySqlCommand(query, connection);
 
             command.Parameters.AddWithValue("@id", id);
-
             command.Parameters.AddWithValue("@contrasena", contrasena);
 
-            connection.Open();
+            await connection.OpenAsync();
 
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
         }
 
-        public List<Empleado> ObtenerActivas()
-        {
-            List<Empleado> empleados = new();
-
-            const string query = @"
-                SELECT
-                    IdEmpleado,
-                    Nombre,
-                    Apellido,
-                    Rol,
-                    Telefono,
-                    CorreoElectronico,
-                    Contrasena,
-                    Estado,
-                    FechaRegistro,
-                    FechaActualizacion,
-                    IdEmpleadoResponsable
-                FROM empleado
-                WHERE Estado = 1
-                ORDER BY Nombre ASC";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            while (reader.Read())
-            {
-                empleados.Add(MapearEmpleado(reader));
-            }
-
-            return empleados;
-        }
-
-        public Empleado? ObtenerPorId(int id)
-        {
-            const string query = @"
-                SELECT
-                    IdEmpleado,
-                    Nombre,
-                    Apellido,
-                    Rol,
-                    Telefono,
-                    CorreoElectronico,
-                    Contrasena,
-                    Estado,
-                    FechaRegistro,
-                    FechaActualizacion,
-                    IdEmpleadoResponsable
-                FROM empleado
-                WHERE IdEmpleado = @id
-                LIMIT 1";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue("@id", id);
-
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            return reader.Read()
-                ? MapearEmpleado(reader)
-                : null;
-        }
-
-        public void Actualizar(Empleado empleado)
-        {
-            const string query = @"
-                UPDATE empleado
-                SET
-                    Nombre = @nombre,
-                    Apellido = @apellido,
-                    Rol = @rol,
-                    Telefono = @telefono,
-                    CorreoElectronico = @correoElectronico,
-                    Contrasena = @contrasena,
-                    Estado = @estado,
-                    FechaActualizacion = CURRENT_TIMESTAMP,
-                    IdEmpleadoResponsable = @idEmpleadoResponsable
-                WHERE IdEmpleado = @id";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue("@id", empleado.IdEmpleado);
-            command.Parameters.AddWithValue("@nombre", empleado.Nombre);
-
-            command.Parameters.AddWithValue("@apellido", empleado.Apellido);
-
-            command.Parameters.AddWithValue("@rol", empleado.Rol);
-
-            command.Parameters.AddWithValue("@telefono", empleado.Telefono);
-
-            command.Parameters.AddWithValue(
-                "@correoElectronico",
-                (object?)empleado.CorreoElectronico ?? DBNull.Value);
-
-            command.Parameters.AddWithValue(
-                "@contrasena",
-                empleado.Contrasena);
-
-            command.Parameters.AddWithValue("@estado", empleado.Estado);
-
-            command.Parameters.AddWithValue(
-                "@idEmpleadoResponsable",
-                (object?)empleado.IdEmpleadoResponsable ?? DBNull.Value);
-
-            connection.Open();
-
-            command.ExecuteNonQuery();
-        }
-
-        public void CambiarEstado(int id)
-        {
-            const string query = @"
-                UPDATE empleado
-                SET
-                    Estado = CASE
-                        WHEN Estado = 1 THEN 0
-                        ELSE 1
-                    END
-                WHERE IdEmpleado = @id";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue("@id", id);
-
-            connection.Open();
-
-            command.ExecuteNonQuery();
-        }
-
-        public int Count()
-        {
-            const string query = @"
-                SELECT COUNT(*)
-                FROM empleado";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            connection.Open();
-
-            return Convert.ToInt32(command.ExecuteScalar());
-        }
-
-        private Empleado MapearEmpleado(MySqlDataReader reader)
+        private static Empleado MapearEmpleado(MySqlDataReader reader)
         {
             return new Empleado
             {
-                IdEmpleado =
-                    reader.GetInt32("IdEmpleado"),
-                Nombre =
-                    reader["Nombre"].ToString() ?? "",
-                Apellido =
-                    reader["Apellido"].ToString() ?? "",
-                Rol =
-                    reader["Rol"].ToString() ?? "",
-                Telefono =
-                    reader["Telefono"].ToString() ?? "",
-                CorreoElectronico =
-                    reader["CorreoElectronico"] == DBNull.Value
-                        ? null
-                        : reader["CorreoElectronico"].ToString(),
-                Contrasena =
-                    reader["Contrasena"].ToString() ?? "",
-                Estado =
-                    reader.GetByte("Estado"),
-                FechaRegistro =
-                    reader.GetDateTime("FechaRegistro"),
-                FechaActualizacion =
-                    reader["FechaActualizacion"] == DBNull.Value
-                        ? null
-                        : reader.GetDateTime("FechaActualizacion"),
-                IdEmpleadoResponsable =
-                    reader["IdEmpleadoResponsable"] == DBNull.Value
-                        ? null
-                        : reader.GetInt32("IdEmpleadoResponsable")
+                IdEmpleado = reader.GetInt32("IdEmpleado"),
+                Nombre = reader["Nombre"].ToString() ?? "",
+                Apellido = reader["Apellido"].ToString() ?? "",
+                Rol = reader["Rol"].ToString() ?? "",
+                Telefono = reader["Telefono"].ToString() ?? "",
+                CorreoElectronico = reader["CorreoElectronico"] == DBNull.Value
+                    ? null
+                    : reader["CorreoElectronico"].ToString(),
+                Contrasena = reader["Contrasena"].ToString() ?? "",
+                Estado = reader.GetByte("Estado"),
+                FechaRegistro = reader.GetDateTime("FechaRegistro"),
+                FechaActualizacion = reader["FechaActualizacion"] == DBNull.Value
+                    ? null
+                    : reader.GetDateTime("FechaActualizacion"),
+                IdEmpleadoResponsable = reader["IdEmpleadoResponsable"] == DBNull.Value
+                    ? null
+                    : reader.GetInt32("IdEmpleadoResponsable")
             };
         }
     }

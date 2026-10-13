@@ -10,7 +10,7 @@ using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
-    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Empleado)]
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Administrador)]
     public class ProductoEditarModel : PageModel
     {
         private readonly ServicioProducto _servicio;
@@ -40,9 +40,9 @@ namespace FERRETERIA__Joel.Pages
             _logger = logger;
         }
 
-        public IActionResult OnGet(string token)
+        public async Task<IActionResult> OnGetAsync(string token)
         {
-            CargarCatalogos();
+            await CargarCatalogosAsync();
 
             string? texto = UrlProtector.Descifrar(token);
 
@@ -54,7 +54,7 @@ namespace FERRETERIA__Joel.Pages
                 return RedirectToPage("Productos");
             }
 
-            Producto? producto = _servicio.ObtenerPorId(id);
+            Producto? producto = await _servicio.ObtenerPorIdAsync(id);
 
             if (producto is null)
             {
@@ -68,9 +68,9 @@ namespace FERRETERIA__Joel.Pages
             return Page();
         }
 
-        public IActionResult OnPost()
+        public async Task<IActionResult> OnPostAsync()
         {
-            Producto? productoActual = _servicio.ObtenerPorId(Producto.IdProducto);
+            Producto? productoActual = await _servicio.ObtenerPorIdAsync(Producto.IdProducto);
             if (productoActual is null)
             {
                 TempData["MensajeError"] = "El producto solicitado no existe.";
@@ -81,17 +81,17 @@ namespace FERRETERIA__Joel.Pages
             Producto.IdEmpleadoResponsable =
                 EmpleadoSesion.ObtenerIdEmpleado(User);
             NormalizarPrecio();
-            Validar();
+            await ValidarAsync();
 
             if (Errores.Any() || ErroresCampo.Any())
             {
-                CargarCatalogos();
+                await CargarCatalogosAsync();
                 return Page();
             }
 
             try
             {
-                Actualizar();
+                await ActualizarAsync();
             }
             catch (MySqlException ex) when (ex.Number == 1062)
             {
@@ -99,7 +99,7 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Producto.Codigo),
                     "Ya existe otro producto con ese código.");
 
-                CargarCatalogos();
+                await CargarCatalogosAsync();
                 return Page();
             }
             catch (Exception ex)
@@ -112,7 +112,7 @@ namespace FERRETERIA__Joel.Pages
                 Errores.Add(
                     "No se pudo actualizar el producto. Inténtalo nuevamente.");
 
-                CargarCatalogos();
+                await CargarCatalogosAsync();
                 return Page();
             }
 
@@ -122,7 +122,7 @@ namespace FERRETERIA__Joel.Pages
             return RedirectToPage("Productos");
         }
 
-        private void Validar()
+        private async Task ValidarAsync()
         {
             Producto.Codigo =
                 NormalizarTexto(Producto.Codigo).ToUpper();
@@ -158,8 +158,8 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Producto.IdMarca),
                     "Debe seleccionar una marca.");
             }
-            else if (!_servicioMarca
-                .ObtenerActivas()
+            else if (!(await _servicioMarca
+                .ObtenerActivasAsync())
                 .Any(m => m.IdMarca == Producto.IdMarca))
             {
                 AgregarErrorCampo(
@@ -201,8 +201,8 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Producto.IdCategoria),
                     "Debe seleccionar una categoría.");
             }
-            else if (!_servicioCategoria
-                .ObtenerActivas()
+            else if (!(await _servicioCategoria
+                .ObtenerActivasAsync())
                 .Any(c => c.IdCategoria == Producto.IdCategoria))
             {
                 AgregarErrorCampo(
@@ -235,18 +235,18 @@ namespace FERRETERIA__Joel.Pages
             }
         }
 
-        private void CargarCatalogos()
+        private async Task CargarCatalogosAsync()
         {
             Categorias =
-                _servicioCategoria.ObtenerActivas();
+                await _servicioCategoria.ObtenerActivasAsync();
 
             Marcas =
-                _servicioMarca.ObtenerActivas();
+                await _servicioMarca.ObtenerActivasAsync();
         }
 
-        private void Actualizar()
+        private async Task ActualizarAsync()
         {
-            _servicio.Actualizar(Producto);
+            await _servicio.ActualizarAsync(Producto);
         }
     }
 }

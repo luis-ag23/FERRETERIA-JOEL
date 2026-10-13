@@ -1,0 +1,449 @@
+using FERRETERIA__Joel.Aplicacion.Modelos;
+using FERRETERIA__Joel.Aplicacion.Politicas;
+using FERRETERIA__Joel.Dominio.Constantes;
+using FERRETERIA__Joel.Dominio.Entidades;
+using FERRETERIA__Joel.Dominio.Puertos;
+using FERRETERIA__Joel.Infraestructura.Factories;
+using FERRETERIA__Joel.Infraestructura.Repositorios;
+
+namespace FERRETERIA__Joel.Aplicacion.Servicios
+{
+    /// <summary>
+    /// Fachada (Facade) del proceso de REGISTRO de venta. Presenta una
+    /// única interfaz de alto nivel a la pantalla de venta, coordinando
+    /// clientes, el subsistema de stock (<see cref="FachadaActualizacionStock"/>),
+    /// la cabecera/detalle de la venta, la unidad de trabajo (transacción)
+    /// y el selector de descuentos (Strategy).
+    ///
+    /// La pantalla de venta NO conoce repositorios, transacciones ni
+    /// políticas: solo consume esta fachada. A su vez, esta fachada
+    /// delega el inventario en la fachada de stock, de modo que el
+    /// descuento de existencias queda encapsulado en su propio subsistema.
+    /// Todo el flujo es asíncrono (async/await) de extremo a extremo.
+    /// </summary>
+    public class FachadaVenta
+    {
+        private readonly MySqlVentaRepository _ventas;
+        private readonly MySqlDetalleVentaRepository _detalles;
+        private readonly RepositoryCreator<IRepository<Empleado>> _creadorEmpleados;
+        private readonly IUnidadDeTrabajo _unidadDeTrabajo;
+        private readonly SelectorDescuento _selectorDescuento;
+        private readonly IContextoUsuario _contextoUsuario;
+        private readonly FachadaActualizacionStock _stock;
+        private readonly ServicioCliente _servicioCliente;
+
+        private IRepository<Empleado>? _empleados;
+
+        public FachadaVenta(
+            MySqlVentaRepository ventas,
+            MySqlDetalleVentaRepository detalles,
+            RepositoryCreator<IRepository<Empleado>> creadorEmpleados,
+            IUnidadDeTrabajo unidadDeTrabajo,
+            SelectorDescuento selectorDescuento,
+            IContextoUsuario contextoUsuario,
+            FachadaActualizacionStock stock,
+            ServicioCliente servicioCliente,
+            ConfiguracionDescuentos descuentos)
+        {
+            _ventas = ventas;
+            _detalles = detalles;
+            _creadorEmpleados = creadorEmpleados;
+            _unidadDeTrabajo = unidadDeTrabajo;
+            _selectorDescuento = selectorDescuento;
+            _contextoUsuario = contextoUsuario;
+            _stock = stock;
+            _servicioCliente = servicioCliente;
+            Descuentos = descuentos;
+        }
+
+        /// <summary>
+        /// Parámetros de descuento vigentes, expuestos a la pantalla de
+        /// venta para la previsualización de totales en el cliente.
+        /// </summary>
+        public ConfiguracionDescuentos Descuentos { get; }
+
+        private IRepository<Empleado> Empleados =>
+            _empleados ??= _creadorEmpleados.CreateRepository();
+
+        // ---------- Búsquedas previas a la inserción ----------
+
+        public async Task<List<Cliente>> BuscarClientesAsync(string termino)
+        {
+            if (string.IsNullOrWhiteSpace(termino))
+            {
+                return new List<Cliente>();
+            }
+
+            return await _servicioCliente.BuscarAsync(termino.Trim());
+        }
+
+        public async Task<List<Producto>> BuscarProductosAsync(string termino)
+        {
+            List<Producto> activos = await _stock.ListarActivosAsync();
+
+            if (string.IsNullOrWhiteSpace(termino))
+            {
+                return activos.Take(20).ToList();
+            }
+
+            string patron = termino.Trim();
+
+            return activos
+                .Where(p =>
+                    p.Nombre.Contains(patron, StringComparison.OrdinalIgnoreCase) ||
+                    p.Codigo.Contains(patron, StringComparison.OrdinalIgnoreCase))
+                .Take(20)
+                .ToList();
+        }
+
+        public Task<Producto?> ObtenerProductoAsync(int idProducto)
+        {
+            return _stock.ObtenerParaVentaAsync(idProducto);
+        }
+
+        /// <summary>
+        /// Alta rápida de un cliente desde la propia pantalla de venta. Se
+        /// delega en el caso de uso de clientes para no duplicar reglas.
+        /// </summary>
+        public Task<ResultadoCliente> CrearClienteAsync(
+            string nombre,
+            string apellido,
+            string telefono)
+        {
+            return _servicioCliente.CrearAsync(
+                nombre,
+                apellido,
+                telefono);
+        }
+
+        public async Task<(LineaVentaDetalle? Linea, string? Error)> CalcularLineaAsync(
+            int idProducto,
+            int cantidad)
+        {
+            if (cantidad <= 0)
+            {
+                return (null, "La cantidad debe ser mayor que cero.");
+            }
+
+            Producto? producto = await ObtenerProductoAsync(idProducto);
+
+            if (producto is null || producto.Estado != 1)
+            {
+                return (null, "El producto seleccionado no existe o está inactivo.");
+            }
+
+            if (cantidad > producto.CantidadStock)
+            {
+                return (null,
+                    $"Stock insuficiente para '{producto.Nombre}'. " +
+                    $"Disponible: {producto.CantidadStock}.");
+            }
+
+            return (new LineaVentaDetalle
+            {
+                IdProducto = producto.IdProducto,
+                Codigo = producto.Codigo,
+                Nombre = producto.Nombre,
+                UnidadMedida = producto.UnidadMedida,
+                Cantidad = cantidad,
+                PrecioUnitario = producto.PrecioVenta,
+                TotalProducto = Math.Round(producto.PrecioVenta * cantidad, 2),
+                CantidadStock = producto.CantidadStock
+            }, null);
+        }
+
+        public ResumenVenta CalcularResumen(IEnumerable<LineaVentaDetalle> lineas)
+        {
+            List<LineaVentaDetalle> lista = lineas.ToList();
+            decimal subtotal = lista.Sum(l => l.TotalProducto);
+            int unidades = lista.Sum(l => l.Cantidad);
+
+            SeleccionDescuento descuento =
+                _selectorDescuento.Seleccionar(subtotal, unidades);
+
+            return new ResumenVenta
+            {
+                Subtotal = subtotal,
+                MontoDescuento = descuento.Monto,
+                PorcentajeDescuento = descuento.Porcentaje,
+                MontoTotal = Math.Round(subtotal - descuento.Monto, 2),
+                PoliticaDescuento = descuento.Politica
+            };
+        }
+
+        // ---------- Registro de la venta (transacción) ----------
+
+        public async Task<ResultadoVenta> RegistrarVentaAsync(SolicitudVenta solicitud)
+        {
+            if (solicitud is null)
+            {
+                return ResultadoVenta.Fallido(
+                    "La solicitud de venta es obligatoria.");
+            }
+
+            if (solicitud.IdCliente <= 0)
+            {
+                return ResultadoVenta.Fallido("Debe seleccionar un cliente.");
+            }
+
+            if (solicitud.Lineas is null || solicitud.Lineas.Count == 0)
+            {
+                return ResultadoVenta.Fallido(
+                    "Debe agregar al menos un producto a la venta.");
+            }
+
+            if (string.IsNullOrWhiteSpace(solicitud.MetodoPago))
+            {
+                return ResultadoVenta.Fallido(
+                    "Debe indicar el método de pago.");
+            }
+
+            int idEmpleado = _contextoUsuario.IdEmpleado;
+
+            if (idEmpleado <= 0)
+            {
+                return ResultadoVenta.Fallido(
+                    "Debe iniciar sesión para registrar la venta.");
+            }
+
+            Dictionary<int, int> cantidades = new();
+
+            foreach (LineaVentaSolicitada linea in solicitud.Lineas)
+            {
+                if (linea.Cantidad <= 0)
+                {
+                    return ResultadoVenta.Fallido(
+                        "Todas las cantidades deben ser mayores que cero.");
+                }
+
+                cantidades[linea.IdProducto] = cantidades.TryGetValue(
+                    linea.IdProducto,
+                    out int acumulada)
+                        ? acumulada + linea.Cantidad
+                        : linea.Cantidad;
+            }
+
+            string? clave = string.IsNullOrWhiteSpace(solicitud.ClaveIdempotencia)
+                ? null
+                : solicitud.ClaveIdempotencia.Trim();
+
+            string metodoPago = solicitud.MetodoPago.Trim();
+            string estadoPago = string.IsNullOrWhiteSpace(solicitud.EstadoPago)
+                ? EstadoPago.Pagado
+                : solicitud.EstadoPago.Trim();
+
+            // Por ahora solo se registran ventas pagadas. Se rechaza
+            // cualquier estado distinto para que una solicitud
+            // manipulada no pueda fijar Pendiente/Parcial.
+            if (!string.Equals(
+                    estadoPago,
+                    EstadoPago.Pagado,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return ResultadoVenta.Fallido(
+                    "Por el momento solo se registran ventas con el pago completado.");
+            }
+
+            await _unidadDeTrabajo.IniciarAsync();
+
+            try
+            {
+                if (clave is not null)
+                {
+                    Venta? existente =
+                        await _ventas.ObtenerPorClaveIdempotenciaAsync(clave);
+
+                    if (existente is not null)
+                    {
+                        await _unidadDeTrabajo.ConfirmarAsync();
+                        return ArmarResultado(
+                            existente,
+                            await _stock.MapearLineasAsync(
+                                await _detalles.ObtenerPorVentaAsync(existente.IdVenta)),
+                            idempotente: true);
+                    }
+                }
+
+                Cliente? cliente =
+                    await _servicioCliente.ObtenerPorIdAsync(solicitud.IdCliente);
+
+                if (cliente is null || cliente.Estado != 1)
+                {
+                    await _unidadDeTrabajo.RevertirAsync();
+                    return ResultadoVenta.Fallido(
+                        "El cliente seleccionado no existe o está inactivo.");
+                }
+
+                List<DetalleVenta> detalles = new();
+                List<LineaVentaDetalle> lineasCalculadas = new();
+                decimal subtotal = 0m;
+                int unidades = 0;
+
+                foreach (KeyValuePair<int, int> par in cantidades)
+                {
+                    Producto? producto =
+                        await _stock.ObtenerParaVentaAsync(par.Key);
+
+                    if (producto is null)
+                    {
+                        await _unidadDeTrabajo.RevertirAsync();
+                        return ResultadoVenta.Fallido(
+                            $"El producto con id {par.Key} no está disponible.");
+                    }
+
+                    if (par.Value > producto.CantidadStock)
+                    {
+                        await _unidadDeTrabajo.RevertirAsync();
+                        return ResultadoVenta.Fallido(
+                            $"Stock insuficiente para '{producto.Nombre}'. " +
+                            $"Disponible: {producto.CantidadStock}.");
+                    }
+
+                    if (!await _stock.DescontarAsync(par.Key, par.Value))
+                    {
+                        await _unidadDeTrabajo.RevertirAsync();
+                        return ResultadoVenta.Fallido(
+                            $"No se pudo descontar el stock de " +
+                            $"'{producto.Nombre}'.");
+                    }
+
+                    decimal totalProducto =
+                        Math.Round(producto.PrecioVenta * par.Value, 2);
+
+                    subtotal += totalProducto;
+                    unidades += par.Value;
+
+                    detalles.Add(new DetalleVenta
+                    {
+                        IdProducto = producto.IdProducto,
+                        Cantidad = par.Value,
+                        PrecioUnitario = producto.PrecioVenta,
+                        TotalProducto = totalProducto,
+                        IdEmpleadoResponsable = idEmpleado
+                    });
+
+                    lineasCalculadas.Add(new LineaVentaDetalle
+                    {
+                        IdProducto = producto.IdProducto,
+                        Codigo = producto.Codigo,
+                        Nombre = producto.Nombre,
+                        UnidadMedida = producto.UnidadMedida,
+                        Cantidad = par.Value,
+                        PrecioUnitario = producto.PrecioVenta,
+                        TotalProducto = totalProducto,
+                        CantidadStock = producto.CantidadStock - par.Value
+                    });
+                }
+
+                SeleccionDescuento descuento =
+                    _selectorDescuento.Seleccionar(subtotal, unidades);
+
+                Venta venta = new()
+                {
+                    EstadoVenta = EstadoVenta.Registrada,
+                    IdCliente = cliente.IdCliente,
+                    MetodoPago = metodoPago,
+                    EstadoPago = estadoPago,
+                    Subtotal = subtotal,
+                    MontoDescuento = descuento.Monto,
+                    PorcentajeDescuento = descuento.Porcentaje,
+                    MontoTotal = Math.Round(subtotal - descuento.Monto, 2),
+                    ClaveIdempotencia = clave,
+                    IdEmpleadoResponsable = idEmpleado
+                };
+
+                int idVenta = await _ventas.InsertarAsync(venta);
+                await _ventas.AsignarCodigoAsync(idVenta);
+
+                foreach (DetalleVenta detalle in detalles)
+                {
+                    detalle.IdVenta = idVenta;
+                    await _detalles.InsertarAsync(detalle);
+                }
+
+                await _unidadDeTrabajo.ConfirmarAsync();
+
+                Venta guardada =
+                    await _ventas.ObtenerPorIdAsync(idVenta) ?? venta;
+
+                return ArmarResultado(
+                    guardada,
+                    lineasCalculadas,
+                    idempotente: false);
+            }
+            catch (Exception)
+            {
+                await _unidadDeTrabajo.RevertirAsync();
+
+                if (clave is not null)
+                {
+                    Venta? existente =
+                        await _ventas.ObtenerPorClaveIdempotenciaAsync(clave);
+
+                    if (existente is not null)
+                    {
+                        return ArmarResultado(
+                            existente,
+                            await _stock.MapearLineasAsync(
+                                await _detalles.ObtenerPorVentaAsync(existente.IdVenta)),
+                            idempotente: true);
+                    }
+                }
+
+                return ResultadoVenta.Fallido(
+                    "No se pudo registrar la venta. Intente nuevamente.");
+            }
+        }
+
+        // ---------- Comprobante / recibo ----------
+
+        public async Task<ComprobanteVenta?> ObtenerComprobanteAsync(int idVenta)
+        {
+            Venta? venta = await _ventas.ObtenerPorIdAsync(idVenta);
+
+            if (venta is null)
+            {
+                return null;
+            }
+
+            Cliente? cliente =
+                await _servicioCliente.ObtenerPorIdAsync(venta.IdCliente);
+
+            string nombreCliente = cliente is null
+                ? "Cliente eliminado"
+                : $"{cliente.Nombre} {cliente.Apellido}".Trim();
+
+            List<Empleado> todos = await Empleados.ObtenerTodosAsync();
+
+            return new ComprobanteVenta
+            {
+                Venta = venta,
+                NombreCliente = nombreCliente,
+                NombreEmpleadoResponsable = NombreDe(todos, venta.IdEmpleadoResponsable),
+                NombreEmpleadoAnulacion = venta.IdEmpleadoAnulacion is not null
+                    ? NombreDe(todos, venta.IdEmpleadoAnulacion.Value)
+                    : null,
+                Lineas = await _stock.MapearLineasAsync(
+                    await _detalles.ObtenerPorVentaAsync(idVenta))
+            };
+        }
+
+        private static string NombreDe(List<Empleado> empleados, int idEmpleado)
+        {
+            Empleado? empleado = empleados
+                .FirstOrDefault(e => e.IdEmpleado == idEmpleado);
+
+            return empleado is null
+                ? $"Empleado #{idEmpleado}"
+                : $"{empleado.Nombre} {empleado.Apellido}".Trim();
+        }
+
+        private static ResultadoVenta ArmarResultado(
+            Venta venta,
+            List<LineaVentaDetalle> detalles,
+            bool idempotente)
+        {
+            return ResultadoVenta.Correcto(venta, detalles, idempotente);
+        }
+    }
+}

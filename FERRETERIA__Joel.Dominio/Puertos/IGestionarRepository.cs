@@ -2,10 +2,10 @@ namespace FERRETERIA__Joel.Dominio.Puertos
 {
     public interface IGestionarRepository<T> : IRepository<T>
     {
-        void Actualizar(T entidad);
+        Task ActualizarAsync(T entidad);
 
-        void CambiarEstado(int id, int idEmpleadoResponsable);
+        Task CambiarEstadoAsync(int id, int idEmpleadoResponsable);
 
-        List<T> MostrarActivos();
+        Task<List<T>> MostrarActivosAsync();
     }
 }

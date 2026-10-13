@@ -9,7 +9,7 @@ using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
-    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Empleado)]
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Administrador)]
     public class MarcaNuevaModel : PageModel
     {
         private readonly ServicioMarca _servicio;
@@ -34,12 +34,12 @@ namespace FERRETERIA__Joel.Pages
             _logger = logger;
         }
 
-        public void OnGet()
+        public async Task OnGetAsync()
         {
             NuevaMarca.Estado = 1;
         }
 
-        public IActionResult OnPost()
+        public async Task<IActionResult> OnPostAsync()
         {
             NuevaMarca.IdEmpleadoResponsable =
                 EmpleadoSesion.ObtenerIdEmpleado(User);
@@ -53,7 +53,7 @@ namespace FERRETERIA__Joel.Pages
 
             try
             {
-                _servicio.Insertar(NuevaMarca);
+                await _servicio.InsertarAsync(NuevaMarca);
 
                 TempData["Mensaje"] =
                     "Marca registrada con éxito.";

@@ -1,49 +1,73 @@
-using FERRETERIA__Joel.Infraestructura.Conexion;
+using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
+using FERRETERIA__Joel.Infraestructura.Conexion;
 using MySql.Data.MySqlClient;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
 {
+    /// <summary>
+    /// Repositorio de ventas. Implementa el contrato genérico
+    /// <see cref="IRepository{T}"/> y expone las operaciones propias del flujo
+    /// de venta (folios, idempotencia y anulación) como métodos concretos que
+    /// se inyectan directamente por DI. Participa de la transacción ambiente.
+    /// </summary>
     public class MySqlVentaRepository : IRepository<Venta>
     {
-        private readonly IDbConnectionFactory _connectionFactory;
+        private const string Columnas = @"
+            IdVenta,
+            CodigoVenta,
+            EstadoVenta,
+            IdCliente,
+            MetodoPago,
+            EstadoPago,
+            MontoTotal,
+            Subtotal,
+            MontoDescuento,
+            PorcentajeDescuento,
+            ClaveIdempotencia,
+            FechaRegistro,
+            FechaActualizacion,
+            FechaAnulacion,
+            MotivoAnulacion,
+            IdEmpleadoAnulacion,
+            IdEmpleadoResponsable";
 
-        public MySqlVentaRepository(IDbConnectionFactory connectionFactory)
+        private readonly IConexionTransaccional _conexion;
+
+        public MySqlVentaRepository(IConexionTransaccional conexion)
         {
-            _connectionFactory = connectionFactory;
+            _conexion = conexion;
         }
 
-        public List<Venta> ObtenerTodos()
+        private async Task<MySqlCommand> CrearComandoAsync(string query)
+        {
+            MySqlCommand command = new(query, await _conexion.ObtenerConexionAsync());
+
+            if (_conexion.Transaccion is not null)
+            {
+                command.Transaction = _conexion.Transaccion;
+            }
+
+            return command;
+        }
+
+        // ================== Contrato genérico ==================
+
+        public virtual async Task<List<Venta>> ObtenerTodosAsync()
         {
             List<Venta> ventas = new();
 
-            const string query = @"
-                SELECT
-                    IdVenta,
-                    CodigoVenta,
-                    IdCliente,
-                    MetodoPago,
-                    EstadoPago,
-                    MontoTotal,
-                    FechaRegistro,
-                    FechaActualizacion,
-                    IdEmpleadoResponsable
+            string query = $@"
+                SELECT {Columnas}
                 FROM venta
                 ORDER BY FechaRegistro DESC";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            while (reader.Read())
+            while (await reader.ReadAsync())
             {
                 ventas.Add(MapearVenta(reader));
             }
@@ -51,207 +75,173 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return ventas;
         }
 
-        public int Insertar(Venta venta)
+        public virtual async Task<int> InsertarAsync(Venta venta)
         {
             const string query = @"
                 INSERT INTO venta
                 (
-                    CodigoVenta,
+                    EstadoVenta,
                     IdCliente,
                     MetodoPago,
                     EstadoPago,
                     MontoTotal,
+                    Subtotal,
+                    MontoDescuento,
+                    PorcentajeDescuento,
+                    ClaveIdempotencia,
                     IdEmpleadoResponsable
                 )
                 VALUES
                 (
-                    @codigoVenta,
+                    @estadoVenta,
                     @idCliente,
                     @metodoPago,
                     @estadoPago,
                     @montoTotal,
+                    @subtotal,
+                    @montoDescuento,
+                    @porcentajeDescuento,
+                    @claveIdempotencia,
                     @idEmpleadoResponsable
                 )";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
+            command.Parameters.AddWithValue("@estadoVenta", venta.EstadoVenta);
+            command.Parameters.AddWithValue("@idCliente", venta.IdCliente);
+            command.Parameters.AddWithValue("@metodoPago", venta.MetodoPago);
+            command.Parameters.AddWithValue("@estadoPago", venta.EstadoPago);
+            command.Parameters.AddWithValue("@montoTotal", venta.MontoTotal);
+            command.Parameters.AddWithValue("@subtotal", venta.Subtotal);
+            command.Parameters.AddWithValue("@montoDescuento", venta.MontoDescuento);
+            command.Parameters.AddWithValue("@porcentajeDescuento", venta.PorcentajeDescuento);
             command.Parameters.AddWithValue(
-                "@codigoVenta",
-                venta.CodigoVenta);
-
-            command.Parameters.AddWithValue(
-                "@idCliente",
-                venta.IdCliente);
-
-            command.Parameters.AddWithValue(
-                "@metodoPago",
-                venta.MetodoPago);
-
-            command.Parameters.AddWithValue(
-                "@estadoPago",
-                venta.EstadoPago);
-
-            command.Parameters.AddWithValue(
-                "@montoTotal",
-                venta.MontoTotal);
-
+                "@claveIdempotencia",
+                (object?)venta.ClaveIdempotencia ?? DBNull.Value);
             command.Parameters.AddWithValue(
                 "@idEmpleadoResponsable",
                 venta.IdEmpleadoResponsable);
 
-            connection.Open();
-
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
 
             return Convert.ToInt32(command.LastInsertedId);
         }
 
-        // ================== Funciones fuera del contrato ==================
+        // ================== Operaciones propias de Ventas ==================
 
-        public List<Venta> ObtenerActivas()
-        {
-            return ObtenerTodos();
-        }
-
-        public Venta? ObtenerPorId(int id)
+        public virtual async Task AsignarCodigoAsync(int idVenta)
         {
             const string query = @"
-                SELECT
-                    IdVenta,
-                    CodigoVenta,
-                    IdCliente,
-                    MetodoPago,
-                    EstadoPago,
-                    MontoTotal,
-                    FechaRegistro,
-                    FechaActualizacion,
-                    IdEmpleadoResponsable
-                FROM venta
-                WHERE IdVenta = @id
-                LIMIT 1";
+                UPDATE venta
+                SET CodigoVenta = CONCAT(
+                        'V-',
+                        DATE_FORMAT(FechaRegistro, '%Y%m%d'),
+                        '-',
+                        LPAD(IdVenta, 6, '0'))
+                WHERE IdVenta = @idVenta";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
+            command.Parameters.AddWithValue("@idVenta", idVenta);
 
-            command.Parameters.AddWithValue("@id", id);
-
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            return reader.Read()
-                ? MapearVenta(reader)
-                : null;
+            await command.ExecuteNonQueryAsync();
         }
 
-        public void Actualizar(Venta venta)
+        public virtual async Task<Venta?> ObtenerPorIdAsync(int idVenta)
+        {
+            string query = $@"
+                SELECT {Columnas}
+                FROM venta
+                WHERE IdVenta = @idVenta
+                LIMIT 1";
+
+            using MySqlCommand command = await CrearComandoAsync(query);
+
+            command.Parameters.AddWithValue("@idVenta", idVenta);
+
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
+
+            return await reader.ReadAsync() ? MapearVenta(reader) : null;
+        }
+
+        public virtual async Task<Venta?> ObtenerPorClaveIdempotenciaAsync(
+            string claveIdempotencia)
+        {
+            string query = $@"
+                SELECT {Columnas}
+                FROM venta
+                WHERE ClaveIdempotencia = @clave
+                LIMIT 1";
+
+            using MySqlCommand command = await CrearComandoAsync(query);
+
+            command.Parameters.AddWithValue("@clave", claveIdempotencia);
+
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
+
+            return await reader.ReadAsync() ? MapearVenta(reader) : null;
+        }
+
+        public virtual async Task<bool> MarcarAnuladaAsync(
+            int idVenta,
+            int idEmpleadoAnulacion,
+            string motivo)
         {
             const string query = @"
                 UPDATE venta
                 SET
-                    CodigoVenta = @codigoVenta,
-                    IdCliente = @idCliente,
-                    MetodoPago = @metodoPago,
-                    EstadoPago = @estadoPago,
-                    MontoTotal = @montoTotal,
-                    FechaActualizacion = CURRENT_TIMESTAMP,
-                    IdEmpleadoResponsable = @idEmpleadoResponsable
-                WHERE IdVenta = @id";
+                    EstadoVenta = @estadoAnulada,
+                    FechaAnulacion = CURRENT_TIMESTAMP,
+                    MotivoAnulacion = @motivo,
+                    IdEmpleadoAnulacion = @idEmpleadoAnulacion,
+                    FechaActualizacion = CURRENT_TIMESTAMP
+                WHERE IdVenta = @idVenta
+                  AND EstadoVenta = @estadoRegistrada";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
+            command.Parameters.AddWithValue("@idVenta", idVenta);
+            command.Parameters.AddWithValue("@estadoAnulada", EstadoVenta.Anulada);
+            command.Parameters.AddWithValue("@estadoRegistrada", EstadoVenta.Registrada);
+            command.Parameters.AddWithValue("@motivo", motivo);
+            command.Parameters.AddWithValue("@idEmpleadoAnulacion", idEmpleadoAnulacion);
 
-            command.Parameters.AddWithValue("@id", venta.IdVenta);
-
-            command.Parameters.AddWithValue(
-                "@codigoVenta",
-                venta.CodigoVenta);
-
-            command.Parameters.AddWithValue(
-                "@idCliente",
-                venta.IdCliente);
-
-            command.Parameters.AddWithValue(
-                "@metodoPago",
-                venta.MetodoPago);
-
-            command.Parameters.AddWithValue(
-                "@estadoPago",
-                venta.EstadoPago);
-
-            command.Parameters.AddWithValue(
-                "@montoTotal",
-                venta.MontoTotal);
-
-            command.Parameters.AddWithValue(
-                "@idEmpleadoResponsable",
-                venta.IdEmpleadoResponsable);
-
-            connection.Open();
-
-            command.ExecuteNonQuery();
+            return await command.ExecuteNonQueryAsync() == 1;
         }
 
-        public int Count()
-        {
-            const string query = @"
-                SELECT COUNT(*)
-                FROM venta";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            connection.Open();
-
-            return Convert.ToInt32(command.ExecuteScalar());
-        }
-
-        private Venta MapearVenta(MySqlDataReader reader)
+        private static Venta MapearVenta(MySqlDataReader reader)
         {
             return new Venta
             {
-                IdVenta =
-                    reader.GetInt32("IdVenta"),
-
-                CodigoVenta =
-                    reader["CodigoVenta"].ToString() ?? "",
-
-                IdCliente =
-                    reader.GetInt32("IdCliente"),
-
-                MetodoPago =
-                    reader["MetodoPago"].ToString() ?? "",
-
-                EstadoPago =
-                    reader["EstadoPago"].ToString() ?? "",
-
-                MontoTotal =
-                    reader.GetDecimal("MontoTotal"),
-
-                FechaRegistro =
-                    reader.GetDateTime("FechaRegistro"),
-
-                FechaActualizacion =
-                    reader["FechaActualizacion"] == DBNull.Value
-                        ? null
-                        : reader.GetDateTime("FechaActualizacion"),
-
-                IdEmpleadoResponsable =
-                    reader.GetInt32("IdEmpleadoResponsable")
+                IdVenta = reader.GetInt32("IdVenta"),
+                CodigoVenta = reader["CodigoVenta"] == DBNull.Value
+                    ? null
+                    : reader["CodigoVenta"].ToString(),
+                EstadoVenta = reader["EstadoVenta"].ToString() ?? EstadoVenta.Registrada,
+                IdCliente = reader.GetInt32("IdCliente"),
+                MetodoPago = reader["MetodoPago"].ToString() ?? "",
+                EstadoPago = reader["EstadoPago"].ToString() ?? "",
+                MontoTotal = reader.GetDecimal("MontoTotal"),
+                Subtotal = reader.GetDecimal("Subtotal"),
+                MontoDescuento = reader.GetDecimal("MontoDescuento"),
+                PorcentajeDescuento = reader.GetDecimal("PorcentajeDescuento"),
+                ClaveIdempotencia = reader["ClaveIdempotencia"] == DBNull.Value
+                    ? null
+                    : reader["ClaveIdempotencia"].ToString(),
+                FechaRegistro = reader.GetDateTime("FechaRegistro"),
+                FechaActualizacion = reader["FechaActualizacion"] == DBNull.Value
+                    ? null
+                    : reader.GetDateTime("FechaActualizacion"),
+                FechaAnulacion = reader["FechaAnulacion"] == DBNull.Value
+                    ? null
+                    : reader.GetDateTime("FechaAnulacion"),
+                MotivoAnulacion = reader["MotivoAnulacion"] == DBNull.Value
+                    ? null
+                    : reader["MotivoAnulacion"].ToString(),
+                IdEmpleadoAnulacion = reader["IdEmpleadoAnulacion"] == DBNull.Value
+                    ? null
+                    : reader.GetInt32("IdEmpleadoAnulacion"),
+                IdEmpleadoResponsable = reader.GetInt32("IdEmpleadoResponsable")
             };
         }
     }

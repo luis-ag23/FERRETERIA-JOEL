@@ -1,55 +1,67 @@
-using FERRETERIA__Joel.Infraestructura.Conexion;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
+using FERRETERIA__Joel.Infraestructura.Conexion;
 using MySql.Data.MySqlClient;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
 {
+    /// <summary>
+    /// Repositorio de productos. Implementa <see cref="IGestionarRepository{T}"/>
+    /// y participa de la transacción ambiente: la actualización de precio y el
+    /// registro en el histórico se confirman o revierten juntos.
+    /// </summary>
     public class MySqlProductoRepository : IGestionarRepository<Producto>
     {
-        private readonly IDbConnectionFactory _connectionFactory;
+        private const string Columnas = @"
+            p.IdProducto,
+            p.IdCategoria,
+            p.Codigo,
+            p.Nombre,
+            p.Descripcion,
+            p.Marca AS IdMarca,
+            m.Nombre AS NombreMarca,
+            p.UnidadMedida,
+            p.PrecioVenta,
+            p.CantidadStock,
+            p.Estado,
+            p.FechaRegistro,
+            p.FechaActualizacion,
+            p.IdEmpleadoResponsable";
 
-        public MySqlProductoRepository(IDbConnectionFactory connectionFactory)
+        private readonly IConexionTransaccional _conexion;
+
+        public MySqlProductoRepository(IConexionTransaccional conexion)
         {
-            _connectionFactory = connectionFactory;
+            _conexion = conexion;
         }
 
-        public List<Producto> ObtenerTodos()
+        private async Task<MySqlCommand> CrearComandoAsync(string query)
+        {
+            MySqlCommand command = new(query, await _conexion.ObtenerConexionAsync());
+
+            if (_conexion.Transaccion is not null)
+            {
+                command.Transaction = _conexion.Transaccion;
+            }
+
+            return command;
+        }
+
+        public virtual async Task<List<Producto>> ObtenerTodosAsync()
         {
             List<Producto> productos = new();
 
-            const string query = @"
-                SELECT
-                    p.IdProducto,
-                    p.IdCategoria,
-                    p.Codigo,
-                    p.Nombre,
-                    p.Descripcion,
-                    p.Marca AS IdMarca,
-                    m.Nombre AS NombreMarca,
-                    p.UnidadMedida,
-                    p.PrecioVenta,
-                    p.CantidadStock,
-                    p.Estado,
-                    p.FechaRegistro,
-                    p.FechaActualizacion,
-                    p.IdEmpleadoResponsable
+            string query = $@"
+                SELECT {Columnas}
                 FROM producto p
                 LEFT JOIN marca m ON m.IdMarca = p.Marca
                 ORDER BY p.Nombre ASC";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            while (reader.Read())
+            while (await reader.ReadAsync())
             {
                 productos.Add(MapearProducto(reader));
             }
@@ -57,7 +69,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return productos;
         }
 
-        public int Insertar(Producto producto)
+        public virtual async Task<int> InsertarAsync(Producto producto)
         {
             const string query = @"
                 INSERT INTO producto
@@ -87,55 +99,28 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     @idEmpleadoResponsable
                 )";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue(
-                "@idCategoria",
-                producto.IdCategoria);
-
-            command.Parameters.AddWithValue(
-                "@codigo",
-                producto.Codigo);
-
-            command.Parameters.AddWithValue(
-                "@nombre",
-                producto.Nombre);
-
+            command.Parameters.AddWithValue("@idCategoria", producto.IdCategoria);
+            command.Parameters.AddWithValue("@codigo", producto.Codigo);
+            command.Parameters.AddWithValue("@nombre", producto.Nombre);
             command.Parameters.AddWithValue(
                 "@descripcion",
                 (object?)producto.Descripcion ?? DBNull.Value);
-
-            command.Parameters.AddWithValue(
-                "@idMarca",
-                producto.IdMarca);
-
-            command.Parameters.AddWithValue(
-                "@unidadMedida",
-                producto.UnidadMedida);
-
-            command.Parameters.AddWithValue(
-                "@precioVenta",
-                producto.PrecioVenta);
-
-            command.Parameters.AddWithValue(
-                "@cantidadStock",
-                producto.CantidadStock);
-
+            command.Parameters.AddWithValue("@idMarca", producto.IdMarca);
+            command.Parameters.AddWithValue("@unidadMedida", producto.UnidadMedida);
+            command.Parameters.AddWithValue("@precioVenta", producto.PrecioVenta);
+            command.Parameters.AddWithValue("@cantidadStock", producto.CantidadStock);
             command.Parameters.AddWithValue(
                 "@idEmpleadoResponsable",
                 producto.IdEmpleadoResponsable);
 
-            connection.Open();
+            await command.ExecuteNonQueryAsync();
 
-            command.ExecuteNonQuery();
             return Convert.ToInt32(command.LastInsertedId);
         }
 
-        public void Actualizar(Producto producto)
+        public virtual async Task ActualizarAsync(Producto producto)
         {
             const string query = @"
                 UPDATE producto
@@ -153,62 +138,30 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     FechaActualizacion = CURRENT_TIMESTAMP
                 WHERE IdProducto = @idProducto";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue(
-                "@idProducto",
-                producto.IdProducto);
-
-            command.Parameters.AddWithValue(
-                "@idCategoria",
-                producto.IdCategoria);
-
-            command.Parameters.AddWithValue(
-                "@codigo",
-                producto.Codigo);
-
-            command.Parameters.AddWithValue(
-                "@nombre",
-                producto.Nombre);
-
+            command.Parameters.AddWithValue("@idProducto", producto.IdProducto);
+            command.Parameters.AddWithValue("@idCategoria", producto.IdCategoria);
+            command.Parameters.AddWithValue("@codigo", producto.Codigo);
+            command.Parameters.AddWithValue("@nombre", producto.Nombre);
             command.Parameters.AddWithValue(
                 "@descripcion",
                 (object?)producto.Descripcion ?? DBNull.Value);
-
-            command.Parameters.AddWithValue(
-                "@idMarca",
-                producto.IdMarca);
-
-            command.Parameters.AddWithValue(
-                "@unidadMedida",
-                producto.UnidadMedida);
-
-            command.Parameters.AddWithValue(
-                "@precioVenta",
-                producto.PrecioVenta);
-
-            command.Parameters.AddWithValue(
-                "@cantidadStock",
-                producto.CantidadStock);
-
+            command.Parameters.AddWithValue("@idMarca", producto.IdMarca);
+            command.Parameters.AddWithValue("@unidadMedida", producto.UnidadMedida);
+            command.Parameters.AddWithValue("@precioVenta", producto.PrecioVenta);
+            command.Parameters.AddWithValue("@cantidadStock", producto.CantidadStock);
             command.Parameters.AddWithValue(
                 "@idEmpleadoResponsable",
                 producto.IdEmpleadoResponsable);
+            command.Parameters.AddWithValue("@estado", producto.Estado);
 
-            command.Parameters.AddWithValue(
-                "@estado",
-                producto.Estado);
-
-            connection.Open();
-
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
         }
 
-        public void CambiarEstado(int idProducto, int idEmpleadoResponsable)
+        public virtual async Task CambiarEstadoAsync(
+            int idProducto,
+            int idEmpleadoResponsable)
         {
             const string query = @"
                 UPDATE producto
@@ -221,62 +174,32 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     IdEmpleadoResponsable = @idEmpleadoResponsable
                 WHERE IdProducto = @idProducto";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue(
-                "@idProducto",
-                idProducto);
-
+            command.Parameters.AddWithValue("@idProducto", idProducto);
             command.Parameters.AddWithValue(
                 "@idEmpleadoResponsable",
                 idEmpleadoResponsable);
 
-            connection.Open();
-
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
         }
 
-        public List<Producto> MostrarActivos()
+        public virtual async Task<List<Producto>> MostrarActivosAsync()
         {
             List<Producto> productos = new();
 
-            const string query = @"
-                SELECT
-                    p.IdProducto,
-                    p.IdCategoria,
-                    p.Codigo,
-                    p.Nombre,
-                    p.Descripcion,
-                    p.Marca AS IdMarca,
-                    m.Nombre AS NombreMarca,
-                    p.UnidadMedida,
-                    p.PrecioVenta,
-                    p.CantidadStock,
-                    p.Estado,
-                    p.FechaRegistro,
-                    p.FechaActualizacion,
-                    p.IdEmpleadoResponsable
+            string query = $@"
+                SELECT {Columnas}
                 FROM producto p
                 LEFT JOIN marca m ON m.IdMarca = p.Marca
                 WHERE p.Estado = 1
                 ORDER BY p.Nombre ASC";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            while (reader.Read())
+            while (await reader.ReadAsync())
             {
                 productos.Add(MapearProducto(reader));
             }
@@ -284,123 +207,50 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return productos;
         }
 
-        // ================== Funciones fuera del contrato ==================
+        // ================== Operaciones propias ==================
 
-        public Producto? ObtenerPorId(int idProducto)
+        public virtual async Task<Producto?> ObtenerPorIdAsync(int idProducto)
         {
-            const string query = @"
-                SELECT
-                    p.IdProducto,
-                    p.IdCategoria,
-                    p.Codigo,
-                    p.Nombre,
-                    p.Descripcion,
-                    p.Marca AS IdMarca,
-                    m.Nombre AS NombreMarca,
-                    p.UnidadMedida,
-                    p.PrecioVenta,
-                    p.CantidadStock,
-                    p.Estado,
-                    p.FechaRegistro,
-                    p.FechaActualizacion,
-                    p.IdEmpleadoResponsable
+            string query = $@"
+                SELECT {Columnas}
                 FROM producto p
                 LEFT JOIN marca m ON m.IdMarca = p.Marca
                 WHERE p.IdProducto = @idProducto";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
+            command.Parameters.AddWithValue("@idProducto", idProducto);
 
-            command.Parameters.AddWithValue(
-                "@idProducto",
-                idProducto);
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            if (!reader.Read())
-            {
-                return null;
-            }
-
-            return MapearProducto(reader);
+            return await reader.ReadAsync() ? MapearProducto(reader) : null;
         }
 
-        public int Count()
-        {
-            const string query = @"
-                SELECT COUNT(*)
-                FROM producto";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            connection.Open();
-
-            return Convert.ToInt32(command.ExecuteScalar());
-        }
-
-        private Producto MapearProducto(MySqlDataReader reader)
+        private static Producto MapearProducto(MySqlDataReader reader)
         {
             return new Producto
             {
-                IdProducto =
-                    reader.GetInt32("IdProducto"),
-
-                IdCategoria =
-                    reader.GetInt32("IdCategoria"),
-
-                IdMarca =
-                    reader.GetInt32("IdMarca"),
-
-                Codigo =
-                    reader["Codigo"].ToString() ?? "",
-
-                Nombre =
-                    reader["Nombre"].ToString() ?? "",
-
-                Descripcion =
-                    reader["Descripcion"] == DBNull.Value
+                IdProducto = reader.GetInt32("IdProducto"),
+                IdCategoria = reader.GetInt32("IdCategoria"),
+                IdMarca = reader.GetInt32("IdMarca"),
+                Codigo = reader["Codigo"].ToString() ?? "",
+                Nombre = reader["Nombre"].ToString() ?? "",
+                Descripcion = reader["Descripcion"] == DBNull.Value
                     ? null
                     : reader["Descripcion"].ToString(),
-
-                NombreMarca =
-                    reader["NombreMarca"] == DBNull.Value
+                NombreMarca = reader["NombreMarca"] == DBNull.Value
                     ? null
                     : reader["NombreMarca"].ToString(),
-
-                UnidadMedida =
-                    reader["UnidadMedida"].ToString() ?? "",
-
-                PrecioVenta =
-                    reader.GetDecimal("PrecioVenta"),
-
-                CantidadStock =
-                    reader.GetInt32("CantidadStock"),
-
-                Estado =
-                    reader.GetByte("Estado"),
-
-                FechaRegistro =
-                    reader.GetDateTime("FechaRegistro"),
-
-                FechaActualizacion =
-                    reader["FechaActualizacion"] == DBNull.Value
+                UnidadMedida = reader["UnidadMedida"].ToString() ?? "",
+                PrecioVenta = reader.GetDecimal("PrecioVenta"),
+                CantidadStock = reader.GetInt32("CantidadStock"),
+                Estado = reader.GetByte("Estado"),
+                FechaRegistro = reader.GetDateTime("FechaRegistro"),
+                FechaActualizacion = reader["FechaActualizacion"] == DBNull.Value
                     ? null
                     : reader.GetDateTime("FechaActualizacion"),
-
-                IdEmpleadoResponsable =
-                    reader.GetInt32("IdEmpleadoResponsable")
+                IdEmpleadoResponsable = reader.GetInt32("IdEmpleadoResponsable")
             };
         }
     }
-
 }

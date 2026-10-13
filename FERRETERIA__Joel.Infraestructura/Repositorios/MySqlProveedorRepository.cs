@@ -14,7 +14,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             _connectionFactory = connectionFactory;
         }
 
-        public List<Proveedor> ObtenerTodos()
+        public virtual async Task<List<Proveedor>> ObtenerTodosAsync()
         {
             List<Proveedor> proveedores = new();
 
@@ -40,12 +40,12 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             using MySqlCommand command =
                 new MySqlCommand(query, connection);
 
-            connection.Open();
+            await connection.OpenAsync();
 
             using MySqlDataReader reader =
-                command.ExecuteReader();
+                (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            while (reader.Read())
+            while (await reader.ReadAsync())
             {
                 proveedores.Add(MapearProveedor(reader));
             }
@@ -53,7 +53,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return proveedores;
         }
 
-        public int Insertar(Proveedor proveedor)
+        public virtual async Task<int> InsertarAsync(Proveedor proveedor)
         {
             const string query = @"
                 INSERT INTO proveedor
@@ -117,14 +117,14 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 "@idEmpleadoResponsable",
                 proveedor.IdEmpleadoResponsable);
 
-            connection.Open();
+            await connection.OpenAsync();
 
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
 
             return Convert.ToInt32(command.LastInsertedId);
         }
 
-        public void Actualizar(Proveedor proveedor)
+        public virtual async Task ActualizarAsync(Proveedor proveedor)
         {
             const string query = @"
                 UPDATE proveedor
@@ -184,12 +184,12 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 "@estado",
                 proveedor.Estado);
 
-            connection.Open();
+            await connection.OpenAsync();
 
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
         }
 
-        public void CambiarEstado(int idProveedor, int idEmpleadoResponsable)
+        public virtual async Task CambiarEstadoAsync(int idProveedor, int idEmpleadoResponsable)
         {
             const string query = @"
                 UPDATE proveedor
@@ -216,12 +216,12 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 "@idEmpleadoResponsable",
                 idEmpleadoResponsable);
 
-            connection.Open();
+            await connection.OpenAsync();
 
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
         }
 
-        public List<Proveedor> MostrarActivos()
+        public virtual async Task<List<Proveedor>> MostrarActivosAsync()
         {
             List<Proveedor> proveedores = new();
 
@@ -248,12 +248,12 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             using MySqlCommand command =
                 new MySqlCommand(query, connection);
 
-            connection.Open();
+            await connection.OpenAsync();
 
             using MySqlDataReader reader =
-                command.ExecuteReader();
+                (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            while (reader.Read())
+            while (await reader.ReadAsync())
             {
                 proveedores.Add(MapearProveedor(reader));
             }
@@ -263,7 +263,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
         // ================== Funciones fuera del contrato ==================
 
-        public Proveedor? ObtenerPorId(int idProveedor)
+        public virtual async Task<Proveedor?> ObtenerPorIdAsync(int idProveedor)
         {
             const string query = @"
                 SELECT
@@ -291,12 +291,12 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 "@idProveedor",
                 idProveedor);
 
-            connection.Open();
+            await connection.OpenAsync();
 
             using MySqlDataReader reader =
-                command.ExecuteReader();
+                (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            if (!reader.Read())
+            if (!await reader.ReadAsync())
             {
                 return null;
             }
@@ -304,7 +304,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return MapearProveedor(reader);
         }
 
-        public int Count()
+        public virtual async Task<int> CountAsync()
         {
             const string query = @"
                 SELECT COUNT(*)
@@ -316,9 +316,9 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             using MySqlCommand command =
                 new MySqlCommand(query, connection);
 
-            connection.Open();
+            await connection.OpenAsync();
 
-            return Convert.ToInt32(command.ExecuteScalar());
+            return Convert.ToInt32(await command.ExecuteScalarAsync());
         }
 
         private Proveedor MapearProveedor(MySqlDataReader reader)

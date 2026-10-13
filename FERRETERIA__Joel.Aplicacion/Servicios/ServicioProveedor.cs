@@ -1,5 +1,6 @@
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
+using FERRETERIA__Joel.Infraestructura.Factories;
 
 namespace FERRETERIA__Joel.Aplicacion.Servicios
 {
@@ -17,43 +18,45 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         private IGestionarRepository<Proveedor> Repositorio =>
             _repositorio ??= _creador.CreateRepository();
 
-        public List<Proveedor> ObtenerTodos()
+        public async Task<List<Proveedor>> ObtenerTodosAsync()
         {
-            return Repositorio.ObtenerTodos();
+            return await Repositorio.ObtenerTodosAsync();
         }
 
-        public List<Proveedor> ObtenerActivas()
+        public async Task<List<Proveedor>> ObtenerActivasAsync()
         {
-            return Repositorio.MostrarActivos();
+            return await Repositorio.MostrarActivosAsync();
         }
 
-        public List<Proveedor> Listar(bool soloActivos)
+        public async Task<List<Proveedor>> ListarAsync(bool soloActivos)
         {
             return soloActivos
-                ? ObtenerActivas()
-                : ObtenerTodos();
+                ? await ObtenerActivasAsync()
+                : await ObtenerTodosAsync();
         }
 
-        public Proveedor? ObtenerPorId(int id)
+        public async Task<Proveedor?> ObtenerPorIdAsync(int id)
         {
-            return Repositorio
-                .ObtenerTodos()
-                .FirstOrDefault(p => p.IdProveedor == id);
+            List<Proveedor> proveedores = await Repositorio.ObtenerTodosAsync();
+
+            return proveedores.FirstOrDefault(p => p.IdProveedor == id);
         }
 
-        public int Insertar(Proveedor proveedor)
+        public async Task<int> InsertarAsync(Proveedor proveedor)
         {
-            return Repositorio.Insertar(proveedor);
+            return await Repositorio.InsertarAsync(proveedor);
         }
 
-        public void Actualizar(Proveedor proveedor)
+        public async Task ActualizarAsync(Proveedor proveedor)
         {
-            Repositorio.Actualizar(proveedor);
+            await Repositorio.ActualizarAsync(proveedor);
         }
 
-        public void CambiarEstado(int id, int idEmpleadoResponsable)
+        public async Task CambiarEstadoAsync(
+            int id,
+            int idEmpleadoResponsable)
         {
-            Repositorio.CambiarEstado(id, idEmpleadoResponsable);
+            await Repositorio.CambiarEstadoAsync(id, idEmpleadoResponsable);
         }
     }
 }

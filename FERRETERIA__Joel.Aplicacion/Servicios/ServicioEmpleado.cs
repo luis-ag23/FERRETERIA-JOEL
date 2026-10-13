@@ -1,25 +1,26 @@
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
+using FERRETERIA__Joel.Infraestructura.Factories;
 
 namespace FERRETERIA__Joel.Aplicacion.Servicios
 {
     public class ServicioEmpleado
     {
-        private readonly RepositoryCreator<IEmpleadoRepository> _creador;
-        private IEmpleadoRepository? _repositorio;
+        private readonly RepositoryCreator<IRepository<Empleado>> _creador;
+        private IRepository<Empleado>? _repositorio;
 
         public ServicioEmpleado(
-            RepositoryCreator<IEmpleadoRepository> creador)
+            RepositoryCreator<IRepository<Empleado>> creador)
         {
             _creador = creador;
         }
 
-        private IEmpleadoRepository Repositorio =>
+        private IRepository<Empleado> Repositorio =>
             _repositorio ??= _creador.CreateRepository();
 
-        public List<Empleado> ObtenerTodos()
+        public async Task<List<Empleado>> ObtenerTodosAsync()
         {
-            return Repositorio.ObtenerTodos();
+            return await Repositorio.ObtenerTodosAsync();
         }
     }
 }

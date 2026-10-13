@@ -1,50 +1,64 @@
-using FERRETERIA__Joel.Infraestructura.Conexion;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
+using FERRETERIA__Joel.Infraestructura.Conexion;
 using MySql.Data.MySqlClient;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
 {
-    public class MySqlClienteRepository : IClienteRepository
+    /// <summary>
+    /// Repositorio de clientes. Implementa el contrato genérico
+    /// <see cref="IRepository{T}"/> y expone operaciones propias del flujo de
+    /// venta (búsqueda y consulta por id) como métodos concretos que se
+    /// inyectan directamente por DI. Ningún método dispone la conexión: su
+    /// ciclo de vida lo administra <see cref="IConexionTransaccional"/>.
+    /// </summary>
+    public class MySqlClienteRepository : IRepository<Cliente>
     {
-        private readonly IDbConnectionFactory _connectionFactory;
+        private const string Columnas = @"
+            IdCliente,
+            Nombre,
+            Apellido,
+            Telefono,
+            Estado,
+            FechaRegistro,
+            FechaActualizacion,
+            IdEmpleadoResponsable";
 
-        public MySqlClienteRepository(IDbConnectionFactory connectionFactory)
+        private readonly IConexionTransaccional _conexion;
+
+        public MySqlClienteRepository(IConexionTransaccional conexion)
         {
-            _connectionFactory = connectionFactory;
+            _conexion = conexion;
         }
 
-        public List<Cliente> ObtenerTodos()
+        private async Task<MySqlCommand> CrearComandoAsync(string query)
+        {
+            MySqlCommand command = new(query, await _conexion.ObtenerConexionAsync());
+
+            if (_conexion.Transaccion is not null)
+            {
+                command.Transaction = _conexion.Transaccion;
+            }
+
+            return command;
+        }
+
+        // ================== Contrato genérico ==================
+
+        public virtual async Task<List<Cliente>> ObtenerTodosAsync()
         {
             List<Cliente> clientes = new();
 
-            const string query = @"
-                SELECT
-                    IdCliente,
-                    Nombre,
-                    Apellido,
-                    Telefono,
-                    CorreoElectronico,
-                    Contrasena,
-                    Estado,
-                    FechaRegistro,
-                    FechaActualizacion,
-                    IdClienteResponsable
+            string query = $@"
+                SELECT {Columnas}
                 FROM cliente
                 ORDER BY Nombre ASC";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            while (reader.Read())
+            while (await reader.ReadAsync())
             {
                 clientes.Add(MapearCliente(reader));
             }
@@ -52,7 +66,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return clientes;
         }
 
-        public int Insertar(Cliente cliente)
+        public virtual async Task<int> InsertarAsync(Cliente cliente)
         {
             const string query = @"
                 INSERT INTO cliente
@@ -60,175 +74,58 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     Nombre,
                     Apellido,
                     Telefono,
-                    CorreoElectronico,
-                    Contrasena,
                     Estado,
-                    FechaRegistro,
-                    IdClienteResponsable
+                    IdEmpleadoResponsable
                 )
                 VALUES
                 (
                     @nombre,
                     @apellido,
                     @telefono,
-                    @correoElectronico,
-                    @contrasena,
-                    @estado,
-                    @fechaRegistro,
-                    @idClienteResponsable
+                    1,
+                    @idEmpleadoResponsable
                 )";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
+            using MySqlCommand command = await CrearComandoAsync(query);
 
             command.Parameters.AddWithValue("@nombre", cliente.Nombre);
-
             command.Parameters.AddWithValue("@apellido", cliente.Apellido);
-
             command.Parameters.AddWithValue("@telefono", cliente.Telefono);
-
             command.Parameters.AddWithValue(
-                "@correoElectronico",
-                (object?)cliente.CorreoElectronico ?? DBNull.Value);
+                "@idEmpleadoResponsable",
+                (object?)cliente.IdEmpleadoResponsable ?? DBNull.Value);
 
-            command.Parameters.AddWithValue(
-                "@contrasena",
-                cliente.Contrasena);
-
-            command.Parameters.AddWithValue("@estado", cliente.Estado);
-
-            command.Parameters.AddWithValue(
-                "@fechaRegistro",
-                cliente.FechaRegistro);
-
-            command.Parameters.AddWithValue(
-                "@idClienteResponsable",
-                (object?)cliente.IdClienteResponsable ?? DBNull.Value);
-
-            connection.Open();
-
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
 
             return Convert.ToInt32(command.LastInsertedId);
         }
 
-        public bool ExisteCorreo(string correo)
-        {
-            const string query = @"
-                SELECT COUNT(*)
-                FROM cliente
-                WHERE CorreoElectronico = @correo";
+        // ================== Operaciones propias de Ventas ==================
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue("@correo", correo);
-
-            connection.Open();
-
-            return Convert.ToInt32(command.ExecuteScalar()) > 0;
-        }
-
-        public Cliente? ObtenerPorCorreo(string correo)
-        {
-            const string query = @"
-                SELECT
-                    IdCliente,
-                    Nombre,
-                    Apellido,
-                    Telefono,
-                    CorreoElectronico,
-                    Contrasena,
-                    Estado,
-                    FechaRegistro,
-                    FechaActualizacion,
-                    IdClienteResponsable
-                FROM cliente
-                WHERE CorreoElectronico = @correo
-                LIMIT 1";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue("@correo", correo);
-
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            return reader.Read()
-                ? MapearCliente(reader)
-                : null;
-        }
-
-        public void ActualizarContrasena(int id, string contrasena)
-        {
-            const string query = @"
-                UPDATE cliente
-                SET
-                    Contrasena = @contrasena,
-                    FechaActualizacion = CURRENT_TIMESTAMP
-                WHERE IdCliente = @id";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue("@id", id);
-
-            command.Parameters.AddWithValue("@contrasena", contrasena);
-
-            connection.Open();
-
-            command.ExecuteNonQuery();
-        }
-
-        // ================== Funciones fuera del contrato ==================
-
-        public List<Cliente> ObtenerActivas()
+        public virtual async Task<List<Cliente>> BuscarAsync(string termino)
         {
             List<Cliente> clientes = new();
 
-            const string query = @"
-                SELECT
-                    IdCliente,
-                    Nombre,
-                    Apellido,
-                    Telefono,
-                    CorreoElectronico,
-                    Contrasena,
-                    Estado,
-                    FechaRegistro,
-                    FechaActualizacion,
-                    IdClienteResponsable
+            string query = $@"
+                SELECT {Columnas}
                 FROM cliente
                 WHERE Estado = 1
-                ORDER BY Nombre ASC";
+                  AND (
+                        Nombre LIKE @termino
+                     OR Apellido LIKE @termino
+                     OR Telefono LIKE @termino
+                     OR CONCAT(Nombre, ' ', Apellido) LIKE @termino
+                  )
+                ORDER BY Nombre ASC
+                LIMIT 20";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
+            command.Parameters.AddWithValue("@termino", $"%{termino}%");
 
-            connection.Open();
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            while (reader.Read())
+            while (await reader.ReadAsync())
             {
                 clientes.Add(MapearCliente(reader));
             }
@@ -236,171 +133,39 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return clientes;
         }
 
-        public Cliente? ObtenerPorId(int id)
+        public virtual async Task<Cliente?> ObtenerPorIdAsync(int idCliente)
         {
-            const string query = @"
-                SELECT
-                    IdCliente,
-                    Nombre,
-                    Apellido,
-                    Telefono,
-                    CorreoElectronico,
-                    Contrasena,
-                    Estado,
-                    FechaRegistro,
-                    FechaActualizacion,
-                    IdClienteResponsable
+            string query = $@"
+                SELECT {Columnas}
                 FROM cliente
-                WHERE IdCliente = @id
+                WHERE IdCliente = @idCliente
                 LIMIT 1";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
+            command.Parameters.AddWithValue("@idCliente", idCliente);
 
-            command.Parameters.AddWithValue("@id", id);
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            return reader.Read()
-                ? MapearCliente(reader)
-                : null;
+            return await reader.ReadAsync() ? MapearCliente(reader) : null;
         }
 
-        public void Actualizar(Cliente cliente)
-        {
-            const string query = @"
-                UPDATE cliente
-                SET
-                    Nombre = @nombre,
-                    Apellido = @apellido,
-                    Telefono = @telefono,
-                    CorreoElectronico = @correoElectronico,
-                    Contrasena = @contrasena,
-                    Estado = @estado,
-                    FechaActualizacion = CURRENT_TIMESTAMP,
-                    IdClienteResponsable = @idClienteResponsable
-                WHERE IdCliente = @id";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue("@id", cliente.IdCliente);
-
-            command.Parameters.AddWithValue("@nombre", cliente.Nombre);
-
-            command.Parameters.AddWithValue("@apellido", cliente.Apellido);
-
-            command.Parameters.AddWithValue("@telefono", cliente.Telefono);
-
-            command.Parameters.AddWithValue(
-                "@correoElectronico",
-                (object?)cliente.CorreoElectronico ?? DBNull.Value);
-
-            command.Parameters.AddWithValue(
-                "@contrasena",
-                cliente.Contrasena);
-
-            command.Parameters.AddWithValue("@estado", cliente.Estado);
-
-            command.Parameters.AddWithValue(
-                "@idClienteResponsable",
-                (object?)cliente.IdClienteResponsable ?? DBNull.Value);
-
-            connection.Open();
-
-            command.ExecuteNonQuery();
-        }
-
-        public void CambiarEstado(int id)
-        {
-            const string query = @"
-                UPDATE cliente
-                SET
-                    Estado = CASE
-                        WHEN Estado = 1 THEN 0
-                        ELSE 1
-                    END,
-                    FechaActualizacion = CURRENT_TIMESTAMP
-                WHERE IdCliente = @id";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue("@id", id);
-
-            connection.Open();
-
-            command.ExecuteNonQuery();
-        }
-
-        public int Count()
-        {
-            const string query = @"
-                SELECT COUNT(*)
-                FROM cliente";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            connection.Open();
-
-            return Convert.ToInt32(command.ExecuteScalar());
-        }
-
-        private Cliente MapearCliente(MySqlDataReader reader)
+        private static Cliente MapearCliente(MySqlDataReader reader)
         {
             return new Cliente
             {
-                IdCliente =
-                    reader.GetInt32("IdCliente"),
-
-                Nombre =
-                    reader["Nombre"].ToString() ?? "",
-
-                Apellido =
-                    reader["Apellido"].ToString() ?? "",
-
-                Telefono =
-                    reader["Telefono"].ToString() ?? "",
-
-                CorreoElectronico =
-                    reader["CorreoElectronico"] == DBNull.Value
-                        ? null
-                        : reader["CorreoElectronico"].ToString(),
-
-                Contrasena =
-                    reader["Contrasena"].ToString() ?? "",
-
-                Estado =
-                    reader.GetByte("Estado"),
-
-                FechaRegistro =
-                    reader.GetDateTime("FechaRegistro"),
-
-                FechaActualizacion =
-                    reader["FechaActualizacion"] == DBNull.Value
-                        ? null
-                        : reader.GetDateTime("FechaActualizacion"),
-
-                IdClienteResponsable =
-                    reader["IdClienteResponsable"] == DBNull.Value
-                        ? null
-                        : reader.GetInt32("IdClienteResponsable")
+                IdCliente = reader.GetInt32("IdCliente"),
+                Nombre = reader["Nombre"].ToString() ?? "",
+                Apellido = reader["Apellido"].ToString() ?? "",
+                Telefono = reader["Telefono"].ToString() ?? "",
+                Estado = reader.GetByte("Estado"),
+                FechaRegistro = reader.GetDateTime("FechaRegistro"),
+                FechaActualizacion = reader["FechaActualizacion"] == DBNull.Value
+                    ? null
+                    : reader.GetDateTime("FechaActualizacion"),
+                IdEmpleadoResponsable = reader["IdEmpleadoResponsable"] == DBNull.Value
+                    ? null
+                    : reader.GetInt32("IdEmpleadoResponsable")
             };
         }
     }

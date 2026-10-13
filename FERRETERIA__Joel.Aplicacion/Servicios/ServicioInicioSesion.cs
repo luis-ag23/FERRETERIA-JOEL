@@ -3,12 +3,14 @@ using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
 using FERRETERIA__Joel.Dominio.Validaciones;
+using FERRETERIA__Joel.Infraestructura.Repositorios;
 
 namespace FERRETERIA__Joel.Aplicacion.Servicios
 {
-    // Inicio de sesión unificado: busca primero en empleados y luego en
-    // clientes, verifica la contraseña con el hasheador y comprueba que la
-    // cuenta esté activa. Distingue el tipo de acceso por el rol resultante.
+    // Inicio de sesión exclusivo para empleados: verifica la contraseña con
+    // el hasheador, comprueba que la cuenta esté activa y normaliza el rol a
+    // los roles operativos del sistema (Administrador / EmpleadoVenta).
+    // Los clientes ya no inician sesión.
     public class ServicioInicioSesion
     {
         private const string MensajeCredenciales =
@@ -20,30 +22,20 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         private const string MensajeInactivo =
             "La cuenta está inactiva. Contacte al administrador.";
 
-        private readonly RepositoryCreator<IEmpleadoRepository> _creadorEmpleado;
-        private readonly RepositoryCreator<IClienteRepository> _creadorCliente;
+        private readonly MySqlEmpleadoRepository _repositorioEmpleado;
         private readonly IHasheadorContrasena _hasheador;
         private readonly CredencialesValidaciones _credenciales = new();
-        private IEmpleadoRepository? _repositorioEmpleado;
-        private IClienteRepository? _repositorioCliente;
 
         public ServicioInicioSesion(
-            RepositoryCreator<IEmpleadoRepository> creadorEmpleado,
-            RepositoryCreator<IClienteRepository> creadorCliente,
+            MySqlEmpleadoRepository repositorioEmpleado,
             IHasheadorContrasena hasheador)
         {
-            _creadorEmpleado = creadorEmpleado;
-            _creadorCliente = creadorCliente;
+            _repositorioEmpleado = repositorioEmpleado;
             _hasheador = hasheador;
         }
 
-        private IEmpleadoRepository RepositorioEmpleado =>
-            _repositorioEmpleado ??= _creadorEmpleado.CreateRepository();
-
-        private IClienteRepository RepositorioCliente =>
-            _repositorioCliente ??= _creadorCliente.CreateRepository();
-
-        public ResultadoInicioSesion Iniciar(InicioSesionSolicitud solicitud)
+        public async Task<ResultadoInicioSesion> IniciarAsync(
+            InicioSesionSolicitud solicitud)
         {
             string correo = solicitud.CorreoElectronico?.Trim() ?? string.Empty;
             string contrasena = solicitud.Contrasena ?? string.Empty;
@@ -58,32 +50,29 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 };
             }
 
-            Empleado? empleado = RepositorioEmpleado.ObtenerPorCorreo(correo);
+            Empleado? empleado =
+                await _repositorioEmpleado.ObtenerPorCorreoAsync(correo);
 
-            if (empleado is not null)
+            if (empleado is null)
             {
-                return AutenticarEmpleado(empleado, contrasena);
+                return new ResultadoInicioSesion
+                {
+                    Exitoso = false,
+                    Mensaje = MensajeCredenciales
+                };
             }
 
-            Cliente? cliente = RepositorioCliente.ObtenerPorCorreo(correo);
-
-            if (cliente is not null)
-            {
-                return AutenticarCliente(cliente, contrasena);
-            }
-
-            return new ResultadoInicioSesion
-            {
-                Exitoso = false,
-                Mensaje = MensajeCredenciales
-            };
+            return await AutenticarEmpleado(empleado, contrasena);
         }
 
-        private ResultadoInicioSesion AutenticarEmpleado(
+        private async Task<ResultadoInicioSesion> AutenticarEmpleado(
             Empleado empleado,
             string contrasena)
         {
-            if (!Coincide(contrasena, empleado.Contrasena, out bool rehash))
+            if (!Coincide(
+                    contrasena,
+                    empleado.Contrasena ?? string.Empty,
+                    out bool rehash))
             {
                 return CredencialesInvalidas();
             }
@@ -99,7 +88,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
             if (rehash)
             {
-                RepositorioEmpleado.ActualizarContrasena(
+                await _repositorioEmpleado.ActualizarContrasenaAsync(
                     empleado.IdEmpleado,
                     _hasheador.Hashear(contrasena));
             }
@@ -114,47 +103,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                         $"{empleado.Nombre} {empleado.Apellido}".Trim(),
                     CorreoElectronico =
                         empleado.CorreoElectronico ?? string.Empty,
-                    Rol = RolesSistema.Empleado
-                }
-            };
-        }
-
-        private ResultadoInicioSesion AutenticarCliente(
-            Cliente cliente,
-            string contrasena)
-        {
-            if (!Coincide(contrasena, cliente.Contrasena, out bool rehash))
-            {
-                return CredencialesInvalidas();
-            }
-
-            if (cliente.Estado != 1)
-            {
-                return new ResultadoInicioSesion
-                {
-                    Exitoso = false,
-                    Mensaje = MensajeInactivo
-                };
-            }
-
-            if (rehash)
-            {
-                RepositorioCliente.ActualizarContrasena(
-                    cliente.IdCliente,
-                    _hasheador.Hashear(contrasena));
-            }
-
-            return new ResultadoInicioSesion
-            {
-                Exitoso = true,
-                Usuario = new SesionUsuario
-                {
-                    Id = cliente.IdCliente,
-                    NombreCompleto =
-                        $"{cliente.Nombre} {cliente.Apellido}".Trim(),
-                    CorreoElectronico =
-                        cliente.CorreoElectronico ?? string.Empty,
-                    Rol = RolesSistema.Usuario
+                    Rol = RolesSistema.Normalizar(empleado.Rol)
                 }
             };
         }

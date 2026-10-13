@@ -10,7 +10,7 @@ using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Pages
 {
-    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Empleado)]
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Administrador)]
     public class ProductoNuevoModel : PageModel
     {
         private readonly ServicioProducto _servicio;
@@ -43,31 +43,31 @@ namespace FERRETERIA__Joel.Pages
             _logger = logger;
         }
 
-        public void OnGet()
+        public async Task OnGetAsync()
         {
-            Producto.Codigo = _servicio.SiguienteCodigo();
+            Producto.Codigo = await _servicio.SiguienteCodigoAsync();
 
-            CargarCatalogos();
+            await CargarCatalogosAsync();
         }
 
-        public IActionResult OnPost()
+        public async Task<IActionResult> OnPostAsync()
         {
-            Producto.Codigo = _servicio.SiguienteCodigo();
+            Producto.Codigo = await _servicio.SiguienteCodigoAsync();
             Producto.IdEmpleadoResponsable =
                 EmpleadoSesion.ObtenerIdEmpleado(User);
             NormalizarPrecio();
             NormalizarDatos();
-            Validar();
+            await ValidarAsync();
 
             if (Errores.Any() || ErroresCampo.Any())
             {
-                CargarCatalogos();
+                await CargarCatalogosAsync();
                 return Page();
             }
 
             try
             {
-                Insertar();
+                await InsertarAsync();
             }
             catch (MySqlException ex) when (ex.Number == 1062)
             {
@@ -75,7 +75,7 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Producto.Codigo),
                     "Ya existe un producto con ese código.");
 
-                CargarCatalogos();
+                await CargarCatalogosAsync();
                 return Page();
             }
             catch (Exception ex)
@@ -87,7 +87,7 @@ namespace FERRETERIA__Joel.Pages
                 Errores.Add(
                     "No se pudo registrar el producto. Inténtalo nuevamente.");
 
-                CargarCatalogos();
+                await CargarCatalogosAsync();
                 return Page();
             }
 
@@ -133,7 +133,7 @@ namespace FERRETERIA__Joel.Pages
             }
         }
 
-        private void Validar()
+        private async Task ValidarAsync()
         {
             if (!_validacion.EsCodigoValido(Producto.Codigo))
             {
@@ -155,8 +155,8 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Producto.IdMarca),
                     "Debe seleccionar una marca.");
             }
-            else if (!_servicioMarca
-                .ObtenerActivas()
+            else if (!(await _servicioMarca
+                .ObtenerActivasAsync())
                 .Any(m => m.IdMarca == Producto.IdMarca))
             {
                 AgregarErrorCampo(
@@ -198,8 +198,8 @@ namespace FERRETERIA__Joel.Pages
                     nameof(Producto.IdCategoria),
                     "Debe seleccionar una categoría.");
             }
-            else if (!_servicioCategoria
-                .ObtenerActivas()
+            else if (!(await _servicioCategoria
+                .ObtenerActivasAsync())
                 .Any(c => c.IdCategoria == Producto.IdCategoria))
             {
                 AgregarErrorCampo(
@@ -213,18 +213,18 @@ namespace FERRETERIA__Joel.Pages
             ErroresCampo[campo] = mensaje;
         }
 
-        private void CargarCatalogos()
+        private async Task CargarCatalogosAsync()
         {
             Categorias =
-                _servicioCategoria.ObtenerActivas();
+                await _servicioCategoria.ObtenerActivasAsync();
 
             Marcas =
-                _servicioMarca.ObtenerActivas();
+                await _servicioMarca.ObtenerActivasAsync();
         }
 
-        private void Insertar()
+        private async Task InsertarAsync()
         {
-            _servicio.Crear(Producto);
+            await _servicio.CrearAsync(Producto);
         }
     }
 }

@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FERRETERIA__Joel.Dominio\FERRETERIA__Joel.Dominio.csproj" />
+    <ProjectReference Include="..\FERRETERIA__Joel.Infraestructura\FERRETERIA__Joel.Infraestructura.csproj" />
   </ItemGroup>
 
 </Project>

@@ -12,9 +12,10 @@ namespace FERRETERIA__Joel.Pages
 
         public bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
 
-        public void OnGet()
+        public Task OnGetAsync()
         {
             RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier;
+            return Task.CompletedTask;
         }
     }
 

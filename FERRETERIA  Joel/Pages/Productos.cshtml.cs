@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace FERRETERIA__Joel.Pages
 {
-    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Empleado)]
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = FERRETERIA__Joel.Dominio.Constantes.RolesSistema.Administrador)]
     public class ProductosModel : PageModel
     {
         private readonly ServicioProducto _servicio;
@@ -34,21 +34,21 @@ namespace FERRETERIA__Joel.Pages
             return UrlProtector.Cifrar(id.ToString());
         }
 
-        public void OnGet(bool? soloActivos)
+        public async Task OnGetAsync(bool? soloActivos)
         {
             SoloActivos = soloActivos ?? false;
 
-            ListProductos = _servicio.Listar(SoloActivos);
+            ListProductos = await _servicio.ListarAsync(SoloActivos);
 
             Categorias =
-                _servicioCategoria.ObtenerTodos();
+                await _servicioCategoria.ObtenerTodosAsync();
         }
 
-        public IActionResult OnPostEliminar(int idProducto)
+        public async Task<IActionResult> OnPostEliminarAsync(int idProducto)
         {
             try
             {
-                _servicio.CambiarEstado(
+                await _servicio.CambiarEstadoAsync(
                     idProducto,
                     EmpleadoSesion.ObtenerIdEmpleado(User));
 

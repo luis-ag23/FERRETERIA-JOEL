@@ -1,48 +1,62 @@
-using FERRETERIA__Joel.Infraestructura.Conexion;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
+using FERRETERIA__Joel.Infraestructura.Conexion;
 using MySql.Data.MySqlClient;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
 {
+    /// <summary>
+    /// Repositorio de detalle de venta. Implementa el contrato genérico
+    /// <see cref="IRepository{T}"/> y expone la consulta por venta como método
+    /// concreto inyectado por DI. Participa de la transacción ambiente.
+    /// </summary>
     public class MySqlDetalleVentaRepository : IRepository<DetalleVenta>
     {
-        private readonly IDbConnectionFactory _connectionFactory;
+        private const string Columnas = @"
+            IdDetalleVenta,
+            IdVenta,
+            IdProducto,
+            Cantidad,
+            PrecioUnitario,
+            TotalProducto,
+            FechaRegistro,
+            IdEmpleadoResponsable";
 
-        public MySqlDetalleVentaRepository(IDbConnectionFactory connectionFactory)
+        private readonly IConexionTransaccional _conexion;
+
+        public MySqlDetalleVentaRepository(IConexionTransaccional conexion)
         {
-            _connectionFactory = connectionFactory;
+            _conexion = conexion;
         }
 
-        public List<DetalleVenta> ObtenerTodos()
+        private async Task<MySqlCommand> CrearComandoAsync(string query)
+        {
+            MySqlCommand command = new(query, await _conexion.ObtenerConexionAsync());
+
+            if (_conexion.Transaccion is not null)
+            {
+                command.Transaction = _conexion.Transaccion;
+            }
+
+            return command;
+        }
+
+        // ================== Contrato genérico ==================
+
+        public virtual async Task<List<DetalleVenta>> ObtenerTodosAsync()
         {
             List<DetalleVenta> detalles = new();
 
-            const string query = @"
-                SELECT
-                    IdDetalleVenta,
-                    IdVenta,
-                    IdProducto,
-                    Cantidad,
-                    PrecioUnitario,
-                    TotalProducto,
-                    FechaRegistro,
-                    IdEmpleadoResponsable
+            string query = $@"
+                SELECT {Columnas}
                 FROM detalle_venta
                 ORDER BY IdDetalleVenta ASC";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            connection.Open();
-
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            while (reader.Read())
+            while (await reader.ReadAsync())
             {
                 detalles.Add(MapearDetalleVenta(reader));
             }
@@ -50,7 +64,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return detalles;
         }
 
-        public int Insertar(DetalleVenta detalleVenta)
+        public virtual async Task<int> InsertarAsync(DetalleVenta detalleVenta)
         {
             const string query = @"
                 INSERT INTO detalle_venta
@@ -72,197 +86,60 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     @idEmpleadoResponsable
                 )";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue(
-                "@idVenta",
-                detalleVenta.IdVenta);
-
-            command.Parameters.AddWithValue(
-                "@idProducto",
-                detalleVenta.IdProducto);
-
-            command.Parameters.AddWithValue(
-                "@cantidad",
-                detalleVenta.Cantidad);
-
-            command.Parameters.AddWithValue(
-                "@precioUnitario",
-                detalleVenta.PrecioUnitario);
-
-            command.Parameters.AddWithValue(
-                "@totalProducto",
-                detalleVenta.TotalProducto);
-
+            command.Parameters.AddWithValue("@idVenta", detalleVenta.IdVenta);
+            command.Parameters.AddWithValue("@idProducto", detalleVenta.IdProducto);
+            command.Parameters.AddWithValue("@cantidad", detalleVenta.Cantidad);
+            command.Parameters.AddWithValue("@precioUnitario", detalleVenta.PrecioUnitario);
+            command.Parameters.AddWithValue("@totalProducto", detalleVenta.TotalProducto);
             command.Parameters.AddWithValue(
                 "@idEmpleadoResponsable",
                 detalleVenta.IdEmpleadoResponsable);
 
-            connection.Open();
-
-            command.ExecuteNonQuery();
+            await command.ExecuteNonQueryAsync();
 
             return Convert.ToInt32(command.LastInsertedId);
         }
 
-        // ================== Funciones fuera del contrato ==================
+        // ================== Operaciones propias de Ventas ==================
 
-        public List<DetalleVenta> ObtenerActivas()
+        public virtual async Task<List<DetalleVenta>> ObtenerPorVentaAsync(int idVenta)
         {
-            return ObtenerTodos();
-        }
+            List<DetalleVenta> detalles = new();
 
-        public DetalleVenta? ObtenerPorId(int id)
-        {
-            const string query = @"
-                SELECT
-                    IdDetalleVenta,
-                    IdVenta,
-                    IdProducto,
-                    Cantidad,
-                    PrecioUnitario,
-                    TotalProducto,
-                    FechaRegistro,
-                    IdEmpleadoResponsable
+            string query = $@"
+                SELECT {Columnas}
                 FROM detalle_venta
-                WHERE IdDetalleVenta = @id
-                LIMIT 1";
+                WHERE IdVenta = @idVenta
+                ORDER BY IdDetalleVenta ASC";
 
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
+            using MySqlCommand command = await CrearComandoAsync(query);
 
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
+            command.Parameters.AddWithValue("@idVenta", idVenta);
 
-            command.Parameters.AddWithValue("@id", id);
+            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
 
-            connection.Open();
+            while (await reader.ReadAsync())
+            {
+                detalles.Add(MapearDetalleVenta(reader));
+            }
 
-            using MySqlDataReader reader =
-                command.ExecuteReader();
-
-            return reader.Read()
-                ? MapearDetalleVenta(reader)
-                : null;
+            return detalles;
         }
 
-        public void Actualizar(DetalleVenta detalleVenta)
-        {
-            const string query = @"
-                UPDATE detalle_venta
-                SET
-                    IdVenta = @idVenta,
-                    IdProducto = @idProducto,
-                    Cantidad = @cantidad,
-                    PrecioUnitario = @precioUnitario,
-                    TotalProducto = @totalProducto,
-                    IdEmpleadoResponsable = @idEmpleadoResponsable
-                WHERE IdDetalleVenta = @id";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue("@id", detalleVenta.IdDetalleVenta);
-
-            command.Parameters.AddWithValue(
-                "@idVenta",
-                detalleVenta.IdVenta);
-
-            command.Parameters.AddWithValue(
-                "@idProducto",
-                detalleVenta.IdProducto);
-
-            command.Parameters.AddWithValue(
-                "@cantidad",
-                detalleVenta.Cantidad);
-
-            command.Parameters.AddWithValue(
-                "@precioUnitario",
-                detalleVenta.PrecioUnitario);
-
-            command.Parameters.AddWithValue(
-                "@totalProducto",
-                detalleVenta.TotalProducto);
-
-            command.Parameters.AddWithValue(
-                "@idEmpleadoResponsable",
-                detalleVenta.IdEmpleadoResponsable);
-
-            connection.Open();
-
-            command.ExecuteNonQuery();
-        }
-
-        public void CambiarEstado(int id)
-        {
-            const string query = @"
-                DELETE FROM detalle_venta
-                WHERE IdDetalleVenta = @id";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            command.Parameters.AddWithValue("@id", id);
-
-            connection.Open();
-
-            command.ExecuteNonQuery();
-        }
-
-        public int Count()
-        {
-            const string query = @"
-                SELECT COUNT(*)
-                FROM detalle_venta";
-
-            using MySqlConnection connection =
-                _connectionFactory.CreateConnection();
-
-            using MySqlCommand command =
-                new MySqlCommand(query, connection);
-
-            connection.Open();
-
-            return Convert.ToInt32(command.ExecuteScalar());
-        }
-
-        private DetalleVenta MapearDetalleVenta(MySqlDataReader reader)
+        private static DetalleVenta MapearDetalleVenta(MySqlDataReader reader)
         {
             return new DetalleVenta
             {
-                IdDetalleVenta =
-                    reader.GetInt32("IdDetalleVenta"),
-
-                IdVenta =
-                    reader.GetInt32("IdVenta"),
-
-                IdProducto =
-                    reader.GetInt32("IdProducto"),
-
-                Cantidad =
-                    reader.GetInt32("Cantidad"),
-
-                PrecioUnitario =
-                    reader.GetDecimal("PrecioUnitario"),
-
-                TotalProducto =
-                    reader.GetDecimal("TotalProducto"),
-
-                FechaRegistro =
-                    reader.GetDateTime("FechaRegistro"),
-
-                IdEmpleadoResponsable =
-                    reader.GetInt32("IdEmpleadoResponsable")
+                IdDetalleVenta = reader.GetInt32("IdDetalleVenta"),
+                IdVenta = reader.GetInt32("IdVenta"),
+                IdProducto = reader.GetInt32("IdProducto"),
+                Cantidad = reader.GetInt32("Cantidad"),
+                PrecioUnitario = reader.GetDecimal("PrecioUnitario"),
+                TotalProducto = reader.GetDecimal("TotalProducto"),
+                FechaRegistro = reader.GetDateTime("FechaRegistro"),
+                IdEmpleadoResponsable = reader.GetInt32("IdEmpleadoResponsable")
             };
         }
     }
