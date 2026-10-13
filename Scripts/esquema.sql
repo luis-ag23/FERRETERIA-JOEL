@@ -299,7 +299,7 @@ VALUES
     ('DeWalt',      'Herramientas electricas profesionales','Estados Unidos','Alta', 1, 1),
     ('Makita',      'Herramientas electricas',            'Japon',       'Alta',  1, 1),
     ('Milwaukee',   'Herramientas electricas',            'Estados Unidos','Alta', 1, 1),
-    ('3M',          'Seguridad industrial',               'Estados Unidos','Alta', 1, 1),
+    ('M',           'Seguridad industrial',               'Estados Unidos','Alta', 1, 1),
     ('Sika',        'Adhesivos y sellantes',              'Suiza',       'Alta',  1, 1),
     ('Fischer',     'Fijaciones y anclajes',              'Alemania',    'Alta',  1, 1),
     ('Cemex',       'Materiales de construccion',         'Mexico',      'Alta',  1, 1);
@@ -310,16 +310,16 @@ VALUES
 INSERT INTO categoria
     (Codigo, Nombre, Descripcion, PorcentajeGanancia, Estado, IdEmpleadoResponsable)
 VALUES
-    ('HER-01',  'Herramientas Manuales',   'Martillos, desarmadores y llaves',   25.00, 1, 1),
-    ('HER-02',  'Herramientas Electricas', 'Taladros, esmeriles y sierras',      30.00, 1, 1),
-    ('PLM-01',  'Plomeria',                'Tuberia, conexiones y griferia',     20.00, 1, 1),
-    ('ELE-01',  'Electricidad',            'Cables, interruptores y contactos',  22.00, 1, 1),
-    ('PIN-01',  'Pinturas',                'Pinturas, brochas y rodillos',       35.00, 1, 1),
-    ('FIJ-01',  'Fijaciones y Tornilleria','Tornillos, taquetes y anclajes',     40.00, 1, 1),
-    ('SEG-01',  'Seguridad Industrial',    'Cascos, guantes y respiradores',     28.00, 1, 1),
+    ('HER-01',  'Herramientas Manuales',   'Martillos desarmadores y llaves',    25.00, 1, 1),
+    ('HER-02',  'Herramientas Electricas', 'Taladros esmeriles y sierras',       30.00, 1, 1),
+    ('PLM-01',  'Plomeria',                'Tuberia conexiones y griferia',      20.00, 1, 1),
+    ('ELE-01',  'Electricidad',            'Cables interruptores y contactos',   22.00, 1, 1),
+    ('PIN-01',  'Pinturas',                'Pinturas brochas y rodillos',        35.00, 1, 1),
+    ('FIJ-01',  'Fijaciones y Tornilleria','Tornillos taquetes y anclajes',      40.00, 1, 1),
+    ('SEG-01',  'Seguridad Industrial',    'Cascos guantes y respiradores',      28.00, 1, 1),
     ('JAR-01',  'Jardineria',              'Herramientas y accesorios de jardin',30.00, 1, 1),
-    ('CON-01',  'Construccion',            'Cemento, varilla y agregados',       18.00, 1, 1),
-    ('ADP-01',  'Adhesivos y Sellantes',   'Silicona, pegamento y selladores',   32.00, 1, 1);
+    ('CON-01',  'Construccion',            'Cemento varilla y agregados',        18.00, 1, 1),
+    ('ADP-01',  'Adhesivos y Sellantes',   'Silicona pegamento y selladores',    32.00, 1, 1);
 
 -- ============================================================
 -- DATOS: 10 productos
@@ -327,16 +327,16 @@ VALUES
 INSERT INTO producto
     (IdCategoria, Codigo, Nombre, Descripcion, Marca, UnidadMedida, PrecioVenta, CantidadStock, Estado, IdEmpleadoResponsable)
 VALUES
-    (1,  'PROD-001', 'Martillo de una 16 oz',        'Mango de fibra de vidrio',        3, 'Pieza', 185.50,  40, 1, 1),
-    (1,  'PROD-002', 'Juego de desarmadores 6 pzas', 'Puntas plana y estrella',         2, 'Juego', 320.00,  25, 1, 1),
-    (2,  'PROD-003', 'Taladro percutor 650W',        'Portabrocas 1/2 pulgada',         1, 'Pieza', 1450.00, 15, 1, 1),
-    (2,  'PROD-004', 'Esmeriladora angular 4-1/2"',  'Velocidad variable',              4, 'Pieza', 1680.00, 12, 1, 1),
-    (2,  'PROD-005', 'Sierra circular 7-1/4"',       'Incluye disco de corte',          5, 'Pieza', 2100.00, 10, 1, 1),
-    (6,  'PROD-006', 'Ancla expansiva 3/8"',         'Caja con 50 piezas',              9, 'Caja',  420.00,  30, 1, 1),
-    (10, 'PROD-007', 'Silicona transparente 300ml',  'Sellador multiproposito',         8, 'Pieza', 95.00,   60, 1, 1),
+    (1,  'PROD-001', 'Martillo de una oz',        'Mango de fibra de vidrio',        3, 'Pieza', 185.50,  40, 1, 1),
+    (1,  'PROD-002', 'Juego de desarmadores pzas', 'Puntas plana y estrella',         2, 'Juego', 320.00,  25, 1, 1),
+    (2,  'PROD-003', 'Taladro percutor W',        'Portabrocas pulgada',             1, 'Pieza', 1450.00, 15, 1, 1),
+    (2,  'PROD-004', 'Esmeriladora angular',  'Velocidad variable',              4, 'Pieza', 1680.00, 12, 1, 1),
+    (2,  'PROD-005', 'Sierra circular',       'Incluye disco de corte',          5, 'Pieza', 2100.00, 10, 1, 1),
+    (6,  'PROD-006', 'Ancla expansiva',         'Caja con piezas',              9, 'Caja',  420.00,  30, 1, 1),
+    (10, 'PROD-007', 'Silicona transparente ml',  'Sellador multiproposito',         8, 'Pieza', 95.00,   60, 1, 1),
     (7,  'PROD-008', 'Respirador media cara',        'Incluye dos filtros',             7, 'Pieza', 540.00,  20, 1, 1),
-    (9,  'PROD-009', 'Cemento gris 50 kg',           'Uso general en construccion',    10, 'Saco',  280.00,  50, 1, 1),
-    (2,  'PROD-010', 'Rotomartillo SDS Plus 800W',   'Empunadura antivibracion',        6, 'Pieza', 2650.00,  8, 1, 1);
+    (9,  'PROD-009', 'Cemento gris kg',           'Uso general en construccion',    10, 'Saco',  280.00,  50, 1, 1),
+    (2,  'PROD-010', 'Rotomartillo SDS Plus W',   'Empunadura antivibracion',        6, 'Pieza', 2650.00,  8, 1, 1);
 
 -- ============================================================
 -- DATOS: 10 proveedores
@@ -344,13 +344,13 @@ VALUES
 INSERT INTO proveedor
     (RazonSocial, NombreComercial, NombreContacto, Telefono, CorreoElectronico, Direccion, Estado, IdEmpleadoResponsable)
 VALUES
-    ('Distribuidora Ferretera del Norte S.A. de C.V.', 'FerreNorte',   'Jorge Salinas',  '81000001', 'ventas@ferrenorte.com',   'Av. Industrial 100, Monterrey', 1, 1),
-    ('Herramientas Profesionales del Bajio',           'ProfesBajio',  'Rosa Herrera',   '81000002', 'contacto@profesbajio.com','Blvd. del Trabajo 250, Leon',   1, 1),
-    ('Suministros Electricos MX',                      'ElectroSum',   'Hugo Marrero',   '81000003', 'info@electrosum.com',     'Calle Voltios 45, CDMX',         1, 1),
-    ('Plomeria y Tuberia Nacional',                    'PlomNal',      'Sara Duarte',    '81000004', 'ventas@plomnal.com',      'Av. Canales 88, Guadalajara',   1, 1),
-    ('Pinturas y Acabados del Sur',                    'PintuSur',     'Mario Cano',     '81000005', 'pedidos@pintusur.com',    'Calle Color 12, Puebla',         1, 1),
-    ('Fijaciones Tecnicas del Centro',                 'FijaTec',      'Nadia Rios',     '81000006', 'contacto@fijatec.com',    'Av. Tornillos 300, Queretaro',  1, 1),
-    ('Seguridad Industrial Integral',                  'SeguridadInt', 'Raul Pineda',    '81000007', 'ventas@seguridadint.com', 'Blvd. Proteccion 77, Tijuana',  1, 1),
-    ('Adhesivos y Quimicos del Golfo',                 'AdhiGolfo',    'Irene Solis',    '81000008', 'info@adhigolfo.com',      'Zona Portuaria 21, Veracruz',   1, 1),
-    ('Materiales de Construccion del Pacifico',        'ConsPacifico', 'Tomas Lira',     '81000009', 'ventas@conspacifico.com', 'Av. Concreto 500, Mazatlan',    1, 1),
-    ('Importadora de Herramientas Globales',           'ImportGlobal', 'Karla Mena',     '81000010', 'contacto@importglobal.com','Calle Comercio 9, Merida',     1, 1);
+    ('Distribuidora Ferretera del Norte SA de CV', 'FerreNorte',   'Jorge Salinas',  '81000001', 'ventas@ferrenorte.com',   'Av Industrial Monterrey', 1, 1),
+    ('Herramientas Profesionales del Bajio',           'ProfesBajio',  'Rosa Herrera',   '81000002', 'contacto@profesbajio.com','Blvd del Trabajo Leon',   1, 1),
+    ('Suministros Electricos MX',                      'ElectroSum',   'Hugo Marrero',   '81000003', 'info@electrosum.com',     'Calle Voltios CDMX',         1, 1),
+    ('Plomeria y Tuberia Nacional',                    'PlomNal',      'Sara Duarte',    '81000004', 'ventas@plomnal.com',      'Av Canales Guadalajara',   1, 1),
+    ('Pinturas y Acabados del Sur',                    'PintuSur',     'Mario Cano',     '81000005', 'pedidos@pintusur.com',    'Calle Color Puebla',         1, 1),
+    ('Fijaciones Tecnicas del Centro',                 'FijaTec',      'Nadia Rios',     '81000006', 'contacto@fijatec.com',    'Av Tornillos Queretaro',  1, 1),
+    ('Seguridad Industrial Integral',                  'SeguridadInt', 'Raul Pineda',    '81000007', 'ventas@seguridadint.com', 'Blvd Proteccion Tijuana',  1, 1),
+    ('Adhesivos y Quimicos del Golfo',                 'AdhiGolfo',    'Irene Solis',    '81000008', 'info@adhigolfo.com',      'Zona Portuaria Veracruz',   1, 1),
+    ('Materiales de Construccion del Pacifico',        'ConsPacifico', 'Tomas Lira',     '81000009', 'ventas@conspacifico.com', 'Av Concreto Mazatlan',    1, 1),
+    ('Importadora de Herramientas Globales',           'ImportGlobal', 'Karla Mena',     '81000010', 'contacto@importglobal.com','Calle Comercio Merida',     1, 1);
