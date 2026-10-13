@@ -2,7 +2,11 @@
 
 .fj-table-ventas th:nth-child(1),
 .fj-table-ventas td:nth-child(1) {
-    width: 8rem;
+    width: 13rem;
+}
+
+.fj-table-ventas th:nth-child(1) {
+    white-space: nowrap;
 }
 
 .fj-table-ventas th:nth-child(3),
@@ -27,7 +31,7 @@
 
 .fj-table-ventas th:nth-child(7),
 .fj-table-ventas td:nth-child(7) {
-    width: 8rem;
+    width: 10rem;
 }
 
 /* ---------- Modal de detalle ---------- */
@@ -207,7 +211,7 @@
 
     .fj-table-ventas th:nth-child(7),
     .fj-table-ventas td:nth-child(7) {
-        width: 6.5rem;
+        width: 8.5rem;
     }
 }
 
@@ -229,7 +233,7 @@
 
     .fj-table-ventas th:nth-child(7),
     .fj-table-ventas td:nth-child(7) {
-        width: 6.5rem;
+        width: 7.5rem;
     }
 
     .fj-acciones {

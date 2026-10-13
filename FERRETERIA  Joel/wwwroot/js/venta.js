@@ -67,6 +67,7 @@
                 if (!response.ok) {
                     var error = new Error(datos && datos.mensaje || errorHttp(response.status));
                     error.status = response.status;
+                    error.datos = datos;
                     throw error;
                 }
                 if (datos === null) {
@@ -596,16 +597,91 @@
         });
     }
 
-    function mostrarErrorCliente(mensaje) {
+        function mostrarErrorCliente(mensaje) {
         errorCliente.replaceChildren(crear('span', null, mensaje));
         errorCliente.hidden = false;
+    }
+
+    // Reglas espejo de las del servidor (ClienteValidador). El servidor
+    // vuelve a validar siempre: esto solo evita viajes innecesarios.
+    var campoCliente = {
+        Nombre: 'nuevoClienteNombre',
+        Apellido: 'nuevoClienteApellido',
+        Telefono: 'nuevoClienteTelefono'
+    };
+    var formatoNombre = /^\p{L}[\p{L}\s.,'\-&()]*$/u;
+    var formatoTelefono = /^[5-8][0-9]{7}$/;
+
+    function limpiarErroresCliente() {
+        errorCliente.hidden = true;
+        errorCliente.replaceChildren();
+        Object.keys(campoCliente).forEach(function (clave) {
+            var input = document.getElementById(campoCliente[clave]);
+            var contenedor = input.closest('.fj-form-field');
+            contenedor.classList.remove('fj-form-field-error');
+            input.removeAttribute('aria-invalid');
+            var aviso = contenedor.querySelector('.fj-form-error');
+            if (aviso) aviso.remove();
+        });
+    }
+
+    function mostrarErroresCampo(errores) {
+        var primero = null;
+        Object.keys(errores).forEach(function (clave) {
+            var id = campoCliente[clave];
+            if (!id) return;
+            var input = document.getElementById(id);
+            var contenedor = input.closest('.fj-form-field');
+            contenedor.classList.add('fj-form-field-error');
+            input.setAttribute('aria-invalid', 'true');
+            var aviso = crear('p', 'fj-form-error', errores[clave]);
+            aviso.setAttribute('role', 'alert');
+            contenedor.appendChild(aviso);
+            if (!primero) primero = input;
+        });
+        if (primero) primero.focus();
+    }
+
+    function validarCliente(datos) {
+        var errores = {};
+        var nombre = datos.nombre.trim();
+        var apellido = datos.apellido.trim();
+        var telefono = datos.telefono.replace(/[\s-]/g, '');
+
+        if (!nombre) errores.Nombre = 'Los nombres del cliente son obligatorios.';
+        else if (nombre.length > 100 || !formatoNombre.test(nombre))
+            errores.Nombre = 'Los nombres solo admiten letras y espacios (máximo 100 caracteres).';
+
+        if (!apellido) errores.Apellido = 'Los apellidos del cliente son obligatorios.';
+        else if (apellido.length > 100 || !formatoNombre.test(apellido))
+            errores.Apellido = 'Los apellidos solo admiten letras y espacios (máximo 100 caracteres).';
+
+        if (!telefono) errores.Telefono = 'El teléfono del cliente es obligatorio.';
+        else if (!formatoTelefono.test(telefono))
+            errores.Telefono = 'El teléfono debe tener 8 dígitos y comenzar con 5, 6, 7 u 8.';
+
+        return errores;
+    }
+
+    // Al reabrir el modal no deben quedar errores de un intento anterior.
+    if (btnNuevoCliente) {
+        btnNuevoCliente.addEventListener('click', limpiarErroresCliente);
     }
 
     if (formCliente) {
         formCliente.addEventListener('submit', function (e) {
             e.preventDefault();
-            errorCliente.hidden = true;
-            errorCliente.replaceChildren();
+            limpiarErroresCliente();
+
+            var erroresLocales = validarCliente({
+                nombre: document.getElementById('nuevoClienteNombre').value,
+                apellido: document.getElementById('nuevoClienteApellido').value,
+                telefono: document.getElementById('nuevoClienteTelefono').value
+            });
+            if (Object.keys(erroresLocales).length > 0) {
+                mostrarErroresCampo(erroresLocales);
+                return;
+            }
 
             var enviar = document.getElementById('nuevoClienteOk');
             if (enviar) enviar.disabled = true;
@@ -633,6 +709,11 @@
                 cerrarNuevoCliente();
                 formCliente.reset();
             }).catch(function (error) {
+                if (error.datos && error.datos.errores &&
+                    Object.keys(error.datos.errores).length > 0) {
+                    mostrarErroresCampo(error.datos.errores);
+                    return;
+                }
                 mostrarErrorCliente(error.message || 'No se pudo registrar el cliente. Intente nuevamente.');
             }).finally(function () {
                 if (enviar) enviar.disabled = false;

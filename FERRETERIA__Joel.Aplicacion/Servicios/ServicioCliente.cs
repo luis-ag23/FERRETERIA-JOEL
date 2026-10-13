@@ -2,6 +2,7 @@ using FERRETERIA__Joel.Aplicacion.Modelos;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
 using FERRETERIA__Joel.Infraestructura.Repositorios;
+using System.Text.RegularExpressions;
 
 namespace FERRETERIA__Joel.Aplicacion.Servicios
 {
@@ -13,6 +14,10 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
     /// </summary>
     public class ServicioCliente
     {
+        private const string MensajeRevisarDatos =
+            "Revise los datos señalados e inténtelo nuevamente.";
+
+        private readonly ClienteValidador _validador = new();
         private readonly MySqlClienteRepository _repositorio;
         private readonly IContextoUsuario _contextoUsuario;
 
@@ -54,34 +59,27 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 };
             }
 
-            nombre = nombre?.Trim() ?? string.Empty;
-            apellido = apellido?.Trim() ?? string.Empty;
-            telefono = telefono?.Trim() ?? string.Empty;
+            nombre = NormalizarTexto(nombre);
+            apellido = NormalizarTexto(apellido);
+            telefono = NormalizarTelefono(telefono);
 
-            if (string.IsNullOrEmpty(nombre))
+            Dictionary<string, string> errores =
+                _validador.Validar(nombre, apellido, telefono);
+
+            if (errores.Count == 0
+                && await _repositorio.ExisteAsync(nombre, apellido, telefono))
             {
-                return new ResultadoCliente
-                {
-                    Exito = false,
-                    Mensaje = "El nombre del cliente es obligatorio."
-                };
+                errores[ClienteValidador.CampoTelefono] =
+                    "Ya existe un cliente registrado con los mismos nombres, apellidos y teléfono.";
             }
 
-            if (string.IsNullOrEmpty(apellido))
+            if (errores.Count > 0)
             {
                 return new ResultadoCliente
                 {
                     Exito = false,
-                    Mensaje = "El apellido del cliente es obligatorio."
-                };
-            }
-
-            if (string.IsNullOrEmpty(telefono))
-            {
-                return new ResultadoCliente
-                {
-                    Exito = false,
-                    Mensaje = "El teléfono del cliente es obligatorio."
+                    Mensaje = MensajeRevisarDatos,
+                    Errores = errores
                 };
             }
 
@@ -104,6 +102,18 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 Mensaje = "Cliente registrado correctamente.",
                 Cliente = cliente
             };
+        }
+
+        // Quita espacios sobrantes: "  Ana   María " -> "Ana María".
+        private static string NormalizarTexto(string? texto)
+        {
+            return Regex.Replace(texto?.Trim() ?? string.Empty, @"\s+", " ");
+        }
+
+        // Acepta "7111 2222" o "7111-2222" y guarda solo los dígitos.
+        private static string NormalizarTelefono(string? telefono)
+        {
+            return Regex.Replace(telefono ?? string.Empty, @"[\s\-]", string.Empty);
         }
     }
 }
