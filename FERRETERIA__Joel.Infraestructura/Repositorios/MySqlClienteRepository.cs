@@ -133,6 +133,29 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return clientes;
         }
 
+        public virtual async Task<bool> ExisteAsync(
+            string nombre,
+            string apellido,
+            string telefono)
+        {
+            const string query = @"
+                SELECT 1
+                FROM cliente
+                WHERE Estado = 1
+                  AND Nombre = @nombre
+                  AND Apellido = @apellido
+                  AND Telefono = @telefono
+                LIMIT 1";
+
+            using MySqlCommand command = await CrearComandoAsync(query);
+
+            command.Parameters.AddWithValue("@nombre", nombre);
+            command.Parameters.AddWithValue("@apellido", apellido);
+            command.Parameters.AddWithValue("@telefono", telefono);
+
+            return await command.ExecuteScalarAsync() is not null;
+        }
+
         public virtual async Task<Cliente?> ObtenerPorIdAsync(int idCliente)
         {
             string query = $@"
