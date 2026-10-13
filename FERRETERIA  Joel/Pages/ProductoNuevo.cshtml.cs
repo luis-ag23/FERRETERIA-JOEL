@@ -146,7 +146,7 @@ namespace FERRETERIA__Joel.Pages
             {
                 AgregarErrorCampo(
                     nameof(Producto.Nombre),
-                    "El nombre es obligatorio, debe tener máximo 150 caracteres y solo admite letras y espacios (sin números ni caracteres especiales).");
+                    "El nombre es obligatorio y debe tener máximo 150 caracteres. Se permiten letras, números y símbolos comunes (por ejemplo: 4-1/2\", 16 oz, 300ml).");
             }
 
             if (!_validacion.EsMarcaValida(Producto.IdMarca))

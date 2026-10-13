@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using FERRETERIA__Joel.Dominio.ConfiguracionValidacion;
 
 namespace FERRETERIA__Joel.Dominio.Validaciones
@@ -10,11 +11,27 @@ namespace FERRETERIA__Joel.Dominio.Validaciones
                 && codigo.Trim().Length <= ConfiguracionProducto.CodigoMaxLength;
         }
 
+        // Nombre del producto: se permiten letras, números, espacios y símbolos
+        // habituales en descripciones de ferretería (oz, 4-1/2", 300ml, etc.).
+        private static readonly Regex FormatoNombreProducto =
+            new(@"^[\p{L}\p{N}\s.,'""\-&()/#+*]+$",
+                RegexOptions.Compiled);
+
         public bool EsNombreValido(string nombre)
         {
-            return ValidacionesTexto.EsNombreValido(
-                nombre,
-                ConfiguracionProducto.NombreMaxLength);
+            if (string.IsNullOrWhiteSpace(nombre))
+            {
+                return false;
+            }
+
+            string limpio = nombre.Trim();
+
+            if (limpio.Length > ConfiguracionProducto.NombreMaxLength)
+            {
+                return false;
+            }
+
+            return FormatoNombreProducto.IsMatch(limpio);
         }
 
         public bool EsDescripcionValida(string? descripcion)
