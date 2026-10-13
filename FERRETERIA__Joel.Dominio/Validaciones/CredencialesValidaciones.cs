@@ -10,8 +10,9 @@ namespace FERRETERIA__Joel.Dominio.Validaciones
     /// </summary>
     public class CredencialesValidaciones
     {
+        // 8 dígitos: celulares en Bolivia inician exclusivamente con 6 o 7
         private static readonly Regex FormatoTelefono =
-            new(@"^[5-8][0-9]{7}$", RegexOptions.Compiled);
+            new(@"^[67][0-9]{7}$", RegexOptions.Compiled);
 
         private static readonly Regex FormatoCorreo =
             new(@"^(?=.{1,254}$)(?=.{6,64}@)[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*\.[A-Za-z]{2,24}$", RegexOptions.Compiled);
@@ -37,7 +38,57 @@ namespace FERRETERIA__Joel.Dominio.Validaciones
                 return false;
             }
 
-            return FormatoTelefono.IsMatch(telefono.Trim());
+            string limpio = telefono.Trim();
+
+            if (!FormatoTelefono.IsMatch(limpio))
+            {
+                return false;
+            }
+
+            if (TodosDigitosIguales(limpio))
+            {
+                return false;
+            }
+
+            if (EsSecuenciaConcurrente(limpio))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool TodosDigitosIguales(string valor)
+        {
+            char primerDigito = valor[0];
+            for (int i = 1; i < valor.Length; i++)
+            {
+                if (valor[i] != primerDigito)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static bool EsSecuenciaConcurrente(string valor)
+        {
+            bool ascendente = true;
+            bool descendente = true;
+
+            for (int i = 0; i < valor.Length - 1; i++)
+            {
+                if (valor[i + 1] - valor[i] != 1)
+                {
+                    ascendente = false;
+                }
+                if (valor[i] - valor[i + 1] != 1)
+                {
+                    descendente = false;
+                }
+            }
+
+            return ascendente || descendente;
         }
 
         public bool EsCorreoValido(string? correo)
