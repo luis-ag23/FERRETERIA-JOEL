@@ -84,6 +84,18 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
             _clientes.Add(cliente);
         }
 
+                public override Task<bool> ExisteAsync(
+            string nombre,
+            string apellido,
+            string telefono)
+        {
+            return Task.FromResult(_clientes.Any(c =>
+                c.Estado == 1
+                && string.Equals(c.Nombre, nombre, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(c.Apellido, apellido, StringComparison.OrdinalIgnoreCase)
+                && c.Telefono == telefono));
+        }
+
         public override Task<List<Cliente>> ObtenerTodosAsync()
         {
             return Task.FromResult(_clientes.ToList());

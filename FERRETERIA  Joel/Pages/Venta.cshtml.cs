@@ -121,7 +121,12 @@ namespace FERRETERIA__Joel.Pages
                     nuevoClienteTelefono ?? string.Empty);
 
                 if (!resultado.Exito || resultado.Cliente is null)
-                    return BadRequest(new { exito = false, mensaje = resultado.Mensaje });
+                    return BadRequest(new
+                    {
+                        exito = false,
+                        mensaje = resultado.Mensaje,
+                        errores = resultado.Errores
+                    });
 
                 return new JsonResult(new
                 {

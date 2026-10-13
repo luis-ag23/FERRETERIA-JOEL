@@ -9,5 +9,7 @@ namespace FERRETERIA__Joel.Aplicacion.Modelos
         public string Mensaje { get; set; } = string.Empty;
 
         public Cliente? Cliente { get; set; }
+
+        public Dictionary<string, string> Errores { get; set; } = new();
     }
 }

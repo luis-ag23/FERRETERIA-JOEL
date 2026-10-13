@@ -209,7 +209,7 @@
                 automáticamente en la venta sin perder los productos agregados.
             </p>
 
-            <form id="nuevoClienteForm" class="fj-form">
+            <form id="nuevoClienteForm" class="fj-form" novalidate>
                 @Html.AntiForgeryToken()
                 <input type="hidden" id="nuevoClienteUrl"
                        value="@Url.Page("/Venta", "CrearCliente")" />
@@ -217,17 +217,18 @@
                 <div class="fj-form-field">
                     <label for="nuevoClienteNombre">Nombres</label>
                     <input type="text" id="nuevoClienteNombre" class="fj-input"
-                           name="nuevoClienteNombre" maxlength="60" autocomplete="off" />
+                           name="nuevoClienteNombre" maxlength="100" autocomplete="off" />
                 </div>
                 <div class="fj-form-field">
                     <label for="nuevoClienteApellido">Apellidos</label>
                     <input type="text" id="nuevoClienteApellido" class="fj-input"
-                           name="nuevoClienteApellido" maxlength="60" autocomplete="off" />
+                           name="nuevoClienteApellido" maxlength="100" autocomplete="off" />
                 </div>
                 <div class="fj-form-field">
                     <label for="nuevoClienteTelefono">Teléfono</label>
                     <input type="tel" id="nuevoClienteTelefono" class="fj-input"
-                           name="nuevoClienteTelefono" maxlength="30" autocomplete="off" />
+                            name="nuevoClienteTelefono" maxlength="9" inputmode="numeric"
+                            placeholder="Ej: 71234567" autocomplete="off" />
                 </div>
 
                 <div class="fj-alert" id="nuevoClienteError" role="alert" hidden></div>
