@@ -71,7 +71,7 @@
                 </div>
                 <div>
                     <dt>Generado por</dt>
-                    <dd>@Model.Comprobante.NombreEmpleadoResponsable</dd>
+                    <dd>@FERRETERIA__Joel.Dominio.Utilidades.Siglas.De(Model.Comprobante.NombreEmpleadoResponsable)</dd>
                 </div>
                 <div>
                     <dt>Fecha de emisión</dt>
@@ -137,7 +137,7 @@
                         @venta.FechaAnulacion?.ToString("dd/MM/yyyy HH:mm")
                         @if (!string.IsNullOrWhiteSpace(Model.Comprobante.NombreEmpleadoAnulacion))
                         {
-                            @:por @Model.Comprobante.NombreEmpleadoAnulacion
+                            @:por @FERRETERIA__Joel.Dominio.Utilidades.Siglas.De(Model.Comprobante.NombreEmpleadoAnulacion)
                         }
                     </span>
                 </div>
@@ -159,7 +159,7 @@
                 </svg>
                 Imprimir
             </button>
-            <a class="fj-btn fj-btn-ghost" asp-page-handler="Pdf" asp-route-token="@Model.Token" target="_blank" rel="noopener">
+            <a class="fj-btn fj-btn-ghost" asp-page-handler="Pdf" asp-route-token="@Model.Token">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="12" y1="18" x2="12" y2="12" /><polyline points="9 15 12 18 15 15" />
                 </svg>
                 Descargar PDF

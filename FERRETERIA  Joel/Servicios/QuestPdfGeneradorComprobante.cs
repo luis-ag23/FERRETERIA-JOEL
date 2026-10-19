@@ -99,7 +99,7 @@ namespace FERRETERIA__Joel.Servicios
                             $"Anulada el {venta.FechaAnulacion:dd/MM/yyyy HH:mm}"
                             + (string.IsNullOrWhiteSpace(comprobante.NombreEmpleadoAnulacion)
                                 ? string.Empty
-                                : $" por {comprobante.NombreEmpleadoAnulacion}"));
+                                : $" por {Siglas.De(comprobante.NombreEmpleadoAnulacion)}"));
                     });
                 }
             });
@@ -122,7 +122,7 @@ namespace FERRETERIA__Joel.Servicios
                 Dato(tabla, "Cliente", comprobante.NombreCliente);
                 Dato(tabla, "Método de pago", venta.MetodoPago);
                 Dato(tabla, "Estado del pago", venta.EstadoPago);
-                Dato(tabla, "Generado por", comprobante.NombreEmpleadoResponsable);
+                Dato(tabla, "Generado por", Siglas.De(comprobante.NombreEmpleadoResponsable));
                 Dato(tabla, "Fecha de emisión", venta.FechaRegistro.ToString("dd/MM/yyyy HH:mm"));
                 Dato(tabla, "Estado", registrada ? "Registrada" : "Anulada");
             });
@@ -202,7 +202,7 @@ namespace FERRETERIA__Joel.Servicios
             contenedor.BorderTop(1).BorderColor(ColorBorde).PaddingTop(6).Row(fila =>
             {
                 fila.RelativeItem().Text(
-                    $"Generado el {DateTime.Now:dd/MM/yyyy HH:mm:ss} · {comprobante.NombreEmpleadoResponsable}")
+                    $"Generado el {DateTime.Now:dd/MM/yyyy HH:mm:ss} · {Siglas.De(comprobante.NombreEmpleadoResponsable)}")
                     .FontSize(8).FontColor(ColorTextoSecundario);
 
                 fila.AutoItem().Text(texto =>
