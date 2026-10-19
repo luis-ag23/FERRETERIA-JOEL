@@ -33,10 +33,6 @@ namespace FERRETERIA__Joel.Aplicacion.Modelos
 
         public decimal Subtotal { get; private init; }
 
-        public decimal MontoDescuento { get; private init; }
-
-        public decimal PorcentajeDescuento { get; private init; }
-
         public decimal MontoTotal { get; private init; }
 
         public DateTime FechaRegistro { get; private init; }
@@ -83,8 +79,6 @@ namespace FERRETERIA__Joel.Aplicacion.Modelos
                 EstadoPago = venta.EstadoPago,
                 EstadoVenta = venta.EstadoVenta,
                 Subtotal = venta.Subtotal,
-                MontoDescuento = venta.MontoDescuento,
-                PorcentajeDescuento = venta.PorcentajeDescuento,
                 MontoTotal = venta.MontoTotal,
                 FechaRegistro = venta.FechaRegistro,
                 FechaAnulacion = venta.FechaAnulacion,

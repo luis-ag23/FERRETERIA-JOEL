@@ -1,5 +1,4 @@
 ﻿using FERRETERIA__Joel.Aplicacion.Modelos;
-using FERRETERIA__Joel.Aplicacion.Politicas;
 using FERRETERIA__Joel.Aplicacion.Servicios;
 using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
@@ -58,12 +57,6 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                 inventarioRepo.Agregar(producto);
             }
 
-            SelectorDescuento selector = new(new IPoliticaDescuento[]
-            {
-                new DescuentoPorMonto(montoMinimo: 1000m, porcentaje: 5m),
-                new DescuentoPorCantidad(cantidadMinima: 12, porcentaje: 3m)
-            });
-
             CreadorFake<IRepository<Empleado>> creadorEmpleados = new(empleadosRepo);
 
             FachadaActualizacionStock stock = new(inventarioRepo);
@@ -75,11 +68,9 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                 detallesRepo,
                 creadorEmpleados,
                 unidadDeTrabajo,
-                selector,
                 contexto,
                 stock,
-                servicioCliente,
-                new ConfiguracionDescuentos());
+                servicioCliente);
 
             FachadaAnulacion anulacion = new(
                 ventasRepo,
@@ -200,51 +191,6 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
             Assert.Equal(0, escenario.UnidadDeTrabajo.VecesRevertir);
             Assert.Single(resultado.Detalles);
             Assert.Equal(2, resultado.Detalles[0].Cantidad);
-        }
-
-        [Fact]
-        public async Task RegistrarVenta_AplicaDescuentoPorMontoAsync()
-        {
-            Escenario escenario = CrearEscenario(CrearProducto(1, 600m, 10));
-
-            ResultadoVenta resultado = await escenario.Fachada.RegistrarVentaAsync(
-                new SolicitudVenta
-                {
-                    IdCliente = 1,
-                    MetodoPago = "Efectivo",
-                    Lineas = new List<LineaVentaSolicitada>
-                    {
-                        new() { IdProducto = 1, Cantidad = 2 }
-                    }
-                });
-
-            Assert.True(resultado.Exito);
-            Assert.Equal(1200m, resultado.Subtotal);
-            Assert.Equal(60m, resultado.MontoDescuento);
-            Assert.Equal(5m, resultado.PorcentajeDescuento);
-            Assert.Equal(1140m, resultado.MontoTotal);
-        }
-
-        [Fact]
-        public async Task RegistrarVenta_AplicaDescuentoPorCantidadAsync()
-        {
-            Escenario escenario = CrearEscenario(CrearProducto(1, 50m, 50));
-
-            ResultadoVenta resultado = await escenario.Fachada.RegistrarVentaAsync(
-                new SolicitudVenta
-                {
-                    IdCliente = 1,
-                    MetodoPago = "Efectivo",
-                    Lineas = new List<LineaVentaSolicitada>
-                    {
-                        new() { IdProducto = 1, Cantidad = 12 }
-                    }
-                });
-
-            Assert.True(resultado.Exito);
-            Assert.Equal(600m, resultado.Subtotal);
-            Assert.Equal(18m, resultado.MontoDescuento);
-            Assert.Equal(582m, resultado.MontoTotal);
         }
 
         [Fact]
@@ -421,7 +367,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         }
 
         [Fact]
-        public void CalcularResumen_AplicaDescuento()
+        public void CalcularResumen_CalculaSubtotalYTotal()
         {
             Escenario escenario = CrearEscenario(CrearProducto(1, 600m, 10));
 
@@ -438,8 +384,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                 });
 
             Assert.Equal(1200m, resumen.Subtotal);
-            Assert.Equal(60m, resumen.MontoDescuento);
-            Assert.Equal(1140m, resumen.MontoTotal);
+            Assert.Equal(1200m, resumen.MontoTotal);
         }
 
         [Fact]

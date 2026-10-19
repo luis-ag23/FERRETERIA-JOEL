@@ -50,7 +50,6 @@
     var pagoEl = document.getElementById('ventasDetallePago');
     var lineasEl = document.getElementById('ventasDetalleLineas');
     var subtotalEl = document.getElementById('ventasDetalleSubtotal');
-    var descuentoEl = document.getElementById('ventasDetalleDescuento');
     var totalEl = document.getElementById('ventasDetalleTotal');
     var motivoEl = document.getElementById('ventasDetalleMotivo');
 
@@ -88,7 +87,6 @@
             });
 
             subtotalEl.textContent = dinero(v.subtotal);
-            descuentoEl.textContent = '- ' + dinero(v.descuento);
             totalEl.textContent = dinero(v.total);
 
             if (v.estadoVenta === 'Anulada' && v.motivoAnulacion) {
