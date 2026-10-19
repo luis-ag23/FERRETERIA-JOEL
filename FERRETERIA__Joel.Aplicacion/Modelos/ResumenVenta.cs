@@ -8,12 +8,7 @@ namespace FERRETERIA__Joel.Aplicacion.Modelos
     {
         public decimal Subtotal { get; init; }
 
-        public decimal MontoDescuento { get; init; }
-
-        public decimal PorcentajeDescuento { get; init; }
-
         public decimal MontoTotal { get; init; }
 
-        public string PoliticaDescuento { get; init; } = "Sin descuento";
     }
 }

@@ -19,13 +19,6 @@
     var urlClientes = app.getAttribute('data-url-clientes');
     var urlProductos = app.getAttribute('data-url-productos');
 
-    var cfg = {
-        montoMin: parseFloat(app.getAttribute('data-descuento-monto-min')) || 0,
-        montoPct: parseFloat(app.getAttribute('data-descuento-monto-pct')) || 0,
-        cantMin: parseInt(app.getAttribute('data-descuento-cant-min'), 10) || 0,
-        cantPct: parseFloat(app.getAttribute('data-descuento-cant-pct')) || 0
-    };
-
     var fmt = new Intl.NumberFormat('es-BO', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
@@ -504,46 +497,16 @@
 
     // ---------- Totales ----------
 
-    function calcularDescuento(subtotal, unidades) {
-        var mejor = { pct: 0, monto: 0, politica: '' };
-
-        if (cfg.montoMin > 0 && subtotal >= cfg.montoMin) {
-            var monto = redondear(subtotal * cfg.montoPct / 100);
-            if (monto > mejor.monto) {
-                mejor = { pct: cfg.montoPct, monto: monto, politica: 'Descuento por monto' };
-            }
-        }
-
-        if (cfg.cantMin > 0 && unidades >= cfg.cantMin) {
-            var montoCant = redondear(subtotal * cfg.cantPct / 100);
-            if (montoCant > mejor.monto) {
-                mejor = { pct: cfg.cantPct, monto: montoCant, politica: 'Descuento por cantidad' };
-            }
-        }
-
-        return mejor;
-    }
-
     function recalcularTotales() {
         var subtotal = lineas.reduce(function (suma, l) {
             return suma + redondear(l.precio * l.cantidad);
         }, 0);
-        var unidades = lineas.reduce(function (suma, l) {
-            return suma + l.cantidad;
-        }, 0);
-
-        var descuento = calcularDescuento(subtotal, unidades);
-        var total = redondear(subtotal - descuento.monto);
+        var total = redondear(subtotal);
 
         document.getElementById('totalSubtotal').textContent = dinero(subtotal);
-        document.getElementById('totalDescuento').textContent = '- ' + dinero(descuento.monto);
-        document.getElementById('totalDescPct').textContent =
-            descuento.monto > 0 ? '(' + descuento.pct + '%)' : '';
         document.getElementById('totalFinal').textContent = dinero(total);
-        document.getElementById('politicaDescuento').textContent =
-            descuento.monto > 0 ? descuento.politica + ' aplicado.' : '';
 
-        return { subtotal: subtotal, descuento: descuento, total: total, unidades: unidades };
+        return { subtotal: subtotal, total: total };
     }
 
     // ---------- Botón Registrar ----------

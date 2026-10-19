@@ -23,8 +23,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             EstadoPago,
             MontoTotal,
             Subtotal,
-            MontoDescuento,
-            PorcentajeDescuento,
             ClaveIdempotencia,
             FechaRegistro,
             FechaActualizacion,
@@ -86,8 +84,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     EstadoPago,
                     MontoTotal,
                     Subtotal,
-                    MontoDescuento,
-                    PorcentajeDescuento,
                     ClaveIdempotencia,
                     IdEmpleadoResponsable
                 )
@@ -99,8 +95,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     @estadoPago,
                     @montoTotal,
                     @subtotal,
-                    @montoDescuento,
-                    @porcentajeDescuento,
                     @claveIdempotencia,
                     @idEmpleadoResponsable
                 )";
@@ -113,8 +107,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.Parameters.AddWithValue("@estadoPago", venta.EstadoPago);
             command.Parameters.AddWithValue("@montoTotal", venta.MontoTotal);
             command.Parameters.AddWithValue("@subtotal", venta.Subtotal);
-            command.Parameters.AddWithValue("@montoDescuento", venta.MontoDescuento);
-            command.Parameters.AddWithValue("@porcentajeDescuento", venta.PorcentajeDescuento);
             command.Parameters.AddWithValue(
                 "@claveIdempotencia",
                 (object?)venta.ClaveIdempotencia ?? DBNull.Value);
@@ -223,8 +215,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 EstadoPago = reader["EstadoPago"].ToString() ?? "",
                 MontoTotal = reader.GetDecimal("MontoTotal"),
                 Subtotal = reader.GetDecimal("Subtotal"),
-                MontoDescuento = reader.GetDecimal("MontoDescuento"),
-                PorcentajeDescuento = reader.GetDecimal("PorcentajeDescuento"),
                 ClaveIdempotencia = reader["ClaveIdempotencia"] == DBNull.Value
                     ? null
                     : reader["ClaveIdempotencia"].ToString(),

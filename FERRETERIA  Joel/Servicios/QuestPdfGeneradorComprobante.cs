@@ -173,21 +173,12 @@ namespace FERRETERIA__Joel.Servicios
 
         private static void ComponerTotales(IContainer contenedor, Dominio.Entidades.Venta venta)
         {
-            string descuento = venta.PorcentajeDescuento > 0
-                ? $"Descuento ({venta.PorcentajeDescuento:N2}%)"
-                : "Descuento";
-
             contenedor.AlignRight().Width(230).Column(col =>
             {
                 col.Item().Row(f =>
                 {
                     f.RelativeItem().Text("Subtotal");
                     f.AutoItem().Text($"{venta.Subtotal:N2} Bs");
-                });
-                col.Item().Row(f =>
-                {
-                    f.RelativeItem().Text(descuento);
-                    f.AutoItem().Text($"- {venta.MontoDescuento:N2} Bs");
                 });
                 col.Item().PaddingTop(4).BorderTop(1).BorderColor(ColorBorde).Row(f =>
                 {

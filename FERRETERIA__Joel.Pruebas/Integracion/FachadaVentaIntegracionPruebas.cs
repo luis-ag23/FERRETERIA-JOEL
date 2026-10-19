@@ -1,5 +1,4 @@
 using FERRETERIA__Joel.Aplicacion.Modelos;
-using FERRETERIA__Joel.Aplicacion.Politicas;
 using FERRETERIA__Joel.Aplicacion.Servicios;
 using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
@@ -424,12 +423,6 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
             FabricaConexionPruebas fabrica = new(cadena);
             MySqlConexionTransaccional conexion = new(fabrica);
 
-            SelectorDescuento selector = new(new IPoliticaDescuento[]
-            {
-                new DescuentoPorMonto(montoMinimo: 1000m, porcentaje: 5m),
-                new DescuentoPorCantidad(cantidadMinima: 12, porcentaje: 3m)
-            });
-
             IContextoUsuario contexto = new ContextoUsuarioFake(idEmpleado);
 
             MySqlVentaRepository ventasRepositorio = new(conexion);
@@ -448,11 +441,9 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
                 detallesRepositorio,
                 creadorEmpleados,
                 unidadDeTrabajo,
-                selector,
                 contexto,
                 stock,
-                servicioCliente,
-                new ConfiguracionDescuentos());
+                servicioCliente);
 
             FachadaAnulacion anulacion = new(
                 ventasRepositorio,

@@ -1,5 +1,4 @@
 using FERRETERIA__Joel.Aplicacion.Modelos;
-using FERRETERIA__Joel.Aplicacion.Politicas;
 using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
@@ -13,7 +12,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
     /// única interfaz de alto nivel a la pantalla de venta, coordinando
     /// clientes, el subsistema de stock (<see cref="FachadaActualizacionStock"/>),
     /// la cabecera/detalle de la venta, la unidad de trabajo (transacción)
-    /// y el selector de descuentos (Strategy).
     ///
     /// La pantalla de venta NO conoce repositorios, transacciones ni
     /// políticas: solo consume esta fachada. A su vez, esta fachada
@@ -27,7 +25,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         private readonly MySqlDetalleVentaRepository _detalles;
         private readonly RepositoryCreator<IRepository<Empleado>> _creadorEmpleados;
         private readonly IUnidadDeTrabajo _unidadDeTrabajo;
-        private readonly SelectorDescuento _selectorDescuento;
         private readonly IContextoUsuario _contextoUsuario;
         private readonly FachadaActualizacionStock _stock;
         private readonly ServicioCliente _servicioCliente;
@@ -39,28 +36,18 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             MySqlDetalleVentaRepository detalles,
             RepositoryCreator<IRepository<Empleado>> creadorEmpleados,
             IUnidadDeTrabajo unidadDeTrabajo,
-            SelectorDescuento selectorDescuento,
             IContextoUsuario contextoUsuario,
             FachadaActualizacionStock stock,
-            ServicioCliente servicioCliente,
-            ConfiguracionDescuentos descuentos)
+            ServicioCliente servicioCliente)
         {
             _ventas = ventas;
             _detalles = detalles;
             _creadorEmpleados = creadorEmpleados;
             _unidadDeTrabajo = unidadDeTrabajo;
-            _selectorDescuento = selectorDescuento;
             _contextoUsuario = contextoUsuario;
             _stock = stock;
             _servicioCliente = servicioCliente;
-            Descuentos = descuentos;
         }
-
-        /// <summary>
-        /// Parámetros de descuento vigentes, expuestos a la pantalla de
-        /// venta para la previsualización de totales en el cliente.
-        /// </summary>
-        public ConfiguracionDescuentos Descuentos { get; }
 
         private IRepository<Empleado> Empleados =>
             _empleados ??= _creadorEmpleados.CreateRepository();
@@ -154,20 +141,12 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
         public ResumenVenta CalcularResumen(IEnumerable<LineaVentaDetalle> lineas)
         {
-            List<LineaVentaDetalle> lista = lineas.ToList();
-            decimal subtotal = lista.Sum(l => l.TotalProducto);
-            int unidades = lista.Sum(l => l.Cantidad);
-
-            SeleccionDescuento descuento =
-                _selectorDescuento.Seleccionar(subtotal, unidades);
+            decimal subtotal = lineas.Sum(l => l.TotalProducto);
 
             return new ResumenVenta
             {
                 Subtotal = subtotal,
-                MontoDescuento = descuento.Monto,
-                PorcentajeDescuento = descuento.Porcentaje,
-                MontoTotal = Math.Round(subtotal - descuento.Monto, 2),
-                PoliticaDescuento = descuento.Politica
+                MontoTotal = Math.Round(subtotal, 2)
             };
         }
 
@@ -277,7 +256,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 List<DetalleVenta> detalles = new();
                 List<LineaVentaDetalle> lineasCalculadas = new();
                 decimal subtotal = 0m;
-                int unidades = 0;
 
                 foreach (KeyValuePair<int, int> par in cantidades)
                 {
@@ -311,7 +289,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                         Math.Round(producto.PrecioVenta * par.Value, 2);
 
                     subtotal += totalProducto;
-                    unidades += par.Value;
 
                     detalles.Add(new DetalleVenta
                     {
@@ -335,9 +312,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                     });
                 }
 
-                SeleccionDescuento descuento =
-                    _selectorDescuento.Seleccionar(subtotal, unidades);
-
                 Venta venta = new()
                 {
                     EstadoVenta = EstadoVenta.Registrada,
@@ -345,9 +319,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                     MetodoPago = metodoPago,
                     EstadoPago = estadoPago,
                     Subtotal = subtotal,
-                    MontoDescuento = descuento.Monto,
-                    PorcentajeDescuento = descuento.Porcentaje,
-                    MontoTotal = Math.Round(subtotal - descuento.Monto, 2),
+                    MontoTotal = Math.Round(subtotal, 2),
                     ClaveIdempotencia = clave,
                     IdEmpleadoResponsable = idEmpleado
                 };

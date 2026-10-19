@@ -1,5 +1,4 @@
 using FERRETERIA__Joel.Aplicacion.Modelos;
-using FERRETERIA__Joel.Aplicacion.Politicas;
 using FERRETERIA__Joel.Aplicacion.Servicios;
 using FERRETERIA__Joel.Dominio.Constantes;
 using Microsoft.AspNetCore.Authorization;
@@ -27,8 +26,6 @@ namespace FERRETERIA__Joel.Pages
             _fachada = fachada;
             _logger = logger;
         }
-
-        public ConfiguracionDescuentos Descuentos => _fachada.Descuentos;
 
         public IReadOnlyList<string> MetodosPago { get; } = new[]
         {

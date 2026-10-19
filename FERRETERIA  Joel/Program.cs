@@ -1,4 +1,3 @@
-using FERRETERIA__Joel.Aplicacion.Politicas;
 using FERRETERIA__Joel.Aplicacion.Servicios;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
@@ -100,19 +99,6 @@ builder.Services.AddScoped<ServicioMarca>();
 builder.Services.AddScoped<ServicioCliente>();
 
 builder.Services.AddScoped<IContextoUsuario, ContextoUsuarioHttp>();
-
-var descuentos = new ConfiguracionDescuentos();
-
-builder.Services.AddSingleton(descuentos);
-builder.Services.AddSingleton<IPoliticaDescuento>(
-    new DescuentoPorMonto(
-        montoMinimo: descuentos.MontoMinimo,
-        porcentaje: descuentos.PorcentajePorMonto));
-builder.Services.AddSingleton<IPoliticaDescuento>(
-    new DescuentoPorCantidad(
-        cantidadMinima: descuentos.CantidadMinima,
-        porcentaje: descuentos.PorcentajePorCantidad));
-builder.Services.AddScoped<SelectorDescuento>();
 
 // Fachadas del módulo de Ventas (patrón Facade). Cada pantalla consume
 // una sola fachada; las de venta y anulación delegan el inventario en la

@@ -110,15 +110,6 @@
 
             <div class="comprobante-totales">
                 <div><span>Subtotal</span><span>@venta.Subtotal.ToString("N2") Bs</span></div>
-                <div>
-                    <span>Descuento
-                        @if (venta.PorcentajeDescuento > 0)
-                        {
-                            <small>(@venta.PorcentajeDescuento.ToString("N2")%)</small>
-                        }
-                    </span>
-                    <span>- @venta.MontoDescuento.ToString("N2") Bs</span>
-                </div>
                 <div class="comprobante-total"><span>TOTAL</span><span>@venta.MontoTotal.ToString("N2") Bs</span></div>
             </div>
 
