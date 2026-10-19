@@ -122,6 +122,7 @@ builder.Services.AddScoped<FachadaVenta>();
 builder.Services.AddScoped<FachadaAnulacion>();
 
 builder.Services.AddSingleton<IHasheadorContrasena, Argon2HasheadorContrasena>();
+builder.Services.AddSingleton<IGeneradorComprobantePdf, QuestPdfGeneradorComprobante>();
 builder.Services.AddScoped<RegistroCredencialesValidador>();
 builder.Services.AddScoped<ServicioRegistroEmpleado>();
 builder.Services.AddScoped<ServicioInicioSesion>();
