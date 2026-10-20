@@ -7,8 +7,11 @@ using FERRETERIA__Joel.Infraestructura.Conexion;
 using FERRETERIA__Joel.Infraestructura.Factories;
 using FERRETERIA__Joel.Infraestructura.Repositorios;
 using FERRETERIA__Joel.Infraestructura.Seguridad;
+using FERRETERIA__Joel.Infraestructura.Servicios;
 using FERRETERIA__Joel.Servicios;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,6 +44,17 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizePage("/Proveedores");
     options.Conventions.AuthorizePage("/ProveedorNuevo");
     options.Conventions.AuthorizePage("/ProveedorEditar");
+    
+    // Deshabilitar filtro automático de antiforgery para páginas con POST - usamos autenticación por cookie + Redis
+    var ignoreAntiforgery = new Microsoft.AspNetCore.Mvc.IgnoreAntiforgeryTokenAttribute();
+    var pagesToIgnore = new[] { "/Login", "/ProductoNuevo", "/ProductoEditar", "/CategoriaNueva", "/CategoriaEditar", "/MarcaNueva", "/MarcaEditar", "/ProveedorNuevo", "/ProveedorEditar", "/Venta", "/Logout" };
+    foreach (var page in pagesToIgnore)
+    {
+        options.Conventions.AddPageApplicationModelConvention(page, model =>
+        {
+            model.Filters.Add(ignoreAntiforgery);
+        });
+    }
 });
 
 // Autenticación oficial del equipo por cookie. Ventas la reutiliza sin
@@ -62,12 +76,64 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
+// Deshabilitar validación automática de antiforgery (usamos autenticación por cookie + Redis)
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "X-CSRF-TOKEN";
+    options.SuppressXFrameOptionsHeader = true;
+});
+
 UrlProtector.Inicializar(
     builder.Configuration["UrlProteccion:Clave"]
         ?? throw new InvalidOperationException(
             "Falta la clave 'UrlProteccion:Clave' en la configuración."));
 
 builder.Services.AddHttpContextAccessor();
+
+// Redis
+var redisConnectionString = builder.Configuration["Redis:Connection"]
+    ?? builder.Configuration["Redis__Connection"]
+    ?? Environment.GetEnvironmentVariable("Redis__Connection")
+    ?? "redis:6379";
+
+var redisMultiplexer = ConnectionMultiplexer.Connect(redisConnectionString);
+
+builder.Services.AddSingleton<RedisConnection>(sp => new RedisConnection(redisConnectionString));
+builder.Services.AddSingleton<RedisCacheHelper>(sp =>
+{
+    var conn = sp.GetRequiredService<RedisConnection>();
+    return new RedisCacheHelper(conn, "ferreteria:");
+});
+builder.Services.AddScoped<SesionRedisServicio>();
+builder.Services.AddScoped<CacheSelectRedisServicio>();
+builder.Services.AddSingleton<InfoContenedor>();
+
+// DataProtection with Redis - shared keys across containers
+builder.Services.AddDataProtection()
+    .PersistKeysToStackExchangeRedis(redisMultiplexer, "FerreteriaJoel-DataProtection-Keys")
+    .SetApplicationName("FerreteriaJoel");
+
+builder.Services.AddDistributedMemoryCache();
+try
+{
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = redisConnectionString;
+        options.InstanceName = "ferreteria_session:";
+    });
+}
+catch { }
+
+builder.Services.AddSession(options =>
+{
+    var sessionTtl = builder.Configuration["Redis:SessionTtlMinutes"] ?? Environment.GetEnvironmentVariable("Redis__SessionTtlMinutes");
+    int ttlMin = 30;
+    int.TryParse(sessionTtl, out ttlMin);
+    options.IdleTimeout = TimeSpan.FromMinutes(ttlMin);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.Cookie.Name = "FerreteriaJoel.Session";
+});
 
 builder.Services.AddSingleton<IDbConnectionFactory, MySqlConnectionFactory>();
 
@@ -79,7 +145,9 @@ builder.Services.AddScoped<IUnidadDeTrabajo, MySqlUnidadDeTrabajo>();
 builder.Services.AddScoped<MySqlClienteRepository>();
 builder.Services.AddScoped<MySqlEmpleadoRepository>();
 builder.Services.AddScoped<MySqlHistoricoPrecioRepository>();
-builder.Services.AddScoped<MySqlVentaRepository>();
+builder.Services.AddScoped(sp => new MySqlVentaRepository(
+    sp.GetRequiredService<IConexionTransaccional>(),
+    sp.GetService<RedisCacheHelper>()));
 builder.Services.AddScoped<MySqlDetalleVentaRepository>();
 builder.Services.AddScoped<MySqlInventarioRepository>();
 builder.Services.AddScoped<MySqlBitacoraRepository>();
@@ -125,6 +193,8 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseRouting();
+
+app.UseSession();
 
 app.UseAuthentication();
 app.UseAuthorization();

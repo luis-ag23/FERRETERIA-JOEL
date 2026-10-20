@@ -1,6 +1,7 @@
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
 using FERRETERIA__Joel.Infraestructura.Conexion;
+using FERRETERIA__Joel.Infraestructura.Servicios;
 using MySql.Data.MySqlClient;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
@@ -29,10 +30,12 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             p.IdEmpleadoResponsable";
 
         private readonly IConexionTransaccional _conexion;
+        private readonly RedisCacheHelper? _cache;
 
-        public MySqlProductoRepository(IConexionTransaccional conexion)
+        public MySqlProductoRepository(IConexionTransaccional conexion, RedisCacheHelper? cache = null)
         {
             _conexion = conexion;
+            _cache = cache;
         }
 
         private async Task<MySqlCommand> CrearComandoAsync(string query)
@@ -49,6 +52,14 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
         public virtual async Task<List<Producto>> ObtenerTodosAsync()
         {
+            const string cacheKey = "cache:select:productos:todos";
+            if (_cache != null)
+            {
+                var cached = await _cache.GetAsync<List<Producto>>(cacheKey);
+                if (cached != null)
+                    return cached;
+            }
+
             List<Producto> productos = new();
 
             string query = $@"
@@ -65,6 +76,9 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             {
                 productos.Add(MapearProducto(reader));
             }
+
+            if (_cache != null)
+                await _cache.SetAsync(cacheKey, productos, TimeSpan.FromMinutes(5));
 
             return productos;
         }
@@ -116,6 +130,8 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 producto.IdEmpleadoResponsable);
 
             await command.ExecuteNonQueryAsync();
+            if (_cache != null)
+                await _cache.RemoveByPatternAsync("cache:select:productos:*");
 
             return Convert.ToInt32(command.LastInsertedId);
         }
@@ -157,6 +173,8 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.Parameters.AddWithValue("@estado", producto.Estado);
 
             await command.ExecuteNonQueryAsync();
+            if (_cache != null)
+                await _cache.RemoveByPatternAsync("cache:select:productos:*");
         }
 
         public virtual async Task CambiarEstadoAsync(
@@ -182,10 +200,20 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 idEmpleadoResponsable);
 
             await command.ExecuteNonQueryAsync();
+            if (_cache != null)
+                await _cache.RemoveByPatternAsync("cache:select:productos:*");
         }
 
         public virtual async Task<List<Producto>> MostrarActivosAsync()
         {
+            const string cacheKey = "cache:select:productos:activos";
+            if (_cache != null)
+            {
+                var cached = await _cache.GetAsync<List<Producto>>(cacheKey);
+                if (cached != null)
+                    return cached;
+            }
+
             List<Producto> productos = new();
 
             string query = $@"
@@ -204,7 +232,33 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 productos.Add(MapearProducto(reader));
             }
 
+            if (_cache != null)
+                await _cache.SetAsync(cacheKey, productos, TimeSpan.FromMinutes(5));
+
             return productos;
+        }
+
+public virtual async Task CambiarEstadoAsync(Producto producto)
+        {
+            const string query = @"
+                UPDATE producto
+                SET
+                    Estado = @estado,
+                    FechaActualizacion = CURRENT_TIMESTAMP,
+                    IdEmpleadoResponsable = @idEmpleadoResponsable
+                WHERE IdProducto = @idProducto";
+
+            using MySqlCommand command = await CrearComandoAsync(query);
+
+            command.Parameters.AddWithValue("@idProducto", producto.IdProducto);
+            command.Parameters.AddWithValue("@estado", producto.Estado);
+            command.Parameters.AddWithValue(
+                "@idEmpleadoResponsable",
+                producto.IdEmpleadoResponsable);
+
+await command.ExecuteNonQueryAsync();
+            if (_cache != null)
+                await _cache.RemoveByPatternAsync("cache:select:productos:*");
         }
 
         // ================== Operaciones propias ==================

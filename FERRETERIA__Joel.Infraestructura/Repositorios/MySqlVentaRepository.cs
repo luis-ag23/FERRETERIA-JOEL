@@ -2,6 +2,7 @@ using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
 using FERRETERIA__Joel.Infraestructura.Conexion;
+using FERRETERIA__Joel.Infraestructura.Servicios;
 using MySql.Data.MySqlClient;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
@@ -32,10 +33,12 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             IdEmpleadoResponsable";
 
         private readonly IConexionTransaccional _conexion;
+        private readonly RedisCacheHelper? _cache;
 
-        public MySqlVentaRepository(IConexionTransaccional conexion)
+        public MySqlVentaRepository(IConexionTransaccional conexion, RedisCacheHelper? cache = null)
         {
             _conexion = conexion;
+            _cache = cache;
         }
 
         private async Task<MySqlCommand> CrearComandoAsync(string query)
@@ -54,6 +57,14 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
         public virtual async Task<List<Venta>> ObtenerTodosAsync()
         {
+            const string cacheKey = "cache:select:ventas:todos";
+            if (_cache != null)
+            {
+                var cached = await _cache.GetAsync<List<Venta>>(cacheKey);
+                if (cached != null)
+                    return cached;
+            }
+
             List<Venta> ventas = new();
 
             string query = $@"
@@ -69,6 +80,9 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             {
                 ventas.Add(MapearVenta(reader));
             }
+
+            if (_cache != null)
+                await _cache.SetAsync(cacheKey, ventas, TimeSpan.FromMinutes(5));
 
             return ventas;
         }
@@ -115,7 +129,11 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 venta.IdEmpleadoResponsable);
 
             await command.ExecuteNonQueryAsync();
-
+            if (_cache != null)
+            {
+                await _cache.RemoveByPatternAsync("cache:select:ventas:*");
+                await _cache.RemoveByPatternAsync("cache:select:productos:*");
+            }
             return Convert.ToInt32(command.LastInsertedId);
         }
 
@@ -137,6 +155,8 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.Parameters.AddWithValue("@idVenta", idVenta);
 
             await command.ExecuteNonQueryAsync();
+            if (_cache != null)
+                await _cache.RemoveByPatternAsync("cache:select:ventas:*");
         }
 
         public virtual async Task<Venta?> ObtenerPorIdAsync(int idVenta)
@@ -198,7 +218,13 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.Parameters.AddWithValue("@motivo", motivo);
             command.Parameters.AddWithValue("@idEmpleadoAnulacion", idEmpleadoAnulacion);
 
-            return await command.ExecuteNonQueryAsync() == 1;
+            var result = await command.ExecuteNonQueryAsync() == 1;
+            if (_cache != null)
+            {
+                await _cache.RemoveByPatternAsync("cache:select:ventas:*");
+                await _cache.RemoveByPatternAsync("cache:select:productos:*");
+            }
+            return result;
         }
 
         private static Venta MapearVenta(MySqlDataReader reader)
