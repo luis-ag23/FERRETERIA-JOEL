@@ -247,5 +247,37 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 IdEmpleadoResponsable = reader.GetInt32("IdEmpleadoResponsable")
             };
         }
+        public virtual async Task IncrementarPorcentajeGananciaAsync(int idCategoria = 0, decimal valor = 0m)
+        {
+            const string query = @"
+            UPDATE categoria c
+            LEFT JOIN (
+                SELECT 
+                    p.IdCategoria,
+                    SUM(dv.TotalProducto) AS TotalCategoria
+                FROM detalle_venta dv
+                INNER JOIN venta v ON v.IdVenta = dv.IdVenta
+                INNER JOIN producto p ON p.IdProducto = dv.IdProducto
+                WHERE v.EstadoVenta = 'Registrada'
+                GROUP BY p.IdCategoria
+            ) sub ON c.IdCategoria = sub.IdCategoria
+            CROSS JOIN (
+                SELECT COALESCE(SUM(dv.TotalProducto), 0) AS GranTotal
+                FROM detalle_venta dv
+                INNER JOIN venta v ON v.IdVenta = dv.IdVenta
+                WHERE v.EstadoVenta = 'Registrada'
+            ) total
+            SET c.PorcentajeGanancia = CASE 
+                WHEN total.GranTotal > 0 THEN ROUND((COALESCE(sub.TotalCategoria, 0) / total.GranTotal) * 100, 2)
+                ELSE 0.00
+            END,
+            c.FechaActualizacion = CURRENT_TIMESTAMP;";
+
+            using MySqlConnection connection = _connectionFactory.CreateConnection();
+            using MySqlCommand command = new MySqlCommand(query, connection);
+
+            await connection.OpenAsync();
+            await command.ExecuteNonQueryAsync();
+        }
     }
 }

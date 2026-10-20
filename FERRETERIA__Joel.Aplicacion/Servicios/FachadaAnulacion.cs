@@ -25,14 +25,17 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         private readonly IUnidadDeTrabajo _unidadDeTrabajo;
         private readonly IContextoUsuario _contextoUsuario;
         private readonly FachadaActualizacionStock _stock;
-
+        private readonly MySqlProductoRepository _productos;
+        private readonly MySqlCategoriaRepository _categorias;
         public FachadaAnulacion(
             MySqlVentaRepository ventas,
             MySqlDetalleVentaRepository detalles,
             ServicioCliente servicioCliente,
             IUnidadDeTrabajo unidadDeTrabajo,
             IContextoUsuario contextoUsuario,
-            FachadaActualizacionStock stock)
+            FachadaActualizacionStock stock,
+            MySqlProductoRepository productos,
+            MySqlCategoriaRepository categorias)
         {
             _ventas = ventas;
             _detalles = detalles;
@@ -40,6 +43,8 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             _unidadDeTrabajo = unidadDeTrabajo;
             _contextoUsuario = contextoUsuario;
             _stock = stock;
+            _productos = productos;
+            _categorias = categorias;
         }
 
         // ---------- Consulta (Select / historial) ----------
@@ -90,7 +95,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                     await _detalles.ObtenerPorVentaAsync(idVenta)));
         }
 
-        // ---------- Anulación (borrado lógico + reposición de stock) ----------
+        // ---------- Anulación (borrado lógico + reposición de stock + reversión de categorías) ----------
 
         public async Task<ResultadoVenta> AnularVentaAsync(int idVenta, string motivo)
         {
@@ -147,10 +152,32 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                     await _stock.ReponerAsync(detalle.IdProducto, detalle.Cantidad);
                 }
 
+                if (!await _ventas.MarcarAnuladaAsync(idVenta, idEmpleado, motivo.Trim()))
+                {
+                    await _unidadDeTrabajo.RevertirAsync();
+                    return ResultadoVenta.Fallido(
+                        "No se pudo anular la venta; pudo haber sido " +
+                        "anulada por otra sesión.");
+                }
+
+                foreach (DetalleVenta detalle in detalles)
+                {
+                    await _stock.ReponerAsync(detalle.IdProducto, detalle.Cantidad);
+                }
+
+
                 await _unidadDeTrabajo.ConfirmarAsync();
+
+
+                await _categorias.IncrementarPorcentajeGananciaAsync();
 
                 Venta actualizada =
                     await _ventas.ObtenerPorIdAsync(idVenta) ?? venta;
+
+                actualizada.MontoTotal = 0.00m;
+                actualizada.Subtotal = 0.00m;
+                actualizada.MontoDescuento = 0.00m;
+                actualizada.PorcentajeDescuento = 0.00m;
 
                 return ResultadoVenta.Correcto(
                     actualizada,

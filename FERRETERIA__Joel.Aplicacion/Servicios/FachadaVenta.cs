@@ -31,6 +31,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         private readonly IContextoUsuario _contextoUsuario;
         private readonly FachadaActualizacionStock _stock;
         private readonly ServicioCliente _servicioCliente;
+        private readonly MySqlCategoriaRepository _categorias;
 
         private IRepository<Empleado>? _empleados;
 
@@ -43,7 +44,9 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             IContextoUsuario contextoUsuario,
             FachadaActualizacionStock stock,
             ServicioCliente servicioCliente,
-            ConfiguracionDescuentos descuentos)
+            ConfiguracionDescuentos descuentos,
+            MySqlCategoriaRepository categorias)
+
         {
             _ventas = ventas;
             _detalles = detalles;
@@ -54,6 +57,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             _stock = stock;
             _servicioCliente = servicioCliente;
             Descuentos = descuentos;
+            _categorias = categorias;
         }
 
         /// <summary>
@@ -158,16 +162,13 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             decimal subtotal = lista.Sum(l => l.TotalProducto);
             int unidades = lista.Sum(l => l.Cantidad);
 
-            SeleccionDescuento descuento =
-                _selectorDescuento.Seleccionar(subtotal, unidades);
-
             return new ResumenVenta
             {
                 Subtotal = subtotal,
-                MontoDescuento = descuento.Monto,
-                PorcentajeDescuento = descuento.Porcentaje,
-                MontoTotal = Math.Round(subtotal - descuento.Monto, 2),
-                PoliticaDescuento = descuento.Politica
+                MontoDescuento = 0.00m,
+                PorcentajeDescuento = 0.00m,
+                MontoTotal = subtotal,
+                PoliticaDescuento = "Sin descuento"
             };
         }
 
@@ -345,9 +346,9 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                     MetodoPago = metodoPago,
                     EstadoPago = estadoPago,
                     Subtotal = subtotal,
-                    MontoDescuento = descuento.Monto,
-                    PorcentajeDescuento = descuento.Porcentaje,
-                    MontoTotal = Math.Round(subtotal - descuento.Monto, 2),
+                    MontoDescuento = 0.00m,
+                    PorcentajeDescuento = 0.00m,
+                    MontoTotal = subtotal,
                     ClaveIdempotencia = clave,
                     IdEmpleadoResponsable = idEmpleado
                 };
@@ -363,6 +364,8 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
                 await _unidadDeTrabajo.ConfirmarAsync();
 
+                await _categorias.IncrementarPorcentajeGananciaAsync();
+                
                 Venta guardada =
                     await _ventas.ObtenerPorIdAsync(idVenta) ?? venta;
 

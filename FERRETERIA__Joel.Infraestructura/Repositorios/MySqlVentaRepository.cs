@@ -181,22 +181,25 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
             return await reader.ReadAsync() ? MapearVenta(reader) : null;
         }
-
         public virtual async Task<bool> MarcarAnuladaAsync(
             int idVenta,
             int idEmpleadoAnulacion,
             string motivo)
         {
             const string query = @"
-                UPDATE venta
-                SET
-                    EstadoVenta = @estadoAnulada,
-                    FechaAnulacion = CURRENT_TIMESTAMP,
-                    MotivoAnulacion = @motivo,
-                    IdEmpleadoAnulacion = @idEmpleadoAnulacion,
-                    FechaActualizacion = CURRENT_TIMESTAMP
-                WHERE IdVenta = @idVenta
-                  AND EstadoVenta = @estadoRegistrada";
+        UPDATE venta
+        SET
+            EstadoVenta = @estadoAnulada,
+            MontoTotal = 0.00,
+            Subtotal = 0.00,
+            MontoDescuento = 0.00,
+            PorcentajeDescuento = 0.00,
+            FechaAnulacion = CURRENT_TIMESTAMP,
+            MotivoAnulacion = @motivo,
+            IdEmpleadoAnulacion = @idEmpleadoAnulacion,
+            FechaActualizacion = CURRENT_TIMESTAMP
+        WHERE IdVenta = @idVenta
+          AND EstadoVenta = @estadoRegistrada";
 
             using MySqlCommand command = await CrearComandoAsync(query);
 

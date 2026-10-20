@@ -84,6 +84,8 @@ builder.Services.AddScoped<MySqlVentaRepository>();
 builder.Services.AddScoped<MySqlDetalleVentaRepository>();
 builder.Services.AddScoped<MySqlInventarioRepository>();
 builder.Services.AddScoped<MySqlBitacoraRepository>();
+builder.Services.AddScoped<MySqlProductoRepository>();
+builder.Services.AddScoped<MySqlCategoriaRepository>();
 
 builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Producto>>, ProductoRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Categoria>>, CategoriaRepositoryCreator>();

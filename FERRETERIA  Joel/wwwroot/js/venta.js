@@ -19,13 +19,6 @@
     var urlClientes = app.getAttribute('data-url-clientes');
     var urlProductos = app.getAttribute('data-url-productos');
 
-    var cfg = {
-        montoMin: parseFloat(app.getAttribute('data-descuento-monto-min')) || 0,
-        montoPct: parseFloat(app.getAttribute('data-descuento-monto-pct')) || 0,
-        cantMin: parseInt(app.getAttribute('data-descuento-cant-min'), 10) || 0,
-        cantPct: parseFloat(app.getAttribute('data-descuento-cant-pct')) || 0
-    };
-
     var fmt = new Intl.NumberFormat('es-BO', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
@@ -321,17 +314,14 @@
     }
 
     function alerta(mensaje) {
-
         var overlay = crear('div');
         overlay.id = 'fjModalAlertaDark';
         overlay.setAttribute('role', 'dialog');
         overlay.setAttribute('aria-modal', 'true');
         overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background-color:rgba(0,0,0,0.75);backdrop-filter:blur(3px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
 
-
         var tarjeta = crear('div');
         tarjeta.style.cssText = 'background-color:#1c2026;border:1px solid #2d333b;border-radius:14px;max-width:400px;width:100%;padding:28px 24px;text-align:center;box-shadow:0 20px 45px rgba(0,0,0,0.7);box-sizing:border-box;';
-
 
         var iconoBox = crear('div');
         iconoBox.style.cssText = 'width:50px;height:50px;border-radius:12px;background-color:rgba(239,68,68,0.12);border:1.5px solid #FFC824;color:#FFC824;display:flex;align-items:center;justify-content:center;margin:0 auto 16px auto;';
@@ -357,14 +347,11 @@
         svg.appendChild(linea2);
         iconoBox.appendChild(svg);
 
-
         var titulo = crear('h3', null, 'Límite de stock');
         titulo.style.cssText = 'color:#ffffff;font-size:1.18rem;font-weight:700;margin:0 0 8px 0;letter-spacing:-0.01em;';
 
-
         var desc = crear('p', null, mensaje);
         desc.style.cssText = 'color:#9ca3af;font-size:0.94rem;line-height:1.5;margin:0 0 24px 0;word-break:break-word;';
-
 
         var btnCerrar = crear('button', null, 'Entendido');
         btnCerrar.type = 'button';
@@ -388,7 +375,6 @@
         overlay.addEventListener('click', function (e) {
             if (e.target === overlay) cerrarModal();
         });
-
 
         tarjeta.appendChild(iconoBox);
         tarjeta.appendChild(titulo);
@@ -505,23 +491,7 @@
     // ---------- Totales ----------
 
     function calcularDescuento(subtotal, unidades) {
-        var mejor = { pct: 0, monto: 0, politica: '' };
-
-        if (cfg.montoMin > 0 && subtotal >= cfg.montoMin) {
-            var monto = redondear(subtotal * cfg.montoPct / 100);
-            if (monto > mejor.monto) {
-                mejor = { pct: cfg.montoPct, monto: monto, politica: 'Descuento por monto' };
-            }
-        }
-
-        if (cfg.cantMin > 0 && unidades >= cfg.cantMin) {
-            var montoCant = redondear(subtotal * cfg.cantPct / 100);
-            if (montoCant > mejor.monto) {
-                mejor = { pct: cfg.cantPct, monto: montoCant, politica: 'Descuento por cantidad' };
-            }
-        }
-
-        return mejor;
+        return { pct: 0, monto: 0, politica: '' };
     }
 
     function recalcularTotales() {
@@ -532,18 +502,21 @@
             return suma + l.cantidad;
         }, 0);
 
-        var descuento = calcularDescuento(subtotal, unidades);
-        var total = redondear(subtotal - descuento.monto);
+        var total = subtotal;
 
         document.getElementById('totalSubtotal').textContent = dinero(subtotal);
-        document.getElementById('totalDescuento').textContent = '- ' + dinero(descuento.monto);
-        document.getElementById('totalDescPct').textContent =
-            descuento.monto > 0 ? '(' + descuento.pct + '%)' : '';
         document.getElementById('totalFinal').textContent = dinero(total);
-        document.getElementById('politicaDescuento').textContent =
-            descuento.monto > 0 ? descuento.politica + ' aplicado.' : '';
 
-        return { subtotal: subtotal, descuento: descuento, total: total, unidades: unidades };
+        var elDescuento = document.getElementById('totalDescuento');
+        if (elDescuento) elDescuento.textContent = '- ' + dinero(0);
+
+        var elDescPct = document.getElementById('totalDescPct');
+        if (elDescPct) elDescPct.textContent = '';
+
+        var elPolitica = document.getElementById('politicaDescuento');
+        if (elPolitica) elPolitica.textContent = '';
+
+        return { subtotal: subtotal, descuento: { pct: 0, monto: 0, politica: '' }, total: total, unidades: unidades };
     }
 
     // ---------- Botón Registrar ----------
@@ -673,13 +646,11 @@
         });
     }
 
-        function mostrarErrorCliente(mensaje) {
+    function mostrarErrorCliente(mensaje) {
         errorCliente.replaceChildren(crear('span', null, mensaje));
         errorCliente.hidden = false;
     }
 
-    // Reglas espejo de las del servidor (ClienteValidador). El servidor
-    // vuelve a validar siempre: esto solo evita viajes innecesarios.
     var campoCliente = {
         Nombre: 'nuevoClienteNombre',
         Apellido: 'nuevoClienteApellido',
@@ -739,7 +710,6 @@
         return errores;
     }
 
-    // Al reabrir el modal no deben quedar errores de un intento anterior.
     if (btnNuevoCliente) {
         btnNuevoCliente.addEventListener('click', limpiarErroresCliente);
     }
@@ -775,8 +745,6 @@
                     return;
                 }
 
-                // El cliente queda seleccionado y las líneas de la venta
-                // se conservan porque nunca se recargó la página.
                 mostrarCliente({
                     id: respuesta.id,
                     nombre: respuesta.nombre,
