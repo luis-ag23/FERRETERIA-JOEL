@@ -95,23 +95,29 @@ namespace FERRETERIA__Joel.Pages
             });
         }
 
-        public async Task<IActionResult> OnPostAnularAsync()
+        public async Task<IActionResult> OnPostAnularAsync(int idVenta, string motivoAnulacion)
         {
             if (!User.IsInRole(RolesSistema.EmpleadoVenta))
             {
                 return Forbid();
             }
 
+            if (idVenta <= 0)
+            {
+                MensajeError = "No se recibió una venta válida para anular.";
+                return RedirectToPage();
+            }
+
             ResultadoVenta resultado;
             try
             {
                 resultado = await _fachada.AnularVentaAsync(
-                    IdVenta,
-                    MotivoAnulacion ?? string.Empty);
+                    idVenta,
+                    motivoAnulacion?.Trim() ?? string.Empty);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "No se pudo anular la venta {IdVenta}", IdVenta);
+                _logger.LogError(ex, "No se pudo anular la venta {IdVenta}", idVenta);
                 MensajeError = "No se pudo anular la venta. Revise la conexión a MySQL.";
                 return RedirectToPage();
             }
@@ -122,11 +128,11 @@ namespace FERRETERIA__Joel.Pages
             }
             else
             {
-                Mensaje = $@"Venta {resultado.CodigoVenta} anulada. " +
-                          "El stock fue restaurado.";
+                Mensaje = $"Venta {resultado.CodigoVenta} anulada. El stock fue restaurado.";
             }
 
             return RedirectToPage();
         }
+
     }
 }
