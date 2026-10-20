@@ -36,7 +36,11 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
         public async Task<List<Cliente>> BuscarAsync(string termino)
         {
-            return await _repositorio.BuscarAsync(termino);
+            string buscado = NormalizarTexto(termino);
+
+            return buscado.Length == 0
+                ? new List<Cliente>()
+                : await _repositorio.BuscarAsync(buscado);
         }
 
         public async Task<Cliente?> ObtenerPorIdAsync(int idCliente)
@@ -45,6 +49,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         }
 
         public async Task<ResultadoCliente> CrearAsync(
+            string ci,
             string nombre,
             string apellido,
             string telefono)
@@ -62,15 +67,15 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             nombre = NormalizarTexto(nombre);
             apellido = NormalizarTexto(apellido);
             telefono = NormalizarTelefono(telefono);
+            ci = NormalizarCi(ci);
 
             Dictionary<string, string> errores =
-                _validador.Validar(nombre, apellido, telefono);
+                _validador.Validar(ci, nombre, apellido, telefono);
 
-            if (errores.Count == 0
-                && await _repositorio.ExisteAsync(nombre, apellido, telefono))
+            if (errores.Count == 0 && await _repositorio.ExisteCiAsync(ci))
             {
-                errores[ClienteValidador.CampoTelefono] =
-                    "Ya existe un cliente registrado con los mismos nombres, apellidos y teléfono.";
+                errores[ClienteValidador.CampoCi] =
+                    "Ya existe un cliente registrado con ese CI.";
             }
 
             if (errores.Count > 0)
@@ -85,6 +90,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
             Cliente cliente = new()
             {
+                Ci = ci,
                 Nombre = nombre,
                 Apellido = apellido,
                 Telefono = telefono,
@@ -114,6 +120,13 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         private static string NormalizarTelefono(string? telefono)
         {
             return Regex.Replace(telefono ?? string.Empty, @"[\s\-]", string.Empty);
+        }
+        
+        // Quita espacios y guiones: "1234 567" -> "1234567". No quita letras:
+        // si las hay, la validación debe rechazar el CI.
+        private static string NormalizarCi(string? ci)
+        {
+            return Regex.Replace(ci ?? string.Empty, @"[\s\-]", string.Empty);
         }
     }
 }

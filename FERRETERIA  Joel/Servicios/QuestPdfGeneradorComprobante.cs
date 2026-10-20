@@ -119,7 +119,9 @@ namespace FERRETERIA__Joel.Servicios
                     c.RelativeColumn();
                 });
 
-                Dato(tabla, "Cliente", comprobante.NombreCliente);
+                Dato(tabla, "Cliente", string.IsNullOrWhiteSpace(comprobante.CiCliente)
+                    ? comprobante.NombreCliente
+                    : $"{comprobante.NombreCliente}\nCI {comprobante.CiCliente}");
                 Dato(tabla, "Método de pago", venta.MetodoPago);
                 Dato(tabla, "Estado del pago", venta.EstadoPago);
                 Dato(tabla, "Generado por", Siglas.De(comprobante.NombreEmpleadoResponsable));

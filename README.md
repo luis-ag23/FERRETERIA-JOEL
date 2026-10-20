@@ -86,6 +86,7 @@ Ejecutar los scripts de `Scripts/` en orden sobre MySQL:
 3. `Scripts/bitacora_seguridad.sql` — tabla de bitácora de sesiones.
 4. `Scripts/migracion_ventas.sql` — columnas y restricciones del módulo de ventas
    (idempotencia, anulación) y limpieza de credenciales del cliente.
+5. `Scripts/migracion_cliente_ci.sql`
 
 ## Compilar, probar y ejecutar
 

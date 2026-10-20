@@ -65,6 +65,7 @@ namespace FERRETERIA__Joel.Pages
                     .Select(c => new
                     {
                         id = c.IdCliente,
+                        ci = c.Ci,
                         nombre = $"{c.Nombre} {c.Apellido}".Trim(),
                         telefono = c.Telefono
                     });
@@ -106,6 +107,7 @@ namespace FERRETERIA__Joel.Pages
         /// nunca se recarga y las líneas seleccionadas se conservan.
         /// </summary>
         public async Task<IActionResult> OnPostCrearClienteAsync(
+            string? nuevoClienteCi,
             string? nuevoClienteNombre,
             string? nuevoClienteApellido,
             string? nuevoClienteTelefono)
@@ -113,6 +115,7 @@ namespace FERRETERIA__Joel.Pages
             try
             {
                 ResultadoCliente resultado = await _fachada.CrearClienteAsync(
+                    nuevoClienteCi ?? string.Empty,
                     nuevoClienteNombre ?? string.Empty,
                     nuevoClienteApellido ?? string.Empty,
                     nuevoClienteTelefono ?? string.Empty);
@@ -129,6 +132,7 @@ namespace FERRETERIA__Joel.Pages
                 {
                     exito = true,
                     id = resultado.Cliente.IdCliente,
+                    ci = resultado.Cliente.Ci,
                     nombre = $"{resultado.Cliente.Nombre} {resultado.Cliente.Apellido}".Trim(),
                     telefono = resultado.Cliente.Telefono
                 });
@@ -146,12 +150,6 @@ namespace FERRETERIA__Joel.Pages
 
         public async Task<IActionResult> OnPostRegistrarAsync()
         {
-            if (IdCliente <= 0 && !string.IsNullOrWhiteSpace(NombreCliente))
-            {
-                IdCliente = (await _fachada.BuscarClientesAsync(NombreCliente!))
-                    .FirstOrDefault()?.IdCliente ?? 0;
-            }
-
             // El estado del pago no se toma del cliente: lo fija el
             // servidor. Por ahora toda venta se registra como pagada.
             SolicitudVenta solicitud = new()

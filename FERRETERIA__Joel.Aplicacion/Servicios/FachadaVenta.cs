@@ -93,11 +93,13 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         /// delega en el caso de uso de clientes para no duplicar reglas.
         /// </summary>
         public Task<ResultadoCliente> CrearClienteAsync(
+            string ci,
             string nombre,
             string apellido,
             string telefono)
         {
             return _servicioCliente.CrearAsync(
+                ci,
                 nombre,
                 apellido,
                 telefono);
@@ -391,6 +393,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             {
                 Venta = venta,
                 NombreCliente = nombreCliente,
+                CiCliente = cliente?.Ci ?? string.Empty,
                 NombreEmpleadoResponsable = NombreDe(todos, venta.IdEmpleadoResponsable),
                 NombreEmpleadoAnulacion = venta.IdEmpleadoAnulacion is not null
                     ? NombreDe(todos, venta.IdEmpleadoAnulacion.Value)

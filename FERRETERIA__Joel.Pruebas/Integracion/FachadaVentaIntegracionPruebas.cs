@@ -533,13 +533,14 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
             await using MySqlCommand comando = new(@"
                 INSERT INTO cliente
                 (
-                    Nombre, Apellido, Telefono, Estado, IdEmpleadoResponsable
+                    Ci, Nombre, Apellido, Telefono, Estado, IdEmpleadoResponsable
                 )
                 VALUES
                 (
-                    @nombre, 'Prueba', '0000-0000', 1, 1
+                    @ci, @nombre, 'Prueba', '0000-0000', 1, 1
                 )", conexion);
 
+            comando.Parameters.AddWithValue("@ci", Random.Shared.Next(10000000, 99999999).ToString());
             comando.Parameters.AddWithValue("@nombre", $"Cliente {Guid.NewGuid():N}"[..20]);
 
             await comando.ExecuteNonQueryAsync();

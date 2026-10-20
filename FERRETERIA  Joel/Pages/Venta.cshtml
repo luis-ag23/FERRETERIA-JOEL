@@ -74,7 +74,7 @@
                     <input type="search"
                            id="buscarCliente"
                            autocomplete="off"
-                           placeholder="Buscar por nombre o teléfono…" />
+                           placeholder="Buscar por CI o nombre…" />
                     <div class="fj-resultados" id="resultadosCliente" hidden></div>
                 </div>
 
@@ -203,6 +203,12 @@
                 @Html.AntiForgeryToken()
                 <input type="hidden" id="nuevoClienteUrl"
                        value="@Url.Page("/Venta", "CrearCliente")" />
+                       
+                <div class="fj-form-field">
+                    <label for="nuevoClienteCi">CI</label>
+                    <input type="text" id="nuevoClienteCi" class="fj-input"
+                           name="nuevoClienteCi" maxlength="8" inputmode="numeric" autocomplete="off" />
+                </div>
 
                 <div class="fj-form-field">
                     <label for="nuevoClienteNombre">Nombres</label>

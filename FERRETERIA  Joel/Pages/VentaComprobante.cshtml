@@ -59,7 +59,13 @@
             <dl class="comprobante-cliente">
                 <div>
                     <dt>Cliente</dt>
-                    <dd>@Model.Comprobante.NombreCliente</dd>
+                    <dd>
+                        @Model.Comprobante.NombreCliente
+                        @if (!string.IsNullOrWhiteSpace(Model.Comprobante.CiCliente))
+                        {
+                            <small class="comprobante-ci">CI @Model.Comprobante.CiCliente</small>
+                        }
+                    </dd>
                 </div>
                 <div>
                     <dt>Método de pago</dt>
