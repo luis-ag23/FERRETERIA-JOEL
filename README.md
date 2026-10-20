@@ -148,17 +148,27 @@ Si el archivo `appsettings.json` no existe en tu copia (no está versionado),
 créalo tomando `appsettings.Development.json` como base y define ahí la clave
 `ConnectionStrings:MySqlConnection`.
 
-### 3. `.env` (obligatorio para registro de empleados)
+### 3. `.env` (obligatorio para el envío de correos de activación)
 
 Copia `.env.example` a `FERRETERIA  Joel/.env` (no versionado) y ajusta las
-claves. Para registrar empleados desde `/Registro` se debe mantener la clave
-secreta `REGISTRO_CLAVE_EMPLEADO` (hasheo con **Argon2** al guardar):
+claves. El alta de empleados desde `/Registro` (exclusiva del administrador)
+envía un enlace de activación por correo, por lo que se configura el SMTP:
 
 ```
 ConnectionStrings__MySqlConnection=Server=localhost;Database=bdferreteria;Uid=root;Pwd=tu_clave;
 UrlProteccion__Clave=una_clave_larga_para_proteger_los_tokens_de_url
-REGISTRO_CLAVE_EMPLEADO=Ferreteria@Joel@Empleado
+Smtp__Host=smtp.tu-proveedor.com
+Smtp__Puerto=587
+Smtp__Usuario=cuenta@tu-proveedor.com
+Smtp__Clave=tu_clave_smtp
+Smtp__UsarSsl=true
+Smtp__Remitente=no-reply@ferreteriajoel.com
+Smtp__RemitenteNombre=Ferretería Joel
 ```
+
+Si `Smtp__Host` queda vacío (por ejemplo en desarrollo), el enlace de
+activación **no se envía** y se muestra en la propia pantalla de registro y en
+el log, para poder probar el flujo sin servidor de correo.
 
 El archivo `.env` se carga automáticamente al arrancar (`Program.cs`) y **no
 sobrescribe** variables de entorno ya definidas en el sistema.
@@ -174,4 +184,10 @@ Luego abre el navegador en la URL que indique la consola (por defecto
 ADMINISTRADOR: joel.rios@ferreteria.com / admin123  
 EMPLEADO VENTA: cualquier ` maria.lopez@ferreteria.com ` / clave123
 
-**Nota:** El registro (/Registro) es exclusivo para empleados. El tipo de empleado es **EmpleadoVenta** y se exige la clave secreta definida en .env. La contrase�a se almacena con **Argon2**.
+**Nota:** El registro (`/Registro`) ahora es exclusivo del **Administrador**
+(menú Administración → *Empleados y roles*) y permite crear cuentas con rol
+**Administrador** o **EmpleadoVenta**. No se define contraseña en el alta: la
+cuenta nace en estado *pendiente de activación* (`-1`) y el empleado establece
+su contraseña desde el enlace enviado a su correo (válido 10 minutos). Estados
+de la cuenta: `-1` pendiente de activación, `0` dada de baja, `1` activa. La
+contraseña se almacena con **Argon2**.

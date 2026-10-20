@@ -1,9 +1,12 @@
+using FERRETERIA__Joel.Dominio.Constantes;
+
 namespace FERRETERIA__Joel.Aplicacion.Modelos
 {
     /// <summary>
-    /// Datos del formulario de alta de empleado. El alta crea siempre una
-    /// cuenta operativa con rol <c>EmpleadoVenta</c> y exige la clave secreta
-    /// configurada en el <c>.env</c> para autorizar el registro.
+    /// Datos del formulario de alta de empleado. El alta la realiza un
+    /// administrador y puede crear cuentas con rol <c>Administrador</c> o
+    /// <c>EmpleadoVenta</c>. La contraseña se define después, mediante el
+    /// enlace de activación enviado al correo.
     /// </summary>
     public class RegistroSolicitud : IRegistroCredenciales
     {
@@ -15,11 +18,7 @@ namespace FERRETERIA__Joel.Aplicacion.Modelos
 
         public string CorreoElectronico { get; set; } = string.Empty;
 
-        public string Contrasena { get; set; } = string.Empty;
-
-        public string ConfirmarContrasena { get; set; } = string.Empty;
-
-        /// <summary>Clave secreta requerida para crear la cuenta de empleado.</summary>
-        public string ClaveEmpleado { get; set; } = string.Empty;
+        /// <summary>Rol asignado por el administrador (por defecto EmpleadoVenta).</summary>
+        public string Rol { get; set; } = RolesSistema.EmpleadoVenta;
     }
 }
