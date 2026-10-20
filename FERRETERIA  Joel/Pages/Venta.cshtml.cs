@@ -42,20 +42,11 @@ namespace FERRETERIA__Joel.Pages
         public string MetodoPago { get; set; } = "Efectivo";
 
         [BindProperty]
-        public string? ClaveIdempotencia { get; set; }
-
-        [BindProperty]
         public List<LineaVentaSolicitada> Lineas { get; set; } = new();
 
         public string? MensajeError { get; set; }
 
         public ResultadoVenta? VentaRegistrada { get; set; }
-
-        public Task OnGetAsync()
-        {
-            ClaveIdempotencia = NuevaClave();
-            return Task.CompletedTask;
-        }
 
         public async Task<IActionResult> OnGetBuscarClientesAsync(string? termino)
         {
@@ -157,7 +148,6 @@ namespace FERRETERIA__Joel.Pages
                 IdCliente = IdCliente,
                 MetodoPago = MetodoPago,
                 EstadoPago = EstadoPago.Pagado,
-                ClaveIdempotencia = ClaveIdempotencia,
                 Lineas = Lineas
             };
 
@@ -170,15 +160,12 @@ namespace FERRETERIA__Joel.Pages
             {
                 _logger.LogError(ex, "Error no controlado al registrar la venta");
                 MensajeError = "No se pudo registrar la venta. Revise la conexión a MySQL o consulte al administrador.";
-                // Se conserva la clave de idempotencia si el resultado del servidor
-                // es incierto. Un reintento no debe duplicar la operación.
                 return Page();
             }
 
             if (!resultado.Exito)
             {
                 MensajeError = resultado.Mensaje;
-                ClaveIdempotencia = NuevaClave();
                 return Page();
             }
 
@@ -186,10 +173,8 @@ namespace FERRETERIA__Joel.Pages
             Lineas = new List<LineaVentaSolicitada>();
             IdCliente = 0;
             NombreCliente = null;
-            ClaveIdempotencia = NuevaClave();
             return Page();
         }
 
-        private static string NuevaClave() => Guid.NewGuid().ToString("N");
     }
 }

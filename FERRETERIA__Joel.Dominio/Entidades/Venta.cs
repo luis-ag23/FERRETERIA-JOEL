@@ -10,7 +10,6 @@ namespace FERRETERIA__Joel.Dominio.Entidades
         public string EstadoPago { get; set; } = string.Empty;
         public decimal MontoTotal { get; set; }
         public decimal Subtotal { get; set; }
-        public string? ClaveIdempotencia { get; set; }
         public DateTime FechaRegistro { get; set; }
         public DateTime? FechaActualizacion { get; set; }
         public DateTime? FechaAnulacion { get; set; }

@@ -204,10 +204,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                         : linea.Cantidad;
             }
 
-            string? clave = string.IsNullOrWhiteSpace(solicitud.ClaveIdempotencia)
-                ? null
-                : solicitud.ClaveIdempotencia.Trim();
-
             string metodoPago = solicitud.MetodoPago.Trim();
             string estadoPago = string.IsNullOrWhiteSpace(solicitud.EstadoPago)
                 ? EstadoPago.Pagado
@@ -229,22 +225,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
             try
             {
-                if (clave is not null)
-                {
-                    Venta? existente =
-                        await _ventas.ObtenerPorClaveIdempotenciaAsync(clave);
-
-                    if (existente is not null)
-                    {
-                        await _unidadDeTrabajo.ConfirmarAsync();
-                        return ArmarResultado(
-                            existente,
-                            await _stock.MapearLineasAsync(
-                                await _detalles.ObtenerPorVentaAsync(existente.IdVenta)),
-                            idempotente: true);
-                    }
-                }
-
                 Cliente? cliente =
                     await _servicioCliente.ObtenerPorIdAsync(solicitud.IdCliente);
 
@@ -322,7 +302,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                     EstadoPago = estadoPago,
                     Subtotal = subtotal,
                     MontoTotal = Math.Round(subtotal, 2),
-                    ClaveIdempotencia = clave,
                     IdEmpleadoResponsable = idEmpleado
                 };
 
@@ -340,29 +319,11 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 Venta guardada =
                     await _ventas.ObtenerPorIdAsync(idVenta) ?? venta;
 
-                return ArmarResultado(
-                    guardada,
-                    lineasCalculadas,
-                    idempotente: false);
+                return ResultadoVenta.Correcto(guardada, lineasCalculadas);
             }
             catch (Exception)
             {
                 await _unidadDeTrabajo.RevertirAsync();
-
-                if (clave is not null)
-                {
-                    Venta? existente =
-                        await _ventas.ObtenerPorClaveIdempotenciaAsync(clave);
-
-                    if (existente is not null)
-                    {
-                        return ArmarResultado(
-                            existente,
-                            await _stock.MapearLineasAsync(
-                                await _detalles.ObtenerPorVentaAsync(existente.IdVenta)),
-                            idempotente: true);
-                    }
-                }
 
                 return ResultadoVenta.Fallido(
                     "No se pudo registrar la venta. Intente nuevamente.");
@@ -413,12 +374,5 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 : $"{empleado.Nombre} {empleado.Apellido}".Trim();
         }
 
-        private static ResultadoVenta ArmarResultado(
-            Venta venta,
-            List<LineaVentaDetalle> detalles,
-            bool idempotente)
-        {
-            return ResultadoVenta.Correcto(venta, detalles, idempotente);
-        }
     }
 }

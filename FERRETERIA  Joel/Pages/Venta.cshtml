@@ -37,10 +37,6 @@
                     Comprobante <span class="fj-codigo">@Model.VentaRegistrada.CodigoVenta</span>
                     · Total <strong>@Model.VentaRegistrada.MontoTotal.ToString("N2") Bs</strong>
                 </span>
-                @if (Model.VentaRegistrada.Idempotente)
-                {
-                    <span class="venta-exito-nota">No se generó una venta nueva (reenvío detectado).</span>
-                }
                 <a class="fj-btn fj-btn-primary venta-exito-accion"
                    asp-page="VentaComprobante"
                    asp-route-token="@tokenComprobante">Ver comprobante</a>
@@ -101,8 +97,6 @@
                     La venta se registra con el pago completado (Pagado).
                 </p>
             </div>
-
-            <input type="hidden" asp-for="ClaveIdempotencia" id="claveIdempotencia" />
         </section>
 
         <section class="fj-card fj-venta-panel" aria-label="Productos de la venta">

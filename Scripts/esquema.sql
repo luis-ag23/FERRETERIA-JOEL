@@ -185,7 +185,6 @@ CREATE TABLE venta
     Subtotal              DECIMAL(12,2) NOT NULL DEFAULT 0,
     MontoDescuento        DECIMAL(12,2) NOT NULL DEFAULT 0,
     PorcentajeDescuento   DECIMAL(5,2)  NOT NULL DEFAULT 0,
-    ClaveIdempotencia     VARCHAR(64)   NULL DEFAULT NULL,
     FechaRegistro         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FechaActualizacion    DATETIME      NULL DEFAULT NULL,
     FechaAnulacion        DATETIME      NULL DEFAULT NULL,
@@ -194,7 +193,6 @@ CREATE TABLE venta
     IdEmpleadoResponsable INT           NOT NULL,
     PRIMARY KEY (IdVenta),
     UNIQUE KEY UNIQUE_CODIGO_VENTA (CodigoVenta),
-    UNIQUE KEY UNIQUE_VENTA_IDEMPOTENCIA (ClaveIdempotencia),
     CONSTRAINT FK_venta_cliente
         FOREIGN KEY (IdCliente) REFERENCES cliente (IdCliente),
     CONSTRAINT FK_venta_empleado

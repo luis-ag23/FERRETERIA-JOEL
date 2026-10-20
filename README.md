@@ -15,7 +15,7 @@ Repositorio: https://github.com/Macacofig/FERRETERIA-Joel
 - **Seguridad**: inicio/cierre de sesión por cookie **solo para empleados**, roles
   diferenciados y bitácora de sesiones. Contraseñas con **Argon2**.
 - **Ventas**: registro con carrito y descuentos automáticos, historial, comprobante
-  y **anulación lógica**, todo sobre **transacciones atómicas** e **idempotencia**.
+  y **anulación lógica**, todo sobre **transacciones atómicas**.
 - **Asincronía de extremo a extremo** (`async`/`await` hasta MySQL).
 
 ## Arquitectura
@@ -85,7 +85,7 @@ Ejecutar los scripts de `Scripts/` en orden sobre MySQL:
 2. `Scripts/registro_seguridad.sql` — índice único de correo del empleado (login).
 3. `Scripts/bitacora_seguridad.sql` — tabla de bitácora de sesiones.
 4. `Scripts/migracion_ventas.sql` — columnas y restricciones del módulo de ventas
-   (idempotencia, anulación) y limpieza de credenciales del cliente.
+    anulación y limpieza de credenciales del cliente.
 5. `Scripts/migracion_cliente_ci.sql`
 
 ## Compilar, probar y ejecutar
@@ -124,8 +124,7 @@ En MySQL (Workbench, CLI, etc.) ejecuta, en este orden:
 
 - **SQL 1 — `Scripts/esquema.sql`**: crea la base `bdferreteria`, todas las tablas
   (catálogo, clientes, empleados, ventas, histórico de precios) y los datos de
-  prueba. Ya incluye las columnas del módulo de ventas (`EstadoVenta`,
-  `ClaveIdempotencia`) y el índice único de correo del empleado.
+  prueba. Ya incluye las columnas del módulo de ventas (`EstadoVenta`) y el índice único de correo del empleado.
 - **SQL 2 — `Scripts/bitacora_seguridad.sql`**: crea la tabla `bitacora_sesion`
   (login/logout).
 

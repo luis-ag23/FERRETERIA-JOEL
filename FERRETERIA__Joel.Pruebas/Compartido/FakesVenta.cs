@@ -161,13 +161,6 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
                 _ventas.FirstOrDefault(v => v.IdVenta == idVenta));
         }
 
-        public override Task<Venta?> ObtenerPorClaveIdempotenciaAsync(string claveIdempotencia)
-        {
-            return Task.FromResult(
-                _ventas.FirstOrDefault(v =>
-                    v.ClaveIdempotencia == claveIdempotencia));
-        }
-
         public override Task<bool> MarcarAnuladaAsync(
             int idVenta,
             int idEmpleadoAnulacion,

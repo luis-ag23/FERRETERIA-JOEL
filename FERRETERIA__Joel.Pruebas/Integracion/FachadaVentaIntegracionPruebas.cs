@@ -143,63 +143,6 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
         }
 
         [Fact]
-        public async Task RegistrarVenta_Real_Idempotente_NoDuplicaAsync()
-        {
-            string? cadena = CadenaConexion;
-
-            if (string.IsNullOrWhiteSpace(cadena))
-            {
-                return;
-            }
-
-            int idCategoria = await ObtenerPrimerIdAsync(cadena, "categoria", "IdCategoria");
-            int idMarca = await ObtenerPrimerIdAsync(cadena, "marca", "IdMarca");
-
-            if (idCategoria == 0 || idMarca == 0)
-            {
-                return;
-            }
-
-            int idProducto = await CrearProductoAsync(
-                cadena, idCategoria, idMarca, precio: 100m, stock: 10);
-            int idCliente = await CrearClienteAsync(cadena);
-
-            try
-            {
-                (FachadaVenta fachada, FachadaAnulacion anulacion, MySqlConexionTransaccional conexion) =
-                    CrearFachada(cadena, idEmpleado: 1);
-
-                using (conexion)
-                {
-                    SolicitudVenta solicitud = new()
-                    {
-                        IdCliente = idCliente,
-                        MetodoPago = "Efectivo",
-                        ClaveIdempotencia = Guid.NewGuid().ToString("N"),
-                        Lineas = new List<LineaVentaSolicitada>
-                        {
-                            new() { IdProducto = idProducto, Cantidad = 2 }
-                        }
-                    };
-
-                    ResultadoVenta primero = await fachada.RegistrarVentaAsync(solicitud);
-                    ResultadoVenta segundo = await fachada.RegistrarVentaAsync(solicitud);
-
-                    Assert.True(primero.Exito);
-                    Assert.True(segundo.Exito);
-                    Assert.True(segundo.Idempotente);
-                    Assert.Equal(primero.IdVenta, segundo.IdVenta);
-                    Assert.Equal(1, await ContarVentasDeClienteAsync(cadena, idCliente));
-                    Assert.Equal(8, await LeerStockAsync(cadena, idProducto));
-                }
-            }
-            finally
-            {
-                await LimpiarAsync(cadena, idProducto, idCliente);
-            }
-        }
-
-        [Fact]
         public async Task RegistrarVenta_Real_Concurrente_SoloUnaGana()
         {
             string? cadena = CadenaConexion;
