@@ -8,8 +8,20 @@ namespace FERRETERIA__Joel.Dominio.Entidades
         public string Rol { get; set; } = string.Empty;
         public string Telefono { get; set; } = string.Empty;
         public string? CorreoElectronico { get; set; }
-        public string Contrasena { get; set; } = string.Empty;
-        public byte Estado { get; set; }
+
+        // Nula mientras la cuenta está pendiente de activación.
+        public string? Contrasena { get; set; }
+
+        // Token de un solo uso para activar la cuenta desde el correo.
+        public string? TokenActivacion { get; set; }
+
+        // Vencimiento del token de activación (10 minutos desde su emisión).
+        public DateTime? TokenExpira { get; set; }
+
+        // Indica si el token ya fue consumido (evita reutilizar el enlace).
+        public bool TokenUsado { get; set; }
+
+        public sbyte Estado { get; set; }
         public DateTime FechaRegistro { get; set; }
         public DateTime? FechaActualizacion { get; set; }
         public int? IdEmpleadoResponsable { get; set; }

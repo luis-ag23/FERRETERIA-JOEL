@@ -4,6 +4,7 @@ using FERRETERIA__Joel.Dominio.Puertos;
 using FERRETERIA__Joel.Helpers;
 using FERRETERIA__Joel.Infraestructura;
 using FERRETERIA__Joel.Infraestructura.Conexion;
+using FERRETERIA__Joel.Infraestructura.Correo;
 using FERRETERIA__Joel.Infraestructura.Factories;
 using FERRETERIA__Joel.Infraestructura.Repositorios;
 using FERRETERIA__Joel.Infraestructura.Seguridad;
@@ -13,16 +14,14 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 var builder = WebApplication.CreateBuilder(args);
 
 // Carga las variables definidas en el archivo .env (no versionado): cadena de
-// conexión a MySQL, clave del protector de URLs y clave para registro.
+// conexión a MySQL, clave del protector de URLs y parámetros SMTP.
 CargarVariablesEntorno(builder.Environment.ContentRootPath);
 
-string? claveEmpleadoEnv =
-    Environment.GetEnvironmentVariable("REGISTRO_CLAVE_EMPLEADO");
-
-if (!string.IsNullOrWhiteSpace(claveEmpleadoEnv))
-{
-    builder.Configuration["Registro:ClaveEmpleado"] = claveEmpleadoEnv;
-}
+// 'CreateBuilder' ya había materializado el proveedor de variables de entorno,
+// por lo que las claves definidas en el .env recién ahora no están visibles en
+// builder.Configuration (p. ej. Smtp:Host). Se vuelve a agregar el proveedor
+// para que las lea.
+builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddRazorPages(options =>
 {
@@ -108,9 +107,12 @@ builder.Services.AddScoped<FachadaVenta>();
 builder.Services.AddScoped<FachadaAnulacion>();
 
 builder.Services.AddSingleton<IHasheadorContrasena, Argon2HasheadorContrasena>();
+builder.Services.AddScoped<IEnviadorCorreo, SmtpEnviadorCorreo>();
+builder.Services.AddScoped<IConstructorEnlaceActivacion, ConstructorEnlaceActivacion>();
 builder.Services.AddSingleton<IGeneradorComprobantePdf, QuestPdfGeneradorComprobante>();
 builder.Services.AddScoped<RegistroCredencialesValidador>();
 builder.Services.AddScoped<ServicioRegistroEmpleado>();
+builder.Services.AddScoped<ServicioActivacionCuenta>();
 builder.Services.AddScoped<ServicioInicioSesion>();
 builder.Services.AddScoped<ServicioBitacora>();
 
