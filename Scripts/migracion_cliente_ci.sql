@@ -1,0 +1,13 @@
+USE bdferreteria;
+
+ALTER TABLE cliente
+    ADD COLUMN Ci VARCHAR(15) NULL DEFAULT NULL AFTER IdCliente;
+
+UPDATE cliente SET Ci = '1234567' WHERE Telefono = '71234567';
+UPDATE cliente SET Ci = '2345678' WHERE Telefono = '72345678';
+UPDATE cliente SET Ci = '3456789' WHERE Telefono = '73456789';
+UPDATE cliente SET Ci = '4567890' WHERE Telefono = '74567890';
+UPDATE cliente SET Ci = '5678901' WHERE Telefono = '75678901';
+
+ALTER TABLE cliente
+    ADD UNIQUE KEY UNIQUE_CLIENTE_CI (Ci);

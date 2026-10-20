@@ -84,16 +84,9 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
             _clientes.Add(cliente);
         }
 
-                public override Task<bool> ExisteAsync(
-            string nombre,
-            string apellido,
-            string telefono)
+        public override Task<bool> ExisteCiAsync(string ci)
         {
-            return Task.FromResult(_clientes.Any(c =>
-                c.Estado == 1
-                && string.Equals(c.Nombre, nombre, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(c.Apellido, apellido, StringComparison.OrdinalIgnoreCase)
-                && c.Telefono == telefono));
+            return Task.FromResult(_clientes.Any(c => c.Ci == ci));
         }
 
         public override Task<List<Cliente>> ObtenerTodosAsync()
@@ -118,8 +111,10 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
         {
             List<Cliente> resultado = _clientes
                 .Where(c => c.Estado == 1 &&
-                    (c.Nombre.Contains(termino, StringComparison.OrdinalIgnoreCase) ||
-                     c.Apellido.Contains(termino, StringComparison.OrdinalIgnoreCase)))
+                    (c.Ci.StartsWith(termino, StringComparison.OrdinalIgnoreCase) ||
+                    c.Nombre.Contains(termino, StringComparison.OrdinalIgnoreCase) ||
+                    c.Apellido.Contains(termino, StringComparison.OrdinalIgnoreCase) ||
+                    $"{c.Nombre} {c.Apellido}".Contains(termino, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
             return Task.FromResult(resultado);
         }

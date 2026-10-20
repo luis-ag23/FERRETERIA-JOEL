@@ -154,6 +154,7 @@ CREATE TABLE producto
 CREATE TABLE cliente
 (
     IdCliente             INT          NOT NULL AUTO_INCREMENT,
+    Ci                    VARCHAR(15)  NOT NULL,
     Nombre                VARCHAR(100) NOT NULL,
     Apellido              VARCHAR(100) NOT NULL,
     Telefono              VARCHAR(20)  NOT NULL,
@@ -162,6 +163,7 @@ CREATE TABLE cliente
     FechaActualizacion    DATETIME     NULL DEFAULT NULL,
     IdEmpleadoResponsable INT          NULL DEFAULT NULL,
     PRIMARY KEY (IdCliente),
+    UNIQUE KEY UNIQUE_CLIENTE_CI (Ci),
     CONSTRAINT FK_cliente_empleado
         FOREIGN KEY (IdEmpleadoResponsable) REFERENCES empleado (IdEmpleado)
 ) ENGINE = InnoDB
@@ -279,14 +281,13 @@ VALUES
 -- DATOS: 5 clientes (IdEmpleadoResponsable -> empleado)
 -- ============================================================
 INSERT INTO cliente
-    (Nombre, Apellido, Telefono, Estado, IdEmpleadoResponsable)
+    (Ci, Nombre, Apellido, Telefono, Estado, IdEmpleadoResponsable)
 VALUES
-    ('Juan',   'Perez',    '71234567', 1, 1),
-    ('Maria',  'Quispe',   '72345678', 1, 1),
-    ('Carlos', 'Ticona',   '73456789', 1, 1),
-    ('Ana',    'Mamani',   '74567890', 1, 1),
-    ('Luis',   'Choque',   '75678901', 1, 1);
-
+    ('1234567', 'Juan',   'Perez',  '71234567', 1, 1),
+    ('2345678', 'Maria',  'Quispe', '72345678', 1, 1),
+    ('3456789', 'Carlos', 'Ticona', '73456789', 1, 1),
+    ('4567890', 'Ana',    'Mamani', '74567890', 1, 1),
+    ('5678901', 'Luis',   'Choque', '75678901', 1, 1);
 -- ============================================================
 -- DATOS: 10 marcas
 -- ============================================================

@@ -119,12 +119,10 @@
         clienteSeleccionado.appendChild(ico);
         clienteSeleccionado.appendChild(document.createTextNode(' '));
         clienteSeleccionado.appendChild(crear('strong', null, cliente.nombre));
-        if (cliente.telefono) {
-            clienteSeleccionado.appendChild(document.createTextNode(' · ' + cliente.telefono));
+        if (cliente.ci) {
+            clienteSeleccionado.appendChild(document.createTextNode(' · CI ' + cliente.ci));
         }
         clienteSeleccionado.hidden = false;
-
-        inputCliente.value = '';
         secuenciaClientes += 1;
         ocultar(resultadosCliente);
         actualizarBotonRegistrar();
@@ -155,10 +153,10 @@
                 boton.type = 'button';
                 boton.dataset.clienteId = c.id;
                 boton.dataset.clienteNombre = c.nombre;
-                boton.dataset.clienteTel = c.telefono || '';
+                boton.dataset.clienteCi = c.ci || '';
                 boton.appendChild(crear('span', 'fj-resultado-titulo', c.nombre));
                 boton.appendChild(
-                    crear('span', 'fj-resultado-sub', c.telefono || 'Sin teléfono'));
+                      crear('span', 'fj-resultado-sub', c.ci ? 'CI ' + c.ci : 'Sin CI'));
                 resultadosCliente.appendChild(boton);
             });
 
@@ -180,7 +178,7 @@
         mostrarCliente({
             id: boton.dataset.clienteId,
             nombre: boton.dataset.clienteNombre,
-            telefono: boton.dataset.clienteTel
+            ci: boton.dataset.clienteCi
         });
     });
 
@@ -612,7 +610,7 @@
         modalCliente.classList.add('is-open');
         modalCliente.setAttribute('aria-hidden', 'false');
         document.body.classList.add('fj-modal-open');
-        var primero = document.getElementById('nuevoClienteNombre');
+        var primero = document.getElementById('nuevoClienteCi');
         if (primero) primero.focus();
     }
 
@@ -644,12 +642,14 @@
     // Reglas espejo de las del servidor (ClienteValidador). El servidor
     // vuelve a validar siempre: esto solo evita viajes innecesarios.
     var campoCliente = {
+        Ci: 'nuevoClienteCi',
         Nombre: 'nuevoClienteNombre',
         Apellido: 'nuevoClienteApellido',
         Telefono: 'nuevoClienteTelefono'
     };
     var formatoNombre = /^\p{L}[\p{L}\s.,'\-&()]*$/u;
     var formatoTelefono = /^[5-8][0-9]{7}$/;
+    var formatoCi = /^[0-9]{6,8}$/;
 
     function limpiarErroresCliente() {
         errorCliente.hidden = true;
@@ -685,7 +685,11 @@
         var errores = {};
         var nombre = datos.nombre.trim();
         var apellido = datos.apellido.trim();
-        var telefono = datos.telefono.replace(/[\s-]/g, '');
+        var ci = datos.ci.replace(/[\s-]/g, '');
+        var telefono = datos.telefono.trim();
+
+        if (!ci) errores.Ci = 'El CI del cliente es obligatorio.';
+        else if (!formatoCi.test(ci)) errores.Ci = 'El CI debe tener entre 6 y 8 dígitos.';
 
         if (!nombre) errores.Nombre = 'Los nombres del cliente son obligatorios.';
         else if (nombre.length > 100 || !formatoNombre.test(nombre))
@@ -715,6 +719,7 @@
             var erroresLocales = validarCliente({
                 nombre: document.getElementById('nuevoClienteNombre').value,
                 apellido: document.getElementById('nuevoClienteApellido').value,
+                ci: document.getElementById('nuevoClienteCi').value,
                 telefono: document.getElementById('nuevoClienteTelefono').value
             });
             if (Object.keys(erroresLocales).length > 0) {
@@ -741,6 +746,7 @@
                 // El cliente queda seleccionado y las líneas de la venta
                 // se conservan porque nunca se recargó la página.
                 mostrarCliente({
+                    ci: respuesta.ci,
                     id: respuesta.id,
                     nombre: respuesta.nombre,
                     telefono: respuesta.telefono

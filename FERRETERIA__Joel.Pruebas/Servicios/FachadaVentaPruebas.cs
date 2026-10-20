@@ -38,6 +38,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
 
             clientesRepo.Agregar(new Cliente
             {
+                Ci = "1234567",
                 Nombre = "Juan",
                 Apellido = "Perez",
                 Telefono = "7777-0000",
@@ -451,6 +452,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
 
             Assert.NotNull(comprobante);
             Assert.Equal("Juan Perez", comprobante.NombreCliente);
+            Assert.Equal("1234567", comprobante.CiCliente);
             Assert.Equal("Usuario De Prueba", comprobante.NombreEmpleadoResponsable);
             Assert.Equal("Tarjeta", comprobante.Venta.MetodoPago);
             Assert.Equal(450m, comprobante.Venta.MontoTotal);
