@@ -29,7 +29,7 @@
     @if (Model.VentaRegistrada is not null)
     {
         var tokenComprobante = FERRETERIA__Joel.Helpers.UrlProtector
-            .Cifrar(Model.VentaRegistrada.IdVenta.ToString());
+        .Cifrar(Model.VentaRegistrada.IdVenta.ToString());
 
         <div class="fj-alert fj-alert-success venta-alerta-exito" role="status">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -129,7 +129,7 @@
                             <th scope="col">Unidad</th>
                             <th scope="col" class="fj-td-precio">Precio</th>
                             <th scope="col" class="fj-td-cantidad">Cantidad</th>
-                            <th scope="col" class="fj-td-precio">Subtotal</th>
+                            <th scope="col" class="fj-td-precio">Importe</th>
                             <th scope="col" class="fj-td-acciones"></th>
                         </tr>
                     </thead>
@@ -152,10 +152,9 @@
             <div id="lineasInputs"></div>
 
             <div class="fj-venta-totales">
-                <div class="fj-venta-total-fila">
-                    <span>Subtotal</span>
-                    <span id="totalSubtotal">0.00 Bs</span>
-                </div>
+                @* Mantenido en modo hidden para que venta.js pueda asignar valor sin arrojar error null *@
+                <span id="totalSubtotal" hidden></span>
+
                 <div class="fj-venta-total-fila fj-venta-total-final">
                     <span>Total</span>
                     <span id="totalFinal">0.00 Bs</span>
@@ -223,8 +222,8 @@
                 <div class="fj-form-field">
                     <label for="nuevoClienteTelefono">Teléfono</label>
                     <input type="tel" id="nuevoClienteTelefono" class="fj-input"
-                            name="nuevoClienteTelefono" maxlength="9" inputmode="numeric"
-                            placeholder="Ej: 71234567" autocomplete="off" />
+                           name="nuevoClienteTelefono" maxlength="9" inputmode="numeric"
+                           placeholder="Ej: 71234567" autocomplete="off" />
                 </div>
 
                 <div class="fj-alert" id="nuevoClienteError" role="alert" hidden></div>

@@ -495,28 +495,22 @@
     }
 
     function recalcularTotales() {
-        var subtotal = lineas.reduce(function (suma, l) {
+        var total = lineas.reduce(function (suma, l) {
             return suma + redondear(l.precio * l.cantidad);
         }, 0);
         var unidades = lineas.reduce(function (suma, l) {
             return suma + l.cantidad;
         }, 0);
 
-        var total = subtotal;
+        // Actualizar subtotal solo si el elemento existe en el HTML
+        var elSubtotal = document.getElementById('totalSubtotal');
+        if (elSubtotal) elSubtotal.textContent = dinero(total);
 
-        document.getElementById('totalSubtotal').textContent = dinero(subtotal);
-        document.getElementById('totalFinal').textContent = dinero(total);
+        // Total principal
+        var elTotal = document.getElementById('totalFinal');
+        if (elTotal) elTotal.textContent = dinero(total);
 
-        var elDescuento = document.getElementById('totalDescuento');
-        if (elDescuento) elDescuento.textContent = '- ' + dinero(0);
-
-        var elDescPct = document.getElementById('totalDescPct');
-        if (elDescPct) elDescPct.textContent = '';
-
-        var elPolitica = document.getElementById('politicaDescuento');
-        if (elPolitica) elPolitica.textContent = '';
-
-        return { subtotal: subtotal, descuento: { pct: 0, monto: 0, politica: '' }, total: total, unidades: unidades };
+        return { subtotal: total, descuento: { pct: 0, monto: 0, politica: '' }, total: total, unidades: unidades };
     }
 
     // ---------- Botón Registrar ----------

@@ -79,8 +79,8 @@ namespace FERRETERIA__Joel.Pages
                 metodoPago = resultado.MetodoPago,
                 estadoPago = resultado.EstadoPago,
                 fecha = resultado.FechaRegistro,
-                subtotal = resultado.Subtotal,
-                descuento = resultado.MontoDescuento,
+                subtotal = resultado.MontoTotal,
+                descuento = 0m,
                 total = resultado.MontoTotal,
                 motivoAnulacion = resultado.MotivoAnulacion,
                 lineas = resultado.Detalles.Select(d => new
@@ -94,7 +94,6 @@ namespace FERRETERIA__Joel.Pages
                 })
             });
         }
-
         public async Task<IActionResult> OnPostAnularAsync(int idVenta, string motivoAnulacion)
         {
             if (!User.IsInRole(RolesSistema.EmpleadoVenta))
