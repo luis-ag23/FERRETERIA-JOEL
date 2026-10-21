@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using FERRETERIA__Joel.Aplicacion.Servicios;
+using FERRETERIA__Joel.Servicios;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
@@ -13,13 +14,16 @@ namespace FERRETERIA__Joel.Pages
     {
         private readonly ServicioBitacora _bitacora;
         private readonly ILogger<LogoutModel> _logger;
+        private readonly SesionRedisServicio _sesionRedis;
 
         public LogoutModel(
             ServicioBitacora bitacora,
-            ILogger<LogoutModel> logger)
+            ILogger<LogoutModel> logger,
+            SesionRedisServicio sesionRedis)
         {
             _bitacora = bitacora;
             _logger = logger;
+            _sesionRedis = sesionRedis;
         }
 
         public async Task<IActionResult> OnGetAsync()
@@ -29,6 +33,20 @@ namespace FERRETERIA__Joel.Pages
 
         public async Task<IActionResult> OnPostAsync()
         {
+            // Limpiar sesión en Redis
+            var claveSesion = HttpContext.Session.GetString("SesionRedisKey");
+            if (!string.IsNullOrEmpty(claveSesion))
+            {
+                try
+                {
+                    await _sesionRedis.EliminarSesionAsync(claveSesion);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "No se pudo eliminar la sesión de Redis");
+                }
+            }
+
             await RegistrarBitacoraLogoutAsync();
 
             await HttpContext.SignOutAsync(

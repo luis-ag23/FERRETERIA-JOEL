@@ -1,0 +1,125 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: fj-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: FerreteriaJoel2026!
+      MYSQL_DATABASE: bdferreteria
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./Scripts/init-completo.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks:
+      - ferreteria-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pFerreteriaJoel2026!"]
+      timeout: 20s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: fj-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    networks:
+      - ferreteria-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  app1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fj-app1
+    restart: always
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Docker
+      - HOSTNAME=app1
+      - ConnectionStrings__MySqlConnection=Server=mysql;Database=bdferreteria;Uid=root;Pwd=FerreteriaJoel2026!;Port=3306;
+      - Redis__Connection=redis:6379
+      - Redis__SessionTtlMinutes=30
+      - Redis__CacheTtlMinutes=5
+      - UrlProteccion__Clave=FerreteriaJoel2026$ClaveSecretaUrl#Cambiar
+      - REGISTRO_CLAVE_EMPLEADO=Ferreteria@Joel@Empleado
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ferreteria-net
+
+  app2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fj-app2
+    restart: always
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Docker
+      - HOSTNAME=app2
+      - ConnectionStrings__MySqlConnection=Server=mysql;Database=bdferreteria;Uid=root;Pwd=FerreteriaJoel2026!;Port=3306;
+      - Redis__Connection=redis:6379
+      - Redis__SessionTtlMinutes=30
+      - Redis__CacheTtlMinutes=5
+      - UrlProteccion__Clave=FerreteriaJoel2026$ClaveSecretaUrl#Cambiar
+      - REGISTRO_CLAVE_EMPLEADO=Ferreteria@Joel@Empleado
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ferreteria-net
+
+  app3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fj-app3
+    restart: always
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Docker
+      - HOSTNAME=app3
+      - ConnectionStrings__MySqlConnection=Server=mysql;Database=bdferreteria;Uid=root;Pwd=FerreteriaJoel2026!;Port=3306;
+      - Redis__Connection=redis:6379
+      - Redis__SessionTtlMinutes=30
+      - Redis__CacheTtlMinutes=5
+      - UrlProteccion__Clave=FerreteriaJoel2026$ClaveSecretaUrl#Cambiar
+      - REGISTRO_CLAVE_EMPLEADO=Ferreteria@Joel@Empleado
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ferreteria-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: fj-nginx
+    restart: always
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - app1
+      - app2
+      - app3
+    networks:
+      - ferreteria-net
+
+volumes:
+  mysql_data:
+
+networks:
+  ferreteria-net:
+    driver: bridge

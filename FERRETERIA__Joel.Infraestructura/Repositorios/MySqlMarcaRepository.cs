@@ -2,20 +2,31 @@ using MySql.Data.MySqlClient;
 using FERRETERIA__Joel.Infraestructura.Conexion;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
+using FERRETERIA__Joel.Infraestructura.Servicios;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
 {
     public class MySqlMarcaRepository : IGestionarRepository<Marca>
     {
         private readonly IDbConnectionFactory _connectionFactory;
+        private readonly RedisCacheHelper? _cache;
 
-        public MySqlMarcaRepository(IDbConnectionFactory connectionFactory)
+        public MySqlMarcaRepository(IDbConnectionFactory connectionFactory, RedisCacheHelper? cache = null)
         {
             _connectionFactory = connectionFactory;
+            _cache = cache;
         }
 
         public virtual async Task<List<Marca>> ObtenerTodosAsync()
         {
+            const string cacheKey = "cache:select:marcas:todos";
+            if (_cache != null)
+            {
+                var cached = await _cache.GetAsync<List<Marca>>(cacheKey);
+                if (cached != null)
+                    return cached;
+            }
+
             List<Marca> marcas = new();
 
             const string query = @"
@@ -47,6 +58,9 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             {
                 marcas.Add(MapearMarca(reader));
             }
+
+            if (_cache != null)
+                await _cache.SetAsync(cacheKey, marcas, TimeSpan.FromMinutes(5));
 
             return marcas;
         }
@@ -102,6 +116,8 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             await connection.OpenAsync();
 
             await command.ExecuteNonQueryAsync();
+            if (_cache != null)
+                await _cache.RemoveByPatternAsync("cache:select:marcas:*");
 
             return Convert.ToInt32(command.LastInsertedId);
         }
@@ -157,6 +173,8 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             await connection.OpenAsync();
 
             await command.ExecuteNonQueryAsync();
+            if (_cache != null)
+                await _cache.RemoveByPatternAsync("cache:select:marcas:*");
         }
 
         public virtual async Task CambiarEstadoAsync(int id, int idEmpleadoResponsable)
@@ -187,6 +205,8 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             await connection.OpenAsync();
 
             await command.ExecuteNonQueryAsync();
+            if (_cache != null)
+                await _cache.RemoveByPatternAsync("cache:select:marcas:*");
         }
 
         public virtual async Task<List<Marca>> MostrarActivosAsync()

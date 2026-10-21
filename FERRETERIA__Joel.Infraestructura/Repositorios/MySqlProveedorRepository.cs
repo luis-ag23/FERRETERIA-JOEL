@@ -1,6 +1,7 @@
 using FERRETERIA__Joel.Infraestructura.Conexion;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
+using FERRETERIA__Joel.Infraestructura.Servicios;
 using MySql.Data.MySqlClient;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
@@ -8,14 +9,24 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
     public class MySqlProveedorRepository : IGestionarRepository<Proveedor>
     {
         private readonly IDbConnectionFactory _connectionFactory;
+        private readonly RedisCacheHelper? _cache;
 
-        public MySqlProveedorRepository(IDbConnectionFactory connectionFactory)
+        public MySqlProveedorRepository(IDbConnectionFactory connectionFactory, RedisCacheHelper? cache = null)
         {
             _connectionFactory = connectionFactory;
+            _cache = cache;
         }
 
         public virtual async Task<List<Proveedor>> ObtenerTodosAsync()
         {
+            const string cacheKey = "cache:select:proveedores:todos";
+            if (_cache != null)
+            {
+                var cached = await _cache.GetAsync<List<Proveedor>>(cacheKey);
+                if (cached != null)
+                    return cached;
+            }
+
             List<Proveedor> proveedores = new();
 
             const string query = @"
@@ -49,6 +60,9 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             {
                 proveedores.Add(MapearProveedor(reader));
             }
+
+            if (_cache != null)
+                await _cache.SetAsync(cacheKey, proveedores, TimeSpan.FromMinutes(5));
 
             return proveedores;
         }
@@ -120,6 +134,8 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             await connection.OpenAsync();
 
             await command.ExecuteNonQueryAsync();
+            if (_cache != null)
+                await _cache.RemoveByPatternAsync("cache:select:proveedores:*");
 
             return Convert.ToInt32(command.LastInsertedId);
         }

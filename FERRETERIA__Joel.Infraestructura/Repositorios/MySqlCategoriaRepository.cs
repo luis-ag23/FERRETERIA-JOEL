@@ -2,20 +2,31 @@ using MySql.Data.MySqlClient;
 using FERRETERIA__Joel.Infraestructura.Conexion;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
+using FERRETERIA__Joel.Infraestructura.Servicios;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
 {
     public class MySqlCategoriaRepository : IGestionarRepository<Categoria>
     {
         private readonly IDbConnectionFactory _connectionFactory;
+        private readonly RedisCacheHelper? _cache;
 
-        public MySqlCategoriaRepository(IDbConnectionFactory connectionFactory)
+        public MySqlCategoriaRepository(IDbConnectionFactory connectionFactory, RedisCacheHelper? cache = null)
         {
             _connectionFactory = connectionFactory;
+            _cache = cache;
         }
 
         public virtual async Task<List<Categoria>> ObtenerTodosAsync()
         {
+            const string cacheKey = "cache:select:categorias:todos";
+            if (_cache != null)
+            {
+                var cached = await _cache.GetAsync<List<Categoria>>(cacheKey);
+                if (cached != null)
+                    return cached;
+            }
+
             List<Categoria> categorias = new();
 
             const string query = @"
@@ -48,6 +59,9 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 categorias.Add(MapearCategoria(reader));
             }
 
+            if (_cache != null)
+                await _cache.SetAsync(cacheKey, categorias, TimeSpan.FromMinutes(5));
+
             return categorias;
         }
 
@@ -73,6 +87,8 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
             await connection.OpenAsync();
             await command.ExecuteNonQueryAsync();
+            if (_cache != null)
+                await _cache.RemoveByPatternAsync("cache:select:categorias:*");
 
             return Convert.ToInt32(command.LastInsertedId);
         }

@@ -1,21 +1,26 @@
 using System.Security.Claims;
 using FERRETERIA__Joel.Aplicacion.Modelos;
 using FERRETERIA__Joel.Aplicacion.Servicios;
+using FERRETERIA__Joel.Servicios;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.Antiforgery;
 
 namespace FERRETERIA__Joel.Pages
 {
     // Inicio de sesión unificado: valida las credenciales (empleados o
     // clientes) vía el servicio, emite la cookie de autenticación con el rol
     // correspondiente y registra el evento en la bitácora de sesiones.
+    [IgnoreAntiforgeryToken]
     public class LoginModel : PageModel
     {
         private readonly ServicioInicioSesion _servicio;
         private readonly ServicioBitacora _bitacora;
         private readonly ILogger<LoginModel> _logger;
+        private readonly SesionRedisServicio _sesionRedis;
+        private readonly IConfiguration _config;
 
         [BindProperty]
         public InicioSesionSolicitud Solicitud { get; set; } = new();
@@ -25,11 +30,15 @@ namespace FERRETERIA__Joel.Pages
         public LoginModel(
             ServicioInicioSesion servicio,
             ServicioBitacora bitacora,
-            ILogger<LoginModel> logger)
+            ILogger<LoginModel> logger,
+            SesionRedisServicio sesionRedis,
+            IConfiguration config)
         {
             _servicio = servicio;
             _bitacora = bitacora;
             _logger = logger;
+            _sesionRedis = sesionRedis;
+            _config = config;
         }
 
         public async Task<IActionResult> OnGetAsync()
@@ -81,6 +90,27 @@ namespace FERRETERIA__Joel.Pages
                 new ClaimsPrincipal(identidad));
 
             await RegistrarBitacoraLoginAsync(resultado.Usuario);
+
+            // Guardar sesión en Redis (credenciales/token info como JSON)
+            try
+            {
+                var sessionTtlMin = int.TryParse(_config["Redis:SessionTtlMinutes"] ?? Environment.GetEnvironmentVariable("Redis__SessionTtlMinutes"), out var ttlm) ? ttlm : 30;
+                var sesionRedisData = new SesionUsuarioRedis
+                {
+                    IdEmpleado = resultado.Usuario.Id,
+                    NombreCompleto = resultado.Usuario.NombreCompleto,
+                    CorreoElectronico = resultado.Usuario.CorreoElectronico,
+                    Rol = resultado.Usuario.Rol,
+                    FechaLogin = DateTime.UtcNow
+                };
+                var claveSesion = Guid.NewGuid().ToString("N");
+                HttpContext.Session.SetString("SesionRedisKey", claveSesion);
+                await _sesionRedis.GuardarSesionAsync(claveSesion, sesionRedisData, TimeSpan.FromMinutes(sessionTtlMin));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "No se pudo guardar la sesión en Redis");
+            }
 
             TempData["Mensaje"] =
                 $"Bienvenido, {resultado.Usuario.NombreCompleto}.";
