@@ -16,6 +16,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
     {
         private const string Columnas = @"
             IdCliente,
+            Ci,
             Nombre,
             Apellido,
             Telefono,
@@ -71,6 +72,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             const string query = @"
                 INSERT INTO cliente
                 (
+                    Ci,
                     Nombre,
                     Apellido,
                     Telefono,
@@ -79,6 +81,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 )
                 VALUES
                 (
+                    @ci,
                     @nombre,
                     @apellido,
                     @telefono,
@@ -88,6 +91,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
             using MySqlCommand command = await CrearComandoAsync(query);
 
+            command.Parameters.AddWithValue("@ci", cliente.Ci);
             command.Parameters.AddWithValue("@nombre", cliente.Nombre);
             command.Parameters.AddWithValue("@apellido", cliente.Apellido);
             command.Parameters.AddWithValue("@telefono", cliente.Telefono);
@@ -110,18 +114,25 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 SELECT {Columnas}
                 FROM cliente
                 WHERE Estado = 1
-                  AND (
-                        Nombre LIKE @termino
-                     OR Apellido LIKE @termino
-                     OR Telefono LIKE @termino
-                     OR CONCAT(Nombre, ' ', Apellido) LIKE @termino
-                  )
+                AND (
+                        Ci LIKE @prefijo
+                    OR Nombre LIKE @contiene
+                    OR Apellido LIKE @contiene
+                    OR CONCAT(Nombre, ' ', Apellido) LIKE @contiene
+                )
                 ORDER BY Nombre ASC
                 LIMIT 20";
 
+            // Evita que % o _ escritos por el usuario actúen como comodines.
+            string escapado = termino
+                .Replace("\\", "\\\\")
+                .Replace("%", "\\%")
+                .Replace("_", "\\_");
+
             using MySqlCommand command = await CrearComandoAsync(query);
 
-            command.Parameters.AddWithValue("@termino", $"%{termino}%");
+            command.Parameters.AddWithValue("@prefijo", $"{escapado}%");
+            command.Parameters.AddWithValue("@contiene", $"%{escapado}%");
 
             using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
 
@@ -133,25 +144,17 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return clientes;
         }
 
-        public virtual async Task<bool> ExisteAsync(
-            string nombre,
-            string apellido,
-            string telefono)
+        public virtual async Task<bool> ExisteCiAsync(string ci)
         {
             const string query = @"
                 SELECT 1
                 FROM cliente
-                WHERE Estado = 1
-                  AND Nombre = @nombre
-                  AND Apellido = @apellido
-                  AND Telefono = @telefono
+                WHERE Ci = @ci
                 LIMIT 1";
 
             using MySqlCommand command = await CrearComandoAsync(query);
 
-            command.Parameters.AddWithValue("@nombre", nombre);
-            command.Parameters.AddWithValue("@apellido", apellido);
-            command.Parameters.AddWithValue("@telefono", telefono);
+            command.Parameters.AddWithValue("@ci", ci);
 
             return await command.ExecuteScalarAsync() is not null;
         }
@@ -178,6 +181,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return new Cliente
             {
                 IdCliente = reader.GetInt32("IdCliente"),
+                  Ci = reader["Ci"] == DBNull.Value ? "" : reader["Ci"].ToString() ?? "",
                 Nombre = reader["Nombre"].ToString() ?? "",
                 Apellido = reader["Apellido"].ToString() ?? "",
                 Telefono = reader["Telefono"].ToString() ?? "",

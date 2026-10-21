@@ -22,12 +22,11 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         public async Task Crear_ConDatosValidos_DevuelveClienteAsync()
         {
             var resultado = await _servicio.CrearAsync(
-                "Ana",
-                "Mamani",
-                "7111-2222");
+                "1234567", "Ana", "Mamani", "7111-2222");
 
             Assert.True(resultado.Exito);
             Assert.NotNull(resultado.Cliente);
+            Assert.Equal("1234567", resultado.Cliente.Ci);
             Assert.Equal("Ana", resultado.Cliente.Nombre);
             Assert.Equal("Mamani", resultado.Cliente.Apellido);
             Assert.Equal("71112222", resultado.Cliente.Telefono);
@@ -39,9 +38,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         public async Task Crear_SinNombre_FallaAsync()
         {
             var resultado = await _servicio.CrearAsync(
-                "   ",
-                "Mamani",
-                "7111-2222");
+                "1234567", "   ", "Mamani", "7111-2222");
 
             Assert.False(resultado.Exito);
             Assert.Null(resultado.Cliente);
@@ -52,9 +49,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         public async Task Crear_SinApellido_FallaAsync()
         {
             var resultado = await _servicio.CrearAsync(
-                "Ana",
-                " ",
-                "7111-2222");
+                "1234567", "Ana", " ", "7111-2222");
 
             Assert.False(resultado.Exito);
             Assert.Empty(await _repositorio.ObtenerTodosAsync());
@@ -64,27 +59,48 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         public async Task Crear_SinTelefono_FallaAsync()
         {
             var resultado = await _servicio.CrearAsync(
-                "Ana",
-                "Mamani",
-                "");
+                "1234567", "Ana", "Mamani", "");
 
             Assert.False(resultado.Exito);
             Assert.Empty(await _repositorio.ObtenerTodosAsync());
         }
 
-                [Theory]
-        [InlineData("Ana3", "Mamani", "71112222", "Nombre")]
-        [InlineData("Ana", "Mamani*", "71112222", "Apellido")]
-        [InlineData("Ana", "Mamani", "1234567", "Telefono")]
-        [InlineData("Ana", "Mamani", "91112222", "Telefono")]
-        [InlineData("Ana", "Mamani", "7111222A", "Telefono")]
+        [Fact]
+        public async Task Crear_SinCi_FallaAsync()
+        {
+            var resultado = await _servicio.CrearAsync(
+                "  ", "Ana", "Mamani", "71112222");
+
+            Assert.False(resultado.Exito);
+            Assert.Contains("Ci", resultado.Errores.Keys);
+            Assert.Empty(await _repositorio.ObtenerTodosAsync());
+        }
+
+        [Theory]
+        [InlineData("1234567", "Ana3", "Mamani", "71112222", "Nombre")]
+        [InlineData("1234567", "Ana", "Mamani*", "71112222", "Apellido")]
+        [InlineData("1234567", "Ana", "Mamani", "1234567", "Telefono")]
+        [InlineData("1234567", "Ana", "Mamani", "91112222", "Telefono")]
+        [InlineData("1234567", "Ana", "Mamani", "7111222A", "Telefono")]
+        [InlineData("12345", "Ana", "Mamani", "71112222", "Ci")]
+        [InlineData("123456789", "Ana", "Mamani", "71112222", "Ci")]
+        [InlineData("12A4567", "Ana", "Mamani", "71112222", "Ci")]
+        [InlineData("1234567-AA", "Ana", "Mamani", "71112222", "Ci")]
+        [InlineData("1234567-A1", "Ana", "Mamani", "71112222", "Ci")]
+        [InlineData("1234567-11", "Ana", "Mamani", "71112222", "Ci")]
+        [InlineData("1234567-1AB", "Ana", "Mamani", "71112222", "Ci")]
+        [InlineData("1234567-", "Ana", "Mamani", "71112222", "Ci")]
+        [InlineData("-1A", "Ana", "Mamani", "71112222", "Ci")]
+        [InlineData("1234567 1A", "Ana", "Mamani", "71112222", "Ci")]
+        [InlineData("12345-1A", "Ana", "Mamani", "71112222", "Ci")]
         public async Task Crear_ConFormatoInvalido_FallaConErrorPorCampoAsync(
+            string ci,
             string nombre,
             string apellido,
             string telefono,
             string campoConError)
         {
-            var resultado = await _servicio.CrearAsync(nombre, apellido, telefono);
+            var resultado = await _servicio.CrearAsync(ci, nombre, apellido, telefono);
 
             Assert.False(resultado.Exito);
             Assert.Contains(campoConError, resultado.Errores.Keys);
@@ -95,9 +111,7 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         public async Task Crear_ConNombreMuyLargo_FallaAsync()
         {
             var resultado = await _servicio.CrearAsync(
-                new string('A', 101),
-                "Mamani",
-                "71112222");
+                "1234567", new string('A', 101), "Mamani", "71112222");
 
             Assert.False(resultado.Exito);
             Assert.Contains("Nombre", resultado.Errores.Keys);
@@ -107,61 +121,125 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         public async Task Crear_ConEspaciosSobrantes_NormalizaLosDatosAsync()
         {
             var resultado = await _servicio.CrearAsync(
-                "  Ana   María ",
-                " Mamani  Quispe",
-                "7111 2222");
+                "1234 567", "  Ana   María ", " Mamani  Quispe", "7111 2222");
 
             Assert.True(resultado.Exito);
-            Assert.Equal("Ana María", resultado.Cliente!.Nombre);
+            Assert.Equal("1234567", resultado.Cliente!.Ci);
+            Assert.Equal("Ana María", resultado.Cliente.Nombre);
             Assert.Equal("Mamani Quispe", resultado.Cliente.Apellido);
             Assert.Equal("71112222", resultado.Cliente.Telefono);
         }
 
         [Fact]
-        public async Task Crear_ConClienteDuplicado_FallaAsync()
+        public async Task Crear_ConCiDuplicado_FallaAsync()
         {
-            await _servicio.CrearAsync("Ana", "Mamani", "71112222");
+            await _servicio.CrearAsync("1234567", "Ana", "Mamani", "71112222");
 
-            var resultado = await _servicio.CrearAsync("ana", "MAMANI", "7111-2222");
+            var resultado = await _servicio.CrearAsync(
+                "1234567", "Luis", "Quispe", "72223333");
 
             Assert.False(resultado.Exito);
-            Assert.Contains("Telefono", resultado.Errores.Keys);
+            Assert.Contains("Ci", resultado.Errores.Keys);
             Assert.Single(await _repositorio.ObtenerTodosAsync());
         }
 
         [Fact]
-        public async Task Crear_MismoTelefonoConOtroNombre_EsValidoAsync()
+        public async Task Crear_MismoTelefonoConOtroCi_EsValidoAsync()
         {
-            await _servicio.CrearAsync("Ana", "Mamani", "71112222");
+            await _servicio.CrearAsync("1234567", "Ana", "Mamani", "71112222");
 
-            var resultado = await _servicio.CrearAsync("Luis", "Mamani", "71112222");
+            var resultado = await _servicio.CrearAsync(
+                "7654321", "Luis", "Mamani", "71112222");
 
             Assert.True(resultado.Exito);
             Assert.Equal(2, (await _repositorio.ObtenerTodosAsync()).Count);
         }
 
         [Fact]
-        public async Task Buscar_SoloDevuelveActivosAsync()
+        public async Task Buscar_PorCi_SoloDevuelveActivosAsync()
         {
             _repositorio.Agregar(new Cliente
             {
-                Nombre = "Juan",
-                Apellido = "Perez",
-                Telefono = "7777-0000",
-                Estado = 1
+                Ci = "1234567", Nombre = "Juan", Apellido = "Perez",
+                Telefono = "7777-0000", Estado = 1
             });
             _repositorio.Agregar(new Cliente
             {
-                Nombre = "Inactivo",
-                Apellido = "Perez",
-                Telefono = "7777-9999",
-                Estado = 0
+                Ci = "1234568", Nombre = "Inactivo", Apellido = "Perez",
+                Telefono = "7777-9999", Estado = 0
+            });
+
+            var encontrados = await _servicio.BuscarAsync("12345");
+
+            Assert.Single(encontrados);
+            Assert.Equal("Juan", encontrados[0].Nombre);
+        }
+
+        [Fact]
+        public async Task Buscar_PorNombre_SoloDevuelveActivosAsync()
+        {
+            _repositorio.Agregar(new Cliente
+            {
+                Ci = "1234567", Nombre = "Juan", Apellido = "Perez",
+                Telefono = "7777-0000", Estado = 1
+            });
+            _repositorio.Agregar(new Cliente
+            {
+                Ci = "1234568", Nombre = "Inactivo", Apellido = "Perez",
+                Telefono = "7777-9999", Estado = 0
             });
 
             var encontrados = await _servicio.BuscarAsync("perez");
 
             Assert.Single(encontrados);
             Assert.Equal("Juan", encontrados[0].Nombre);
+        }
+
+        [Fact]
+        public async Task Buscar_SinTexto_DevuelveListaVaciaAsync()
+        {
+            _repositorio.Agregar(new Cliente
+            {
+                Ci = "1234567", Nombre = "Juan", Apellido = "Perez",
+                Telefono = "7777-0000", Estado = 1
+            });
+
+            Assert.Empty(await _servicio.BuscarAsync("   "));
+        }
+
+        [Theory]
+        [InlineData("1234567", "1234567")]
+        [InlineData("1234567-1A", "1234567-1A")]
+        [InlineData("1234567-1a", "1234567-1A")]
+        [InlineData(" 1234567 - 1A ", "1234567-1A")]
+        [InlineData("1234 567", "1234567")]
+        public async Task Crear_ConCiValido_LoGuardaNormalizadoAsync(string entrada, string esperado)
+        {
+            var resultado = await _servicio.CrearAsync(entrada, "Ana", "Mamani", "71112222");
+
+            Assert.True(resultado.Exito);
+            Assert.Equal(esperado, resultado.Cliente!.Ci);
+        }
+
+        [Fact]
+        public async Task Crear_MismoNumeroConOtroComplemento_EsValidoAsync()
+        {
+            await _servicio.CrearAsync("1234567-1A", "Ana", "Mamani", "71112222");
+
+            var resultado = await _servicio.CrearAsync("1234567-1B", "Luis", "Quispe", "72223333");
+
+            Assert.True(resultado.Exito);
+        }
+
+        [Fact]
+        public async Task Crear_CiDuplicadoConOtraCapitalizacion_FallaAsync()
+        {
+            await _servicio.CrearAsync("1234567-1A", "Ana", "Mamani", "71112222");
+
+            var resultado = await _servicio.CrearAsync("1234567-1a", "Luis", "Quispe", "72223333");
+
+            Assert.False(resultado.Exito);
+            Assert.Contains("Ci", resultado.Errores.Keys);
         }
     }
 }

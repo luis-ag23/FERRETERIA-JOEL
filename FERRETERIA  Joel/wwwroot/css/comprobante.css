@@ -109,6 +109,14 @@
     color: var(--texto);
 }
 
+.comprobante-cliente dd .comprobante-ci {
+    display: block;
+    margin-top: 0.1rem;
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: var(--texto-ter);
+}
+
 .comprobante-tabla {
     width: 100%;
     border-collapse: collapse;

@@ -1,5 +1,4 @@
 using FERRETERIA__Joel.Aplicacion.Modelos;
-using FERRETERIA__Joel.Aplicacion.Politicas;
 using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
@@ -12,8 +11,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
     /// Fachada (Facade) del proceso de REGISTRO de venta. Presenta una
     /// única interfaz de alto nivel a la pantalla de venta, coordinando
     /// clientes, el subsistema de stock (<see cref="FachadaActualizacionStock"/>),
-    /// la cabecera/detalle de la venta, la unidad de trabajo (transacción)
-    /// y el selector de descuentos (Strategy).
+    /// la cabecera/detalle de la venta, la unidad de trabajo (transacción).
     ///
     /// La pantalla de venta NO conoce repositorios, transacciones ni
     /// políticas: solo consume esta fachada. A su vez, esta fachada
@@ -27,7 +25,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         private readonly MySqlDetalleVentaRepository _detalles;
         private readonly RepositoryCreator<IRepository<Empleado>> _creadorEmpleados;
         private readonly IUnidadDeTrabajo _unidadDeTrabajo;
-        private readonly SelectorDescuento _selectorDescuento;
         private readonly IContextoUsuario _contextoUsuario;
         private readonly FachadaActualizacionStock _stock;
         private readonly ServicioCliente _servicioCliente;
@@ -40,31 +37,20 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             MySqlDetalleVentaRepository detalles,
             RepositoryCreator<IRepository<Empleado>> creadorEmpleados,
             IUnidadDeTrabajo unidadDeTrabajo,
-            SelectorDescuento selectorDescuento,
             IContextoUsuario contextoUsuario,
             FachadaActualizacionStock stock,
             ServicioCliente servicioCliente,
-            ConfiguracionDescuentos descuentos,
             MySqlCategoriaRepository categorias)
-
         {
             _ventas = ventas;
             _detalles = detalles;
             _creadorEmpleados = creadorEmpleados;
             _unidadDeTrabajo = unidadDeTrabajo;
-            _selectorDescuento = selectorDescuento;
             _contextoUsuario = contextoUsuario;
             _stock = stock;
             _servicioCliente = servicioCliente;
-            Descuentos = descuentos;
             _categorias = categorias;
         }
-
-        /// <summary>
-        /// Parámetros de descuento vigentes, expuestos a la pantalla de
-        /// venta para la previsualización de totales en el cliente.
-        /// </summary>
-        public ConfiguracionDescuentos Descuentos { get; }
 
         private IRepository<Empleado> Empleados =>
             _empleados ??= _creadorEmpleados.CreateRepository();
@@ -110,11 +96,13 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         /// delega en el caso de uso de clientes para no duplicar reglas.
         /// </summary>
         public Task<ResultadoCliente> CrearClienteAsync(
+            string ci,
             string nombre,
             string apellido,
             string telefono)
         {
             return _servicioCliente.CrearAsync(
+                ci,
                 nombre,
                 apellido,
                 telefono);
@@ -155,20 +143,13 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 CantidadStock = producto.CantidadStock
             }, null);
         }
-
         public ResumenVenta CalcularResumen(IEnumerable<LineaVentaDetalle> lineas)
         {
-            List<LineaVentaDetalle> lista = lineas.ToList();
-            decimal subtotal = lista.Sum(l => l.TotalProducto);
-            int unidades = lista.Sum(l => l.Cantidad);
+            decimal total = lineas.Sum(l => l.TotalProducto);
 
             return new ResumenVenta
             {
-                Subtotal = subtotal,
-                MontoDescuento = 0.00m,
-                PorcentajeDescuento = 0.00m,
-                MontoTotal = subtotal,
-                PoliticaDescuento = "Sin descuento"
+                MontoTotal = Math.Round(total, 2)
             };
         }
 
@@ -224,18 +205,12 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                         : linea.Cantidad;
             }
 
-            string? clave = string.IsNullOrWhiteSpace(solicitud.ClaveIdempotencia)
-                ? null
-                : solicitud.ClaveIdempotencia.Trim();
-
             string metodoPago = solicitud.MetodoPago.Trim();
             string estadoPago = string.IsNullOrWhiteSpace(solicitud.EstadoPago)
                 ? EstadoPago.Pagado
                 : solicitud.EstadoPago.Trim();
 
-            // Por ahora solo se registran ventas pagadas. Se rechaza
-            // cualquier estado distinto para que una solicitud
-            // manipulada no pueda fijar Pendiente/Parcial.
+            // Por ahora solo se registran ventas pagadas.
             if (!string.Equals(
                     estadoPago,
                     EstadoPago.Pagado,
@@ -249,22 +224,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
             try
             {
-                if (clave is not null)
-                {
-                    Venta? existente =
-                        await _ventas.ObtenerPorClaveIdempotenciaAsync(clave);
-
-                    if (existente is not null)
-                    {
-                        await _unidadDeTrabajo.ConfirmarAsync();
-                        return ArmarResultado(
-                            existente,
-                            await _stock.MapearLineasAsync(
-                                await _detalles.ObtenerPorVentaAsync(existente.IdVenta)),
-                            idempotente: true);
-                    }
-                }
-
                 Cliente? cliente =
                     await _servicioCliente.ObtenerPorIdAsync(solicitud.IdCliente);
 
@@ -278,7 +237,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 List<DetalleVenta> detalles = new();
                 List<LineaVentaDetalle> lineasCalculadas = new();
                 decimal subtotal = 0m;
-                int unidades = 0;
 
                 foreach (KeyValuePair<int, int> par in cantidades)
                 {
@@ -304,15 +262,13 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                     {
                         await _unidadDeTrabajo.RevertirAsync();
                         return ResultadoVenta.Fallido(
-                            $"No se pudo descontar el stock de " +
-                            $"'{producto.Nombre}'.");
+                            $"No se pudo descontar el stock de '{producto.Nombre}'.");
                     }
 
                     decimal totalProducto =
                         Math.Round(producto.PrecioVenta * par.Value, 2);
 
                     subtotal += totalProducto;
-                    unidades += par.Value;
 
                     detalles.Add(new DetalleVenta
                     {
@@ -336,9 +292,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                     });
                 }
 
-                SeleccionDescuento descuento =
-                    _selectorDescuento.Seleccionar(subtotal, unidades);
-
                 Venta venta = new()
                 {
                     EstadoVenta = EstadoVenta.Registrada,
@@ -346,10 +299,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                     MetodoPago = metodoPago,
                     EstadoPago = estadoPago,
                     Subtotal = subtotal,
-                    MontoDescuento = 0.00m,
-                    PorcentajeDescuento = 0.00m,
-                    MontoTotal = subtotal,
-                    ClaveIdempotencia = clave,
+                    MontoTotal = Math.Round(subtotal, 2),
                     IdEmpleadoResponsable = idEmpleado
                 };
 
@@ -364,34 +314,23 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
                 await _unidadDeTrabajo.ConfirmarAsync();
 
-                await _categorias.IncrementarPorcentajeGananciaAsync();
-                
+                try
+                {
+                    await _categorias.IncrementarPorcentajeGananciaAsync();
+                }
+                catch
+                {
+                    // El recálculo auxiliar no debe anular una venta ya confirmada
+                }
+
                 Venta guardada =
                     await _ventas.ObtenerPorIdAsync(idVenta) ?? venta;
 
-                return ArmarResultado(
-                    guardada,
-                    lineasCalculadas,
-                    idempotente: false);
+                return ResultadoVenta.Correcto(guardada, lineasCalculadas);
             }
             catch (Exception)
             {
                 await _unidadDeTrabajo.RevertirAsync();
-
-                if (clave is not null)
-                {
-                    Venta? existente =
-                        await _ventas.ObtenerPorClaveIdempotenciaAsync(clave);
-
-                    if (existente is not null)
-                    {
-                        return ArmarResultado(
-                            existente,
-                            await _stock.MapearLineasAsync(
-                                await _detalles.ObtenerPorVentaAsync(existente.IdVenta)),
-                            idempotente: true);
-                    }
-                }
 
                 return ResultadoVenta.Fallido(
                     "No se pudo registrar la venta. Intente nuevamente.");
@@ -422,6 +361,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             {
                 Venta = venta,
                 NombreCliente = nombreCliente,
+                CiCliente = cliente?.Ci ?? string.Empty,
                 NombreEmpleadoResponsable = NombreDe(todos, venta.IdEmpleadoResponsable),
                 NombreEmpleadoAnulacion = venta.IdEmpleadoAnulacion is not null
                     ? NombreDe(todos, venta.IdEmpleadoAnulacion.Value)
@@ -439,14 +379,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             return empleado is null
                 ? $"Empleado #{idEmpleado}"
                 : $"{empleado.Nombre} {empleado.Apellido}".Trim();
-        }
-
-        private static ResultadoVenta ArmarResultado(
-            Venta venta,
-            List<LineaVentaDetalle> detalles,
-            bool idempotente)
-        {
-            return ResultadoVenta.Correcto(venta, detalles, idempotente);
         }
     }
 }

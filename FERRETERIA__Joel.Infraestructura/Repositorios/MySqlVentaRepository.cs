@@ -9,7 +9,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
     /// <summary>
     /// Repositorio de ventas. Implementa el contrato genérico
     /// <see cref="IRepository{T}"/> y expone las operaciones propias del flujo
-    /// de venta (folios, idempotencia y anulación) como métodos concretos que
+    /// de venta (folios, y anulación) como métodos concretos que
     /// se inyectan directamente por DI. Participa de la transacción ambiente.
     /// </summary>
     public class MySqlVentaRepository : IRepository<Venta>
@@ -23,9 +23,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             EstadoPago,
             MontoTotal,
             Subtotal,
-            MontoDescuento,
-            PorcentajeDescuento,
-            ClaveIdempotencia,
             FechaRegistro,
             FechaActualizacion,
             FechaAnulacion,
@@ -86,9 +83,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     EstadoPago,
                     MontoTotal,
                     Subtotal,
-                    MontoDescuento,
-                    PorcentajeDescuento,
-                    ClaveIdempotencia,
                     IdEmpleadoResponsable
                 )
                 VALUES
@@ -99,9 +93,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     @estadoPago,
                     @montoTotal,
                     @subtotal,
-                    @montoDescuento,
-                    @porcentajeDescuento,
-                    @claveIdempotencia,
                     @idEmpleadoResponsable
                 )";
 
@@ -113,11 +104,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.Parameters.AddWithValue("@estadoPago", venta.EstadoPago);
             command.Parameters.AddWithValue("@montoTotal", venta.MontoTotal);
             command.Parameters.AddWithValue("@subtotal", venta.Subtotal);
-            command.Parameters.AddWithValue("@montoDescuento", venta.MontoDescuento);
-            command.Parameters.AddWithValue("@porcentajeDescuento", venta.PorcentajeDescuento);
-            command.Parameters.AddWithValue(
-                "@claveIdempotencia",
-                (object?)venta.ClaveIdempotencia ?? DBNull.Value);
+
             command.Parameters.AddWithValue(
                 "@idEmpleadoResponsable",
                 venta.IdEmpleadoResponsable);
@@ -164,23 +151,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return await reader.ReadAsync() ? MapearVenta(reader) : null;
         }
 
-        public virtual async Task<Venta?> ObtenerPorClaveIdempotenciaAsync(
-            string claveIdempotencia)
-        {
-            string query = $@"
-                SELECT {Columnas}
-                FROM venta
-                WHERE ClaveIdempotencia = @clave
-                LIMIT 1";
-
-            using MySqlCommand command = await CrearComandoAsync(query);
-
-            command.Parameters.AddWithValue("@clave", claveIdempotencia);
-
-            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
-
-            return await reader.ReadAsync() ? MapearVenta(reader) : null;
-        }
         public virtual async Task<bool> MarcarAnuladaAsync(
             int idVenta,
             int idEmpleadoAnulacion,
@@ -226,11 +196,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 EstadoPago = reader["EstadoPago"].ToString() ?? "",
                 MontoTotal = reader.GetDecimal("MontoTotal"),
                 Subtotal = reader.GetDecimal("Subtotal"),
-                MontoDescuento = reader.GetDecimal("MontoDescuento"),
-                PorcentajeDescuento = reader.GetDecimal("PorcentajeDescuento"),
-                ClaveIdempotencia = reader["ClaveIdempotencia"] == DBNull.Value
-                    ? null
-                    : reader["ClaveIdempotencia"].ToString(),
                 FechaRegistro = reader.GetDateTime("FechaRegistro"),
                 FechaActualizacion = reader["FechaActualizacion"] == DBNull.Value
                     ? null

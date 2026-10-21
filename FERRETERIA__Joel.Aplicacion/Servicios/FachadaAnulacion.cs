@@ -169,7 +169,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             Venta actualizada = await _ventas.ObtenerPorIdAsync(idVenta) ?? venta;
             List<LineaVentaDetalle> lineas = await _stock.MapearLineasAsync(detalles);
 
-            return ResultadoVenta.Correcto(actualizada, lineas, idempotente: false);
+            return ResultadoVenta.Correcto(actualizada, lineas);
         }
 
     }

@@ -11,6 +11,8 @@ namespace FERRETERIA__Joel.Aplicacion.Modelos
         public Venta Venta { get; set; } = new();
 
         public string NombreCliente { get; set; } = string.Empty;
+        
+        public string CiCliente { get; set; } = string.Empty;
 
         public string NombreEmpleadoResponsable { get; set; } = string.Empty;
 

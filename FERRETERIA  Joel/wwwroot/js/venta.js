@@ -18,6 +18,7 @@
 
     var urlClientes = app.getAttribute('data-url-clientes');
     var urlProductos = app.getAttribute('data-url-productos');
+    var urlRegistrarAjax = app.getAttribute('data-url-registrar-ajax');
 
     var fmt = new Intl.NumberFormat('es-BO', {
         minimumFractionDigits: 2,
@@ -119,12 +120,7 @@
         clienteSeleccionado.appendChild(ico);
         clienteSeleccionado.appendChild(document.createTextNode(' '));
         clienteSeleccionado.appendChild(crear('strong', null, cliente.nombre));
-        if (cliente.telefono) {
-            clienteSeleccionado.appendChild(document.createTextNode(' · ' + cliente.telefono));
-        }
         clienteSeleccionado.hidden = false;
-
-        inputCliente.value = '';
         secuenciaClientes += 1;
         ocultar(resultadosCliente);
         actualizarBotonRegistrar();
@@ -155,10 +151,10 @@
                 boton.type = 'button';
                 boton.dataset.clienteId = c.id;
                 boton.dataset.clienteNombre = c.nombre;
-                boton.dataset.clienteTel = c.telefono || '';
+                boton.dataset.clienteCi = c.ci || '';
                 boton.appendChild(crear('span', 'fj-resultado-titulo', c.nombre));
                 boton.appendChild(
-                    crear('span', 'fj-resultado-sub', c.telefono || 'Sin teléfono'));
+                    crear('span', 'fj-resultado-sub', c.ci ? 'CI ' + c.ci : 'Sin CI'));
                 resultadosCliente.appendChild(boton);
             });
 
@@ -180,7 +176,7 @@
         mostrarCliente({
             id: boton.dataset.clienteId,
             nombre: boton.dataset.clienteNombre,
-            telefono: boton.dataset.clienteTel
+            ci: boton.dataset.clienteCi
         });
     });
 
@@ -271,7 +267,7 @@
 
         if (existente) {
             if (existente.cantidad + 1 > p.stock) {
-                alerta('Solo hay ' + p.stock + ' unidades disponibles de "' + p.nombre + '".');
+                alerta('Solo hay ' + p.stock + ' unidades disponibles de "' + p.nombre + '".', 'Límite de stock');
                 return;
             }
             existente.cantidad += 1;
@@ -306,14 +302,14 @@
         }
         if (cantidad > linea.stock) {
             cantidad = linea.stock;
-            alerta('Solo hay ' + linea.stock + ' unidades disponibles de "' + linea.nombre + '".');
+            alerta('Solo hay ' + linea.stock + ' unidades disponibles de "' + linea.nombre + '".', 'Límite de stock');
         }
 
         linea.cantidad = Math.floor(cantidad);
         render();
     }
 
-    function alerta(mensaje) {
+    function alerta(mensaje, tituloAviso) {
         var overlay = crear('div');
         overlay.id = 'fjModalAlertaDark';
         overlay.setAttribute('role', 'dialog');
@@ -347,7 +343,7 @@
         svg.appendChild(linea2);
         iconoBox.appendChild(svg);
 
-        var titulo = crear('h3', null, 'Límite de stock');
+        var titulo = crear('h3', null, tituloAviso || 'Límite de stock');
         titulo.style.cssText = 'color:#ffffff;font-size:1.18rem;font-weight:700;margin:0 0 8px 0;letter-spacing:-0.01em;';
 
         var desc = crear('p', null, mensaje);
@@ -490,17 +486,11 @@
 
     // ---------- Totales ----------
 
-    function calcularDescuento(subtotal, unidades) {
-        return { pct: 0, monto: 0, politica: '' };
-    }
-
     function recalcularTotales() {
         var total = lineas.reduce(function (suma, l) {
             return suma + redondear(l.precio * l.cantidad);
         }, 0);
-        var unidades = lineas.reduce(function (suma, l) {
-            return suma + l.cantidad;
-        }, 0);
+        total = redondear(total);
 
         // Actualizar subtotal solo si el elemento existe en el HTML
         var elSubtotal = document.getElementById('totalSubtotal');
@@ -510,7 +500,7 @@
         var elTotal = document.getElementById('totalFinal');
         if (elTotal) elTotal.textContent = dinero(total);
 
-        return { subtotal: total, descuento: { pct: 0, monto: 0, politica: '' }, total: total, unidades: unidades };
+        return { subtotal: total, total: total };
     }
 
     // ---------- Botón Registrar ----------
@@ -532,6 +522,58 @@
         }
     }
 
+    // ---------- Registro de la venta (AJAX) ----------
+
+    function reiniciarVenta() {
+        lineas = [];
+        render();   // vacía la tabla y los campos ocultos, y recalcula totales
+        clienteId.value = '0';
+        clienteNombre.value = '';
+        clienteSeleccionado.replaceChildren();
+        clienteSeleccionado.hidden = true;
+        inputCliente.value = '';
+        actualizarBotonRegistrar();
+    }
+
+    function registrarVenta() {
+        if (!urlRegistrarAjax) {
+            alerta('Falta la dirección de registro en la página (data-url-registrar-ajax).',
+                'No se pudo registrar');
+            return;
+        }
+
+        marcandoEnvio(true);
+
+        // La pestaña se abre ahora, dentro del clic del usuario, para que el
+        // navegador no la bloquee. Al responder el servidor se le asigna el PDF.
+        var ventana = window.open('', '_blank');
+        if (ventana) {
+            try { ventana.document.title = 'Generando comprobante…'; } catch (e) { }
+        }
+
+        fetch(urlRegistrarAjax, {
+            method: 'POST',
+            body: new FormData(form),
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' }
+        }).then(leerJson).then(function (respuesta) {
+            reiniciarVenta();
+
+            if (ventana) {
+                ventana.location.href = respuesta.urlPdf;
+            } else {
+                // Pestaña bloqueada: la venta ya está guardada, se abre el PDF aquí.
+                window.location.href = respuesta.urlPdf;
+            }
+        }).catch(function (error) {
+            if (ventana) ventana.close();
+            alerta(error.message || 'No se pudo registrar la venta.', 'No se pudo registrar');
+        }).finally(function () {
+            marcandoEnvio(false);
+            actualizarBotonRegistrar();
+        });
+    }
+
     // ---------- Confirmación ----------
 
     var modal = document.getElementById('ventaConfirmModal');
@@ -541,8 +583,7 @@
     function abrirModal(texto) {
         if (!modal) {
             if (window.confirm(texto)) {
-                marcandoEnvio(true);
-                form.submit();
+                registrarVenta();
             }
             return;
         }
@@ -564,12 +605,12 @@
         if (botonRegistrar.disabled) return;
 
         if (!lineas.length) {
-            alerta('Agregue al menos un producto antes de registrar la venta.');
+            alerta('Agregue al menos un producto antes de registrar la venta.', 'Atención');
             return;
         }
 
         if (parseInt(clienteId.value, 10) <= 0) {
-            alerta('Debe seleccionar un cliente.');
+            alerta('Debe seleccionar un cliente.', 'Atención');
             inputCliente.focus();
             return;
         }
@@ -583,8 +624,7 @@
     if (botonOk) {
         botonOk.addEventListener('click', function () {
             cerrarModal();
-            marcandoEnvio(true);
-            form.submit();
+            registrarVenta();
         });
     }
 
@@ -616,7 +656,7 @@
         modalCliente.classList.add('is-open');
         modalCliente.setAttribute('aria-hidden', 'false');
         document.body.classList.add('fj-modal-open');
-        var primero = document.getElementById('nuevoClienteNombre');
+        var primero = document.getElementById('nuevoClienteCi');
         if (primero) primero.focus();
     }
 
@@ -646,12 +686,21 @@
     }
 
     var campoCliente = {
+        Ci: 'nuevoClienteCi',
         Nombre: 'nuevoClienteNombre',
         Apellido: 'nuevoClienteApellido',
         Telefono: 'nuevoClienteTelefono'
     };
     var formatoNombre = /^\p{L}[\p{L}\s.,'\-&()]*$/u;
     var formatoTelefono = /^[5-8][0-9]{7}$/;
+    var formatoCi = /^[0-9]{6,8}(-[0-9][A-Z])?$/;
+
+    var inputCi = document.getElementById('nuevoClienteCi');
+    if (inputCi) {
+        inputCi.addEventListener('input', function () {
+            inputCi.value = inputCi.value.toUpperCase().replace(/[^0-9A-Z-]/g, '');
+        });
+    }
 
     function limpiarErroresCliente() {
         errorCliente.hidden = true;
@@ -687,7 +736,11 @@
         var errores = {};
         var nombre = datos.nombre.trim();
         var apellido = datos.apellido.trim();
-        var telefono = datos.telefono.replace(/[\s-]/g, '');
+        var ci = datos.ci.replace(/\s/g, '').toUpperCase();
+        var telefono = datos.telefono.trim();
+
+        if (!ci) errores.Ci = 'El CI del cliente es obligatorio.';
+        else if (!formatoCi.test(ci)) errores.Ci = 'El CI debe tener de 6 a 8 dígitos y, si tiene complemento, un guion con un dígito y una letra (ej: 1234567-1A).';
 
         if (!nombre) errores.Nombre = 'Los nombres del cliente son obligatorios.';
         else if (nombre.length > 100 || !formatoNombre.test(nombre))
@@ -716,6 +769,7 @@
             var erroresLocales = validarCliente({
                 nombre: document.getElementById('nuevoClienteNombre').value,
                 apellido: document.getElementById('nuevoClienteApellido').value,
+                ci: document.getElementById('nuevoClienteCi').value,
                 telefono: document.getElementById('nuevoClienteTelefono').value
             });
             if (Object.keys(erroresLocales).length > 0) {
@@ -740,6 +794,7 @@
                 }
 
                 mostrarCliente({
+                    ci: respuesta.ci,
                     id: respuesta.id,
                     nombre: respuesta.nombre,
                     telefono: respuesta.telefono

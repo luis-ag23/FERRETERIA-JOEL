@@ -1,7 +1,7 @@
 using FERRETERIA__Joel.Aplicacion.Modelos;
-using FERRETERIA__Joel.Aplicacion.Politicas;
 using FERRETERIA__Joel.Aplicacion.Servicios;
 using FERRETERIA__Joel.Dominio.Constantes;
+using FERRETERIA__Joel.Helpers;  
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -28,8 +28,6 @@ namespace FERRETERIA__Joel.Pages
             _logger = logger;
         }
 
-        public ConfiguracionDescuentos Descuentos => _fachada.Descuentos;
-
         public IReadOnlyList<string> MetodosPago { get; } = new[]
         {
             "Efectivo", "Tarjeta", "Transferencia", "QR"
@@ -45,20 +43,11 @@ namespace FERRETERIA__Joel.Pages
         public string MetodoPago { get; set; } = "Efectivo";
 
         [BindProperty]
-        public string? ClaveIdempotencia { get; set; }
-
-        [BindProperty]
         public List<LineaVentaSolicitada> Lineas { get; set; } = new();
 
         public string? MensajeError { get; set; }
 
         public ResultadoVenta? VentaRegistrada { get; set; }
-
-        public Task OnGetAsync()
-        {
-            ClaveIdempotencia = NuevaClave();
-            return Task.CompletedTask;
-        }
 
         public async Task<IActionResult> OnGetBuscarClientesAsync(string? termino)
         {
@@ -68,6 +57,7 @@ namespace FERRETERIA__Joel.Pages
                     .Select(c => new
                     {
                         id = c.IdCliente,
+                        ci = c.Ci,
                         nombre = $"{c.Nombre} {c.Apellido}".Trim(),
                         telefono = c.Telefono
                     });
@@ -109,6 +99,7 @@ namespace FERRETERIA__Joel.Pages
         /// nunca se recarga y las líneas seleccionadas se conservan.
         /// </summary>
         public async Task<IActionResult> OnPostCrearClienteAsync(
+            string? nuevoClienteCi,
             string? nuevoClienteNombre,
             string? nuevoClienteApellido,
             string? nuevoClienteTelefono)
@@ -116,6 +107,7 @@ namespace FERRETERIA__Joel.Pages
             try
             {
                 ResultadoCliente resultado = await _fachada.CrearClienteAsync(
+                    nuevoClienteCi ?? string.Empty,
                     nuevoClienteNombre ?? string.Empty,
                     nuevoClienteApellido ?? string.Empty,
                     nuevoClienteTelefono ?? string.Empty);
@@ -132,6 +124,7 @@ namespace FERRETERIA__Joel.Pages
                 {
                     exito = true,
                     id = resultado.Cliente.IdCliente,
+                    ci = resultado.Cliente.Ci,
                     nombre = $"{resultado.Cliente.Nombre} {resultado.Cliente.Apellido}".Trim(),
                     telefono = resultado.Cliente.Telefono
                 });
@@ -149,12 +142,6 @@ namespace FERRETERIA__Joel.Pages
 
         public async Task<IActionResult> OnPostRegistrarAsync()
         {
-            if (IdCliente <= 0 && !string.IsNullOrWhiteSpace(NombreCliente))
-            {
-                IdCliente = (await _fachada.BuscarClientesAsync(NombreCliente!))
-                    .FirstOrDefault()?.IdCliente ?? 0;
-            }
-
             // El estado del pago no se toma del cliente: lo fija el
             // servidor. Por ahora toda venta se registra como pagada.
             SolicitudVenta solicitud = new()
@@ -162,7 +149,6 @@ namespace FERRETERIA__Joel.Pages
                 IdCliente = IdCliente,
                 MetodoPago = MetodoPago,
                 EstadoPago = EstadoPago.Pagado,
-                ClaveIdempotencia = ClaveIdempotencia,
                 Lineas = Lineas
             };
 
@@ -175,15 +161,12 @@ namespace FERRETERIA__Joel.Pages
             {
                 _logger.LogError(ex, "Error no controlado al registrar la venta");
                 MensajeError = "No se pudo registrar la venta. Revise la conexión a MySQL o consulte al administrador.";
-                // Se conserva la clave de idempotencia si el resultado del servidor
-                // es incierto. Un reintento no debe duplicar la operación.
                 return Page();
             }
 
             if (!resultado.Exito)
             {
                 MensajeError = resultado.Mensaje;
-                ClaveIdempotencia = NuevaClave();
                 return Page();
             }
 
@@ -191,10 +174,52 @@ namespace FERRETERIA__Joel.Pages
             Lineas = new List<LineaVentaSolicitada>();
             IdCliente = 0;
             NombreCliente = null;
-            ClaveIdempotencia = NuevaClave();
             return Page();
         }
 
-        private static string NuevaClave() => Guid.NewGuid().ToString("N");
+        public async Task<IActionResult> OnPostRegistrarAjaxAsync()
+        {
+            ResultadoVenta resultado;
+            try
+            {
+                resultado = await _fachada.RegistrarVentaAsync(ConstruirSolicitud());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error no controlado al registrar la venta");
+                return StatusCode(503, new
+                {
+                    exito = false,
+                    mensaje = "No se pudo registrar la venta. Revise la conexión a MySQL o consulte al administrador."
+                });
+            }
+
+            if (!resultado.Exito)
+            {
+                return BadRequest(new { exito = false, mensaje = resultado.Mensaje });
+            }
+
+            string token = UrlProtector.Cifrar(resultado.IdVenta.ToString());
+
+            return new JsonResult(new
+            {
+                exito = true,
+                mensaje = resultado.Mensaje,
+                urlPdf = Url.Page("/VentaComprobante", "Pdf", new { token })
+            });
+        }
+
+        private SolicitudVenta ConstruirSolicitud()
+        {
+            // El estado del pago no se toma del cliente: lo fija el servidor.
+            return new SolicitudVenta
+            {
+                IdCliente = IdCliente,
+                MetodoPago = MetodoPago,
+                EstadoPago = EstadoPago.Pagado,
+                Lineas = Lineas
+            };
+        }
+
     }
 }

@@ -94,6 +94,7 @@ namespace FERRETERIA__Joel.Pages
                 })
             });
         }
+
         public async Task<IActionResult> OnPostAnularAsync(int idVenta, string motivoAnulacion)
         {
             if (!User.IsInRole(RolesSistema.EmpleadoVenta))
@@ -132,6 +133,5 @@ namespace FERRETERIA__Joel.Pages
 
             return RedirectToPage();
         }
-
     }
 }

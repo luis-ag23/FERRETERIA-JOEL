@@ -50,7 +50,6 @@
     var pagoEl = document.getElementById('ventasDetallePago');
     var lineasEl = document.getElementById('ventasDetalleLineas');
     var subtotalEl = document.getElementById('ventasDetalleSubtotal');
-    var descuentoEl = document.getElementById('ventasDetalleDescuento');
     var totalEl = document.getElementById('ventasDetalleTotal');
     var motivoEl = document.getElementById('ventasDetalleMotivo');
 
@@ -90,7 +89,6 @@
             }
 
             if (subtotalEl) subtotalEl.textContent = dinero(v.subtotal);
-            if (descuentoEl) descuentoEl.textContent = '- ' + dinero(v.descuento || 0);
             if (totalEl) totalEl.textContent = dinero(v.total);
 
             if (motivoEl) {
@@ -161,6 +159,3 @@
     });
 
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') cerrarModales();
-    });
-})();

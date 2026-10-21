@@ -4,7 +4,7 @@
 -- Ejecutar UNA sola vez sobre una base ya creada con esquema.sql.
 --
 -- Cambios:
---   venta    : estado de venta, auditoria de anulacion, idempotencia,
+--   venta    : estado de venta, auditoria de anulacion,
 --              snapshot de descuento y CodigoVenta diferido (NULL + UPDATE)
 --   cliente  : sin credenciales (ya no inicia sesion); solo auditoria del
 --              empleado que lo registra
@@ -31,17 +31,12 @@ ALTER TABLE venta
         AFTER Subtotal,
     ADD COLUMN PorcentajeDescuento DECIMAL(5,2) NOT NULL DEFAULT 0
         AFTER MontoDescuento,
-    ADD COLUMN ClaveIdempotencia  VARCHAR(64)   NULL DEFAULT NULL
-        AFTER PorcentajeDescuento,
     ADD COLUMN FechaAnulacion     DATETIME      NULL DEFAULT NULL
         AFTER FechaActualizacion,
     ADD COLUMN MotivoAnulacion    VARCHAR(255)  NULL DEFAULT NULL
         AFTER FechaAnulacion,
     ADD COLUMN IdEmpleadoAnulacion INT          NULL DEFAULT NULL
         AFTER MotivoAnulacion;
-
-ALTER TABLE venta
-    ADD UNIQUE KEY UNIQUE_VENTA_IDEMPOTENCIA (ClaveIdempotencia);
 
 ALTER TABLE venta
     ADD CONSTRAINT FK_venta_empleado_anulacion
