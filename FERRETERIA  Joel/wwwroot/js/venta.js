@@ -120,9 +120,6 @@
         clienteSeleccionado.appendChild(ico);
         clienteSeleccionado.appendChild(document.createTextNode(' '));
         clienteSeleccionado.appendChild(crear('strong', null, cliente.nombre));
-        if (cliente.ci) {
-            clienteSeleccionado.appendChild(document.createTextNode(' · CI ' + cliente.ci));
-        }
         clienteSeleccionado.hidden = false;
         secuenciaClientes += 1;
         ocultar(resultadosCliente);
