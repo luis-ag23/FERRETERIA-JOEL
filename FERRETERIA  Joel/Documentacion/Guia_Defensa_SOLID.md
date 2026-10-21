@@ -67,7 +67,7 @@ puertos del Dominio (inversión de dependencias); Web los compone y los consume.
 > Ya **no** existen puertos específicos por entidad (`IVentaRepository`,
 > `IClienteRepository`, …). Los repositorios concretos implementan **solo** los
 > dos contratos genéricos; las operaciones que no encajan en un CRUD
-> (folios/venta, idempotencia, anulación, stock, precio vigente, bitácora) se
+> (folios/venta, anulación, stock, precio vigente, bitácora) se
 > exponen como **métodos concretos** e se inyectan directamente por DI.
 
 **Factory Method (mecanismo, ya no en el Dominio):**
@@ -210,7 +210,6 @@ en **una sola transacción**:
    `FachadaActualizacionStock.DescontarAsync`).
 3. `ConfirmarAsync`. Si falla algo (p. ej. stock insuficiente), `RevertirAsync`:
    **nada** queda persistido.
-4. Clave de **idempotencia**: repetir la misma venta no duplica.
 
 **Anulación (`FachadaAnulacion.AnularVentaAsync`)** — borrado **lógico**:
 1. `UPDATE venta SET EstadoVenta = 'Anulada'` (+ motivo, empleado y fecha).
@@ -344,7 +343,7 @@ servidor bajo carga (escenario de ventas concurrentes).
 
 **Prueba de concurrencia:** `FERRETERIA__Joel.Pruebas/Integracion/FachadaVentaIntegracionPruebas.cs`
 lanza dos registros/anulaciones en paralelo y verifica que **solo una gana**
-(idempotencia y reposición única).
+(reposición única).
 
 ---
 

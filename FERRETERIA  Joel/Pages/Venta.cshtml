@@ -3,7 +3,6 @@
 @{
     ViewData["Title"] = "Registrar venta";
     ViewData["ActiveMenu"] = "Ventas";
-
 }
 @section Styles {
     <link rel="stylesheet" href="~/css/ventas-componentes.css" asp-append-version="true" />
@@ -13,40 +12,14 @@
 <div class="fj-container fj-page-venta"
      id="ventaApp"
      data-url-clientes="@Url.Page("/Venta", "BuscarClientes")"
-     data-url-productos="@Url.Page("/Venta", "BuscarProductos")">
+     data-url-productos="@Url.Page("/Venta", "BuscarProductos")"
+     data-url-registrar-ajax="@Url.Page("/Venta", "RegistrarAjax")">
 
     <section class="fj-page-head">
         <p class="fj-eyebrow">Módulo · Ventas</p>
         <h1>Registrar venta</h1>
         <p class="fj-page-sub">Seleccione el cliente, agregue productos y confirme la venta.</p>
     </section>
-
-    @if (Model.VentaRegistrada is not null)
-    {
-        var tokenComprobante = FERRETERIA__Joel.Helpers.UrlProtector
-            .Cifrar(Model.VentaRegistrada.IdVenta.ToString());
-
-        <div class="fj-alert fj-alert-success venta-alerta-exito" role="status">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                <polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
-            <div class="venta-exito">
-                <strong>@Model.VentaRegistrada.Mensaje</strong>
-                <span>
-                    Comprobante <span class="fj-codigo">@Model.VentaRegistrada.CodigoVenta</span>
-                    · Total <strong>@Model.VentaRegistrada.MontoTotal.ToString("N2") Bs</strong>
-                </span>
-                @if (Model.VentaRegistrada.Idempotente)
-                {
-                    <span class="venta-exito-nota">No se generó una venta nueva (reenvío detectado).</span>
-                }
-                <a class="fj-btn fj-btn-primary venta-exito-accion"
-                   asp-page="VentaComprobante"
-                   asp-route-token="@tokenComprobante">Ver comprobante</a>
-            </div>
-        </div>
-    }
 
     @if (Model.MensajeError is not null)
     {
@@ -101,8 +74,6 @@
                     La venta se registra con el pago completado (Pagado).
                 </p>
             </div>
-
-            <input type="hidden" asp-for="ClaveIdempotencia" id="claveIdempotencia" />
         </section>
 
         <section class="fj-card fj-venta-panel" aria-label="Productos de la venta">
@@ -124,7 +95,7 @@
                             <th scope="col">Unidad</th>
                             <th scope="col" class="fj-td-precio">Precio</th>
                             <th scope="col" class="fj-td-cantidad">Cantidad</th>
-                            <th scope="col" class="fj-td-precio">Subtotal</th>
+                            <th scope="col" class="fj-td-precio">Importe</th>
                             <th scope="col" class="fj-td-acciones"></th>
                         </tr>
                     </thead>
@@ -147,10 +118,8 @@
             <div id="lineasInputs"></div>
 
             <div class="fj-venta-totales">
-                <div class="fj-venta-total-fila">
-                    <span>Subtotal</span>
-                    <span id="totalSubtotal">0.00 Bs</span>
-                </div>
+                <span id="totalSubtotal" hidden></span>
+
                 <div class="fj-venta-total-fila fj-venta-total-final">
                     <span>Total</span>
                     <span id="totalFinal">0.00 Bs</span>
@@ -169,7 +138,7 @@
     </form>
 </div>
 
-@* Modal de confirmación propio del flujo de venta (resumen antes de registrar). *@
+@* Modal de confirmación propio del flujo de venta *@
 <div class="fj-modal" id="ventaConfirmModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="ventaConfirmTitle">
     <div class="fj-modal-backdrop" data-fj-modal-close aria-hidden="true"></div>
     <div class="fj-modal-wrapper" role="document">
@@ -187,8 +156,7 @@
     </div>
 </div>
 
-@* Modal "Nuevo cliente": alta desde la propia pantalla de venta, sin
-   recargar la página, por lo que las líneas seleccionadas se conservan. *@
+@* Modal "Nuevo cliente" *@
 <div class="fj-modal" id="nuevoClienteModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="nuevoClienteTitle">
     <div class="fj-modal-backdrop" data-fj-modal-close aria-hidden="true"></div>
     <div class="fj-modal-wrapper" role="document">
@@ -203,11 +171,12 @@
                 @Html.AntiForgeryToken()
                 <input type="hidden" id="nuevoClienteUrl"
                        value="@Url.Page("/Venta", "CrearCliente")" />
-                       
+
                 <div class="fj-form-field">
                     <label for="nuevoClienteCi">CI</label>
                     <input type="text" id="nuevoClienteCi" class="fj-input"
-                           name="nuevoClienteCi" maxlength="8" inputmode="numeric" autocomplete="off" />
+                           name="nuevoClienteCi" maxlength="11" autocomplete="off"
+                           placeholder="Ej: 1234567 o 1234567-1A" />
                 </div>
 
                 <div class="fj-form-field">
@@ -223,8 +192,8 @@
                 <div class="fj-form-field">
                     <label for="nuevoClienteTelefono">Teléfono</label>
                     <input type="tel" id="nuevoClienteTelefono" class="fj-input"
-                            name="nuevoClienteTelefono" maxlength="9" inputmode="numeric"
-                            placeholder="Ej: 71234567" autocomplete="off" />
+                           name="nuevoClienteTelefono" maxlength="9" inputmode="numeric"
+                           placeholder="Ej: 71234567" autocomplete="off" />
                 </div>
 
                 <div class="fj-alert" id="nuevoClienteError" role="alert" hidden></div>

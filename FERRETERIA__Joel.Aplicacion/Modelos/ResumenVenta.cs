@@ -6,8 +6,6 @@ namespace FERRETERIA__Joel.Aplicacion.Modelos
     /// </summary>
     public class ResumenVenta
     {
-        public decimal Subtotal { get; init; }
-
         public decimal MontoTotal { get; init; }
 
     }

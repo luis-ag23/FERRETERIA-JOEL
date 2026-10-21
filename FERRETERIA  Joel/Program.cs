@@ -44,7 +44,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizePage("/Proveedores");
     options.Conventions.AuthorizePage("/ProveedorNuevo");
     options.Conventions.AuthorizePage("/ProveedorEditar");
-    
+
     // Deshabilitar filtro automático de antiforgery para páginas con POST - usamos autenticación por cookie + Redis
     var ignoreAntiforgery = new Microsoft.AspNetCore.Mvc.IgnoreAntiforgeryTokenAttribute();
     var pagesToIgnore = new[] { "/Login", "/ProductoNuevo", "/ProductoEditar", "/CategoriaNueva", "/CategoriaEditar", "/MarcaNueva", "/MarcaEditar", "/ProveedorNuevo", "/ProveedorEditar", "/Venta", "/Logout" };
@@ -145,12 +145,12 @@ builder.Services.AddScoped<IUnidadDeTrabajo, MySqlUnidadDeTrabajo>();
 builder.Services.AddScoped<MySqlClienteRepository>();
 builder.Services.AddScoped<MySqlEmpleadoRepository>();
 builder.Services.AddScoped<MySqlHistoricoPrecioRepository>();
-builder.Services.AddScoped(sp => new MySqlVentaRepository(
-    sp.GetRequiredService<IConexionTransaccional>(),
-    sp.GetService<RedisCacheHelper>()));
+builder.Services.AddScoped<MySqlVentaRepository>();
 builder.Services.AddScoped<MySqlDetalleVentaRepository>();
 builder.Services.AddScoped<MySqlInventarioRepository>();
 builder.Services.AddScoped<MySqlBitacoraRepository>();
+builder.Services.AddScoped<MySqlProductoRepository>();
+builder.Services.AddScoped<MySqlCategoriaRepository>();
 
 builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Producto>>, ProductoRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Categoria>>, CategoriaRepositoryCreator>();

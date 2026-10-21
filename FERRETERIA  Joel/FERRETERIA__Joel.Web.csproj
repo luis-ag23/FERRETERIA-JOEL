@@ -1,24 +1,24 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>FERRETERIA__Joel</RootNamespace>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<RootNamespace>FERRETERIA__Joel</RootNamespace>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="MySql.Data" Version="26.7.0" />
-    <PackageReference Include="QuestPDF" Version="2026.9.1" />
-    <PackageReference Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" Version="10.0.0-rc.1.24452.1" />
-    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.0-rc.1.24452.1" />
-    <PackageReference Include="StackExchange.Redis" Version="2.8.22" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="MySql.Data" Version="26.7.0" />
+		<PackageReference Include="QuestPDF" Version="2026.9.1" />
+		<PackageReference Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" Version="10.0.0-rc.1.24452.1" />
+		<PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.0-rc.1.24452.1" />
+		<PackageReference Include="StackExchange.Redis" Version="2.8.22" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\FERRETERIA__Joel.Dominio\FERRETERIA__Joel.Dominio.csproj" />
-    <ProjectReference Include="..\FERRETERIA__Joel.Aplicacion\FERRETERIA__Joel.Aplicacion.csproj" />
-    <ProjectReference Include="..\FERRETERIA__Joel.Infraestructura\FERRETERIA__Joel.Infraestructura.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\FERRETERIA__Joel.Dominio\FERRETERIA__Joel.Dominio.csproj" />
+		<ProjectReference Include="..\FERRETERIA__Joel.Aplicacion\FERRETERIA__Joel.Aplicacion.csproj" />
+		<ProjectReference Include="..\FERRETERIA__Joel.Infraestructura\FERRETERIA__Joel.Infraestructura.csproj" />
+	</ItemGroup>
 
 </Project>

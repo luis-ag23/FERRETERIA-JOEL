@@ -18,6 +18,7 @@
 
     var urlClientes = app.getAttribute('data-url-clientes');
     var urlProductos = app.getAttribute('data-url-productos');
+    var urlRegistrarAjax = app.getAttribute('data-url-registrar-ajax');
 
     var fmt = new Intl.NumberFormat('es-BO', {
         minimumFractionDigits: 2,
@@ -119,9 +120,6 @@
         clienteSeleccionado.appendChild(ico);
         clienteSeleccionado.appendChild(document.createTextNode(' '));
         clienteSeleccionado.appendChild(crear('strong', null, cliente.nombre));
-        if (cliente.ci) {
-            clienteSeleccionado.appendChild(document.createTextNode(' · CI ' + cliente.ci));
-        }
         clienteSeleccionado.hidden = false;
         secuenciaClientes += 1;
         ocultar(resultadosCliente);
@@ -156,7 +154,7 @@
                 boton.dataset.clienteCi = c.ci || '';
                 boton.appendChild(crear('span', 'fj-resultado-titulo', c.nombre));
                 boton.appendChild(
-                      crear('span', 'fj-resultado-sub', c.ci ? 'CI ' + c.ci : 'Sin CI'));
+                    crear('span', 'fj-resultado-sub', c.ci ? 'CI ' + c.ci : 'Sin CI'));
                 resultadosCliente.appendChild(boton);
             });
 
@@ -269,7 +267,7 @@
 
         if (existente) {
             if (existente.cantidad + 1 > p.stock) {
-                alerta('Solo hay ' + p.stock + ' unidades disponibles de "' + p.nombre + '".');
+                alerta('Solo hay ' + p.stock + ' unidades disponibles de "' + p.nombre + '".', 'Límite de stock');
                 return;
             }
             existente.cantidad += 1;
@@ -304,25 +302,22 @@
         }
         if (cantidad > linea.stock) {
             cantidad = linea.stock;
-            alerta('Solo hay ' + linea.stock + ' unidades disponibles de "' + linea.nombre + '".');
+            alerta('Solo hay ' + linea.stock + ' unidades disponibles de "' + linea.nombre + '".', 'Límite de stock');
         }
 
         linea.cantidad = Math.floor(cantidad);
         render();
     }
 
-    function alerta(mensaje) {
-
+    function alerta(mensaje, tituloAviso) {
         var overlay = crear('div');
         overlay.id = 'fjModalAlertaDark';
         overlay.setAttribute('role', 'dialog');
         overlay.setAttribute('aria-modal', 'true');
         overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background-color:rgba(0,0,0,0.75);backdrop-filter:blur(3px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
 
-
         var tarjeta = crear('div');
         tarjeta.style.cssText = 'background-color:#1c2026;border:1px solid #2d333b;border-radius:14px;max-width:400px;width:100%;padding:28px 24px;text-align:center;box-shadow:0 20px 45px rgba(0,0,0,0.7);box-sizing:border-box;';
-
 
         var iconoBox = crear('div');
         iconoBox.style.cssText = 'width:50px;height:50px;border-radius:12px;background-color:rgba(239,68,68,0.12);border:1.5px solid #FFC824;color:#FFC824;display:flex;align-items:center;justify-content:center;margin:0 auto 16px auto;';
@@ -348,14 +343,11 @@
         svg.appendChild(linea2);
         iconoBox.appendChild(svg);
 
-
-        var titulo = crear('h3', null, 'Límite de stock');
+        var titulo = crear('h3', null, tituloAviso || 'Límite de stock');
         titulo.style.cssText = 'color:#ffffff;font-size:1.18rem;font-weight:700;margin:0 0 8px 0;letter-spacing:-0.01em;';
-
 
         var desc = crear('p', null, mensaje);
         desc.style.cssText = 'color:#9ca3af;font-size:0.94rem;line-height:1.5;margin:0 0 24px 0;word-break:break-word;';
-
 
         var btnCerrar = crear('button', null, 'Entendido');
         btnCerrar.type = 'button';
@@ -379,7 +371,6 @@
         overlay.addEventListener('click', function (e) {
             if (e.target === overlay) cerrarModal();
         });
-
 
         tarjeta.appendChild(iconoBox);
         tarjeta.appendChild(titulo);
@@ -496,15 +487,20 @@
     // ---------- Totales ----------
 
     function recalcularTotales() {
-        var subtotal = lineas.reduce(function (suma, l) {
+        var total = lineas.reduce(function (suma, l) {
             return suma + redondear(l.precio * l.cantidad);
         }, 0);
-        var total = redondear(subtotal);
+        total = redondear(total);
 
-        document.getElementById('totalSubtotal').textContent = dinero(subtotal);
-        document.getElementById('totalFinal').textContent = dinero(total);
+        // Actualizar subtotal solo si el elemento existe en el HTML
+        var elSubtotal = document.getElementById('totalSubtotal');
+        if (elSubtotal) elSubtotal.textContent = dinero(total);
 
-        return { subtotal: subtotal, total: total };
+        // Total principal
+        var elTotal = document.getElementById('totalFinal');
+        if (elTotal) elTotal.textContent = dinero(total);
+
+        return { subtotal: total, total: total };
     }
 
     // ---------- Botón Registrar ----------
@@ -526,6 +522,58 @@
         }
     }
 
+    // ---------- Registro de la venta (AJAX) ----------
+
+    function reiniciarVenta() {
+        lineas = [];
+        render();   // vacía la tabla y los campos ocultos, y recalcula totales
+        clienteId.value = '0';
+        clienteNombre.value = '';
+        clienteSeleccionado.replaceChildren();
+        clienteSeleccionado.hidden = true;
+        inputCliente.value = '';
+        actualizarBotonRegistrar();
+    }
+
+    function registrarVenta() {
+        if (!urlRegistrarAjax) {
+            alerta('Falta la dirección de registro en la página (data-url-registrar-ajax).',
+                'No se pudo registrar');
+            return;
+        }
+
+        marcandoEnvio(true);
+
+        // La pestaña se abre ahora, dentro del clic del usuario, para que el
+        // navegador no la bloquee. Al responder el servidor se le asigna el PDF.
+        var ventana = window.open('', '_blank');
+        if (ventana) {
+            try { ventana.document.title = 'Generando comprobante…'; } catch (e) { }
+        }
+
+        fetch(urlRegistrarAjax, {
+            method: 'POST',
+            body: new FormData(form),
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' }
+        }).then(leerJson).then(function (respuesta) {
+            reiniciarVenta();
+
+            if (ventana) {
+                ventana.location.href = respuesta.urlPdf;
+            } else {
+                // Pestaña bloqueada: la venta ya está guardada, se abre el PDF aquí.
+                window.location.href = respuesta.urlPdf;
+            }
+        }).catch(function (error) {
+            if (ventana) ventana.close();
+            alerta(error.message || 'No se pudo registrar la venta.', 'No se pudo registrar');
+        }).finally(function () {
+            marcandoEnvio(false);
+            actualizarBotonRegistrar();
+        });
+    }
+
     // ---------- Confirmación ----------
 
     var modal = document.getElementById('ventaConfirmModal');
@@ -535,8 +583,7 @@
     function abrirModal(texto) {
         if (!modal) {
             if (window.confirm(texto)) {
-                marcandoEnvio(true);
-                form.submit();
+                registrarVenta();
             }
             return;
         }
@@ -558,12 +605,12 @@
         if (botonRegistrar.disabled) return;
 
         if (!lineas.length) {
-            alerta('Agregue al menos un producto antes de registrar la venta.');
+            alerta('Agregue al menos un producto antes de registrar la venta.', 'Atención');
             return;
         }
 
         if (parseInt(clienteId.value, 10) <= 0) {
-            alerta('Debe seleccionar un cliente.');
+            alerta('Debe seleccionar un cliente.', 'Atención');
             inputCliente.focus();
             return;
         }
@@ -577,8 +624,7 @@
     if (botonOk) {
         botonOk.addEventListener('click', function () {
             cerrarModal();
-            marcandoEnvio(true);
-            form.submit();
+            registrarVenta();
         });
     }
 
@@ -634,13 +680,11 @@
         });
     }
 
-        function mostrarErrorCliente(mensaje) {
+    function mostrarErrorCliente(mensaje) {
         errorCliente.replaceChildren(crear('span', null, mensaje));
         errorCliente.hidden = false;
     }
 
-    // Reglas espejo de las del servidor (ClienteValidador). El servidor
-    // vuelve a validar siempre: esto solo evita viajes innecesarios.
     var campoCliente = {
         Ci: 'nuevoClienteCi',
         Nombre: 'nuevoClienteNombre',
@@ -649,7 +693,14 @@
     };
     var formatoNombre = /^\p{L}[\p{L}\s.,'\-&()]*$/u;
     var formatoTelefono = /^[5-8][0-9]{7}$/;
-    var formatoCi = /^[0-9]{6,8}$/;
+    var formatoCi = /^[0-9]{6,8}(-[0-9][A-Z])?$/;
+
+    var inputCi = document.getElementById('nuevoClienteCi');
+    if (inputCi) {
+        inputCi.addEventListener('input', function () {
+            inputCi.value = inputCi.value.toUpperCase().replace(/[^0-9A-Z-]/g, '');
+        });
+    }
 
     function limpiarErroresCliente() {
         errorCliente.hidden = true;
@@ -685,11 +736,11 @@
         var errores = {};
         var nombre = datos.nombre.trim();
         var apellido = datos.apellido.trim();
-        var ci = datos.ci.replace(/[\s-]/g, '');
+        var ci = datos.ci.replace(/\s/g, '').toUpperCase();
         var telefono = datos.telefono.trim();
 
         if (!ci) errores.Ci = 'El CI del cliente es obligatorio.';
-        else if (!formatoCi.test(ci)) errores.Ci = 'El CI debe tener entre 6 y 8 dígitos.';
+        else if (!formatoCi.test(ci)) errores.Ci = 'El CI debe tener de 6 a 8 dígitos y, si tiene complemento, un guion con un dígito y una letra (ej: 1234567-1A).';
 
         if (!nombre) errores.Nombre = 'Los nombres del cliente son obligatorios.';
         else if (nombre.length > 100 || !formatoNombre.test(nombre))
@@ -706,7 +757,6 @@
         return errores;
     }
 
-    // Al reabrir el modal no deben quedar errores de un intento anterior.
     if (btnNuevoCliente) {
         btnNuevoCliente.addEventListener('click', limpiarErroresCliente);
     }
@@ -743,8 +793,6 @@
                     return;
                 }
 
-                // El cliente queda seleccionado y las líneas de la venta
-                // se conservan porque nunca se recargó la página.
                 mostrarCliente({
                     ci: respuesta.ci,
                     id: respuesta.id,

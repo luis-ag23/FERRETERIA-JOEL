@@ -17,12 +17,11 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         public const string CampoCi = "Ci";
 
         private static readonly Regex FormatoCi = new(
-            $"^[0-9]{{{ConfiguracionCliente.CiMinLength},{ConfiguracionCliente.CiMaxLength}}}$",
+            $"^[0-9]{{{ConfiguracionCliente.CiBaseMinLength},{ConfiguracionCliente.CiBaseMaxLength}}}(-[0-9][A-Z])?$",
             RegexOptions.Compiled);
 
-        private static readonly string MensajeCi =
-            $"El CI debe tener entre {ConfiguracionCliente.CiMinLength} y {ConfiguracionCliente.CiMaxLength} dígitos.";
-
+        private const string MensajeCi =
+            "El CI debe tener de 6 a 8 dígitos y, si tiene complemento, un guion con un dígito y una letra (ej: 1234567-1A).";
         private static readonly string MensajeNombre =
             $"Los nombres solo admiten letras y espacios (máximo {ConfiguracionCredenciales.NombreMaxLength} caracteres).";
 

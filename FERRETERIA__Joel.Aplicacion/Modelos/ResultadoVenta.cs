@@ -15,7 +15,6 @@ namespace FERRETERIA__Joel.Aplicacion.Modelos
         /// Verdadero cuando el resultado proviene de un reenvío con la
         /// misma clave de idempotencia (no se creó una nueva venta).
         /// </summary>
-        public bool Idempotente { get; private init; }
 
         public string Mensaje { get; private init; } = string.Empty;
 
@@ -45,10 +44,9 @@ namespace FERRETERIA__Joel.Aplicacion.Modelos
 
         public static ResultadoVenta Correcto(
             Venta venta,
-            IEnumerable<LineaVentaDetalle> detalles,
-            bool idempotente = false)
+            IEnumerable<LineaVentaDetalle> detalles)
         {
-            return Construir(venta, detalles, idempotente);
+            return Construir(venta, detalles);
         }
 
         public static ResultadoVenta Fallido(string mensaje)
@@ -62,16 +60,12 @@ namespace FERRETERIA__Joel.Aplicacion.Modelos
 
         private static ResultadoVenta Construir(
             Venta venta,
-            IEnumerable<LineaVentaDetalle> detalles,
-            bool idempotente)
+            IEnumerable<LineaVentaDetalle> detalles)
         {
             return new ResultadoVenta
             {
                 Exito = true,
-                Idempotente = idempotente,
-                Mensaje = idempotente
-                    ? "La venta ya había sido registrada con esta clave."
-                    : "Venta registrada correctamente.",
+                Mensaje = "Venta registrada correctamente.",
                 IdVenta = venta.IdVenta,
                 CodigoVenta = venta.CodigoVenta,
                 IdCliente = venta.IdCliente,

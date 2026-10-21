@@ -77,7 +77,7 @@
                 </div>
                 <div>
                     <dt>Generado por</dt>
-                    <dd>@FERRETERIA__Joel.Dominio.Utilidades.Siglas.De(Model.Comprobante.NombreEmpleadoResponsable)</dd>
+                    <dd>@FERRETERIA__Joel.Dominio.Utilidades.NombreAbreviado.De(Model.Comprobante.NombreEmpleadoResponsable)</dd>
                 </div>
                 <div>
                     <dt>Fecha de emisión</dt>
@@ -134,7 +134,7 @@
                         @venta.FechaAnulacion?.ToString("dd/MM/yyyy HH:mm")
                         @if (!string.IsNullOrWhiteSpace(Model.Comprobante.NombreEmpleadoAnulacion))
                         {
-                            @:por @FERRETERIA__Joel.Dominio.Utilidades.Siglas.De(Model.Comprobante.NombreEmpleadoAnulacion)
+                            @:por @FERRETERIA__Joel.Dominio.Utilidades.NombreAbreviado.De(Model.Comprobante.NombreEmpleadoAnulacion)
                         }
                     </span>
                 </div>

@@ -71,29 +71,33 @@
         }).then(function (v) {
             if (!v || !v.lineas) return;
 
-            codigoEl.textContent = v.codigoVenta;
-            clienteEl.textContent = boton.getAttribute('data-cliente') || '';
-            fechaEl.textContent = new Date(v.fecha).toLocaleString('es-BO');
-            pagoEl.textContent = v.estadoPago + ' · ' + v.metodoPago;
+            if (codigoEl) codigoEl.textContent = v.codigoVenta;
+            if (clienteEl) clienteEl.textContent = boton.getAttribute('data-cliente') || '';
+            if (fechaEl) fechaEl.textContent = new Date(v.fecha).toLocaleString('es-BO');
+            if (pagoEl) pagoEl.textContent = v.estadoPago + ' · ' + v.metodoPago;
 
-            lineasEl.replaceChildren();
-            v.lineas.forEach(function (l) {
-                var tr = crear('tr');
-                tr.appendChild(celdaProducto(l.nombre, l.codigo));
-                tr.appendChild(crear('td', 'fj-td-cantidad', String(l.cantidad)));
-                tr.appendChild(crear('td', 'fj-td-precio', dinero(l.precio)));
-                tr.appendChild(crear('td', 'fj-td-precio', dinero(l.total)));
-                lineasEl.appendChild(tr);
-            });
+            if (lineasEl) {
+                lineasEl.replaceChildren();
+                v.lineas.forEach(function (l) {
+                    var tr = crear('tr');
+                    tr.appendChild(celdaProducto(l.nombre, l.codigo));
+                    tr.appendChild(crear('td', 'fj-td-cantidad', String(l.cantidad)));
+                    tr.appendChild(crear('td', 'fj-td-precio', dinero(l.precio)));
+                    tr.appendChild(crear('td', 'fj-td-precio', dinero(l.total)));
+                    lineasEl.appendChild(tr);
+                });
+            }
 
-            subtotalEl.textContent = dinero(v.subtotal);
-            totalEl.textContent = dinero(v.total);
+            if (subtotalEl) subtotalEl.textContent = dinero(v.subtotal);
+            if (totalEl) totalEl.textContent = dinero(v.total);
 
-            if (v.estadoVenta === 'Anulada' && v.motivoAnulacion) {
-                motivoEl.hidden = false;
-                motivoEl.textContent = 'Motivo de anulación: ' + v.motivoAnulacion;
-            } else {
-                motivoEl.hidden = true;
+            if (motivoEl) {
+                if (v.estadoVenta === 'Anulada' && v.motivoAnulacion) {
+                    motivoEl.hidden = false;
+                    motivoEl.textContent = 'Motivo de anulación: ' + v.motivoAnulacion;
+                } else {
+                    motivoEl.hidden = true;
+                }
             }
 
             abrirModal(detalleModal);
@@ -105,7 +109,7 @@
     // ---------- Anulación con motivo ----------
 
     var anularModal = document.getElementById('ventasAnularModal');
-    var anularBtn = document.getElementById('ventasAnularId');
+    var anularInputId = document.getElementById('ventasAnularId');
     var anularContexto = document.getElementById('ventasAnularContexto');
     var anularMotivo = document.getElementById('ventasAnularMotivo');
     var anularError = document.getElementById('ventasAnularError');
@@ -117,25 +121,33 @@
 
         e.preventDefault();
 
-        anularBtn.value = boton.getAttribute('data-id');
-        anularContexto.textContent =
-            '¿Anular la venta ' + boton.getAttribute('data-codigo') +
-            '? El stock de los productos será restaurado.';
-        anularMotivo.value = '';
-        anularError.hidden = true;
+        var id = boton.getAttribute('data-id');
+        var codigo = boton.getAttribute('data-codigo');
+
+        if (anularInputId) anularInputId.value = id;
+        if (anularContexto) {
+            anularContexto.textContent =
+                '¿Anular la venta ' + (codigo || '') +
+                '? El stock de los productos será restaurado.';
+        }
+        if (anularMotivo) anularMotivo.value = '';
+        if (anularError) anularError.hidden = true;
+
         abrirModal(anularModal);
-        anularMotivo.focus();
+        if (anularMotivo) anularMotivo.focus();
     });
 
-    anularForm.addEventListener('submit', function (event) {
-        if (!anularMotivo.value.trim()) {
-            event.preventDefault();
-            anularError.hidden = false;
-            anularMotivo.focus();
-            return;
-        }
-        cerrarModales();
-    });
+    if (anularForm) {
+        anularForm.addEventListener('submit', function (event) {
+            if (!anularMotivo || !anularMotivo.value.trim()) {
+                event.preventDefault();
+                if (anularError) anularError.hidden = false;
+                if (anularMotivo) anularMotivo.focus();
+                return;
+            }
+            cerrarModales();
+        });
+    }
 
     // ---------- Cierre de modales ----------
 
@@ -147,6 +159,3 @@
     });
 
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') cerrarModales();
-    });
-})();

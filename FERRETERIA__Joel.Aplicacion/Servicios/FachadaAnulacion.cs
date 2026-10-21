@@ -25,14 +25,17 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         private readonly IUnidadDeTrabajo _unidadDeTrabajo;
         private readonly IContextoUsuario _contextoUsuario;
         private readonly FachadaActualizacionStock _stock;
-
+        private readonly MySqlProductoRepository _productos;
+        private readonly MySqlCategoriaRepository _categorias;
         public FachadaAnulacion(
             MySqlVentaRepository ventas,
             MySqlDetalleVentaRepository detalles,
             ServicioCliente servicioCliente,
             IUnidadDeTrabajo unidadDeTrabajo,
             IContextoUsuario contextoUsuario,
-            FachadaActualizacionStock stock)
+            FachadaActualizacionStock stock,
+            MySqlProductoRepository productos,
+            MySqlCategoriaRepository categorias)
         {
             _ventas = ventas;
             _detalles = detalles;
@@ -40,6 +43,8 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             _unidadDeTrabajo = unidadDeTrabajo;
             _contextoUsuario = contextoUsuario;
             _stock = stock;
+            _productos = productos;
+            _categorias = categorias;
         }
 
         // ---------- Consulta (Select / historial) ----------
@@ -90,78 +95,82 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                     await _detalles.ObtenerPorVentaAsync(idVenta)));
         }
 
-        // ---------- Anulación (borrado lógico + reposición de stock) ----------
+        // ---------- Anulación (borrado lógico + reposición de stock + reversión de categorías) ----------
 
         public async Task<ResultadoVenta> AnularVentaAsync(int idVenta, string motivo)
         {
+            if (idVenta <= 0)
+            {
+                return ResultadoVenta.Fallido("El identificador de la venta no es válido.");
+            }
+
             if (string.IsNullOrWhiteSpace(motivo))
             {
-                return ResultadoVenta.Fallido(
-                    "Debe indicar el motivo de la anulación.");
+                return ResultadoVenta.Fallido("Debe indicar el motivo de la anulación.");
             }
 
             int idEmpleado = _contextoUsuario.IdEmpleado;
-
             if (idEmpleado <= 0)
             {
-                return ResultadoVenta.Fallido(
-                    "Debe iniciar sesión para anular la venta.");
+                return ResultadoVenta.Fallido("Debe iniciar sesión para anular la venta.");
             }
+
+            Venta? venta = await _ventas.ObtenerPorIdAsync(idVenta);
+            if (venta is null)
+            {
+                return ResultadoVenta.Fallido("La venta no existe.");
+            }
+
+            if (venta.EstadoVenta != EstadoVenta.Registrada)
+            {
+                return ResultadoVenta.Fallido("La venta ya ha sido anulada anteriormente.");
+            }
+
+            List<DetalleVenta> detalles = await _detalles.ObtenerPorVentaAsync(idVenta);
 
             await _unidadDeTrabajo.IniciarAsync();
 
             try
             {
-                Venta? venta = await _ventas.ObtenerPorIdAsync(idVenta);
-
-                if (venta is null)
-                {
-                    await _unidadDeTrabajo.RevertirAsync();
-                    return ResultadoVenta.Fallido("La venta no existe.");
-                }
-
-                if (!string.Equals(
-                        venta.EstadoVenta,
-                        EstadoVenta.Registrada,
-                        StringComparison.Ordinal))
-                {
-                    await _unidadDeTrabajo.RevertirAsync();
-                    return ResultadoVenta.Fallido(
-                        "Solo se pueden anular ventas en estado 'Registrada'.");
-                }
-
-                List<DetalleVenta> detalles =
-                    await _detalles.ObtenerPorVentaAsync(idVenta);
-
+                // 1. Marcar la venta como anulada en la BD
                 if (!await _ventas.MarcarAnuladaAsync(idVenta, idEmpleado, motivo.Trim()))
                 {
                     await _unidadDeTrabajo.RevertirAsync();
                     return ResultadoVenta.Fallido(
-                        "No se pudo anular la venta; pudo haber sido " +
-                        "anulada por otra sesión.");
+                        "No se pudo anular la venta; pudo haber sido anulada por otra sesión.");
                 }
 
-                // detalle_venta NO se toca: se usa para restaurar el stock.
+                // 2. Reponer existencias al inventario
                 foreach (DetalleVenta detalle in detalles)
                 {
                     await _stock.ReponerAsync(detalle.IdProducto, detalle.Cantidad);
                 }
 
+                // 3. PRIMERO CONFIRMAR LA ANULACIÓN Y LA REPOSICIÓN
                 await _unidadDeTrabajo.ConfirmarAsync();
-
-                Venta actualizada =
-                    await _ventas.ObtenerPorIdAsync(idVenta) ?? venta;
-
-                return ResultadoVenta.Correcto(
-                    actualizada,
-                    await _stock.MapearLineasAsync(detalles));
             }
             catch (Exception)
             {
                 await _unidadDeTrabajo.RevertirAsync();
-                return ResultadoVenta.Fallido(
-                    "No se pudo anular la venta. Intente nuevamente.");
+                return ResultadoVenta.Fallido("Error al procesar la anulación en la base de datos.");
             }
+
+            // 4. DESPUÉS DE CONFIRMAR, SE RECALCULAN LOS PORCENTAJES DE LAS CATEGORÍAS
+            // Al estar fuera de la transacción, ya no genera ningún deadlock en MySQL
+            try
+            {
+                await _categorias.IncrementarPorcentajeGananciaAsync();
+            }
+            catch
+            {
+                // El recálculo auxiliar no debe impedir que la anulación se considere exitosa
+            }
+
+            Venta actualizada = await _ventas.ObtenerPorIdAsync(idVenta) ?? venta;
+            List<LineaVentaDetalle> lineas = await _stock.MapearLineasAsync(detalles);
+
+            return ResultadoVenta.Correcto(actualizada, lineas);
         }
+
     }
 }

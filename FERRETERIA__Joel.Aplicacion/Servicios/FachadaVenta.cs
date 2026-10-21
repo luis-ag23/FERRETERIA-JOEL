@@ -11,7 +11,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
     /// Fachada (Facade) del proceso de REGISTRO de venta. Presenta una
     /// única interfaz de alto nivel a la pantalla de venta, coordinando
     /// clientes, el subsistema de stock (<see cref="FachadaActualizacionStock"/>),
-    /// la cabecera/detalle de la venta, la unidad de trabajo (transacción)
+    /// la cabecera/detalle de la venta, la unidad de trabajo (transacción).
     ///
     /// La pantalla de venta NO conoce repositorios, transacciones ni
     /// políticas: solo consume esta fachada. A su vez, esta fachada
@@ -28,6 +28,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         private readonly IContextoUsuario _contextoUsuario;
         private readonly FachadaActualizacionStock _stock;
         private readonly ServicioCliente _servicioCliente;
+        private readonly MySqlCategoriaRepository _categorias;
 
         private IRepository<Empleado>? _empleados;
 
@@ -38,7 +39,8 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             IUnidadDeTrabajo unidadDeTrabajo,
             IContextoUsuario contextoUsuario,
             FachadaActualizacionStock stock,
-            ServicioCliente servicioCliente)
+            ServicioCliente servicioCliente,
+            MySqlCategoriaRepository categorias)
         {
             _ventas = ventas;
             _detalles = detalles;
@@ -47,6 +49,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             _contextoUsuario = contextoUsuario;
             _stock = stock;
             _servicioCliente = servicioCliente;
+            _categorias = categorias;
         }
 
         private IRepository<Empleado> Empleados =>
@@ -140,15 +143,13 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 CantidadStock = producto.CantidadStock
             }, null);
         }
-
         public ResumenVenta CalcularResumen(IEnumerable<LineaVentaDetalle> lineas)
         {
-            decimal subtotal = lineas.Sum(l => l.TotalProducto);
+            decimal total = lineas.Sum(l => l.TotalProducto);
 
             return new ResumenVenta
             {
-                Subtotal = subtotal,
-                MontoTotal = Math.Round(subtotal, 2)
+                MontoTotal = Math.Round(total, 2)
             };
         }
 
@@ -204,18 +205,12 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                         : linea.Cantidad;
             }
 
-            string? clave = string.IsNullOrWhiteSpace(solicitud.ClaveIdempotencia)
-                ? null
-                : solicitud.ClaveIdempotencia.Trim();
-
             string metodoPago = solicitud.MetodoPago.Trim();
             string estadoPago = string.IsNullOrWhiteSpace(solicitud.EstadoPago)
                 ? EstadoPago.Pagado
                 : solicitud.EstadoPago.Trim();
 
-            // Por ahora solo se registran ventas pagadas. Se rechaza
-            // cualquier estado distinto para que una solicitud
-            // manipulada no pueda fijar Pendiente/Parcial.
+            // Por ahora solo se registran ventas pagadas.
             if (!string.Equals(
                     estadoPago,
                     EstadoPago.Pagado,
@@ -229,22 +224,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
             try
             {
-                if (clave is not null)
-                {
-                    Venta? existente =
-                        await _ventas.ObtenerPorClaveIdempotenciaAsync(clave);
-
-                    if (existente is not null)
-                    {
-                        await _unidadDeTrabajo.ConfirmarAsync();
-                        return ArmarResultado(
-                            existente,
-                            await _stock.MapearLineasAsync(
-                                await _detalles.ObtenerPorVentaAsync(existente.IdVenta)),
-                            idempotente: true);
-                    }
-                }
-
                 Cliente? cliente =
                     await _servicioCliente.ObtenerPorIdAsync(solicitud.IdCliente);
 
@@ -283,8 +262,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                     {
                         await _unidadDeTrabajo.RevertirAsync();
                         return ResultadoVenta.Fallido(
-                            $"No se pudo descontar el stock de " +
-                            $"'{producto.Nombre}'.");
+                            $"No se pudo descontar el stock de '{producto.Nombre}'.");
                     }
 
                     decimal totalProducto =
@@ -322,7 +300,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                     EstadoPago = estadoPago,
                     Subtotal = subtotal,
                     MontoTotal = Math.Round(subtotal, 2),
-                    ClaveIdempotencia = clave,
                     IdEmpleadoResponsable = idEmpleado
                 };
 
@@ -337,32 +314,23 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
                 await _unidadDeTrabajo.ConfirmarAsync();
 
+                try
+                {
+                    await _categorias.IncrementarPorcentajeGananciaAsync();
+                }
+                catch
+                {
+                    // El recálculo auxiliar no debe anular una venta ya confirmada
+                }
+
                 Venta guardada =
                     await _ventas.ObtenerPorIdAsync(idVenta) ?? venta;
 
-                return ArmarResultado(
-                    guardada,
-                    lineasCalculadas,
-                    idempotente: false);
+                return ResultadoVenta.Correcto(guardada, lineasCalculadas);
             }
             catch (Exception)
             {
                 await _unidadDeTrabajo.RevertirAsync();
-
-                if (clave is not null)
-                {
-                    Venta? existente =
-                        await _ventas.ObtenerPorClaveIdempotenciaAsync(clave);
-
-                    if (existente is not null)
-                    {
-                        return ArmarResultado(
-                            existente,
-                            await _stock.MapearLineasAsync(
-                                await _detalles.ObtenerPorVentaAsync(existente.IdVenta)),
-                            idempotente: true);
-                    }
-                }
 
                 return ResultadoVenta.Fallido(
                     "No se pudo registrar la venta. Intente nuevamente.");
@@ -411,14 +379,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             return empleado is null
                 ? $"Empleado #{idEmpleado}"
                 : $"{empleado.Nombre} {empleado.Apellido}".Trim();
-        }
-
-        private static ResultadoVenta ArmarResultado(
-            Venta venta,
-            List<LineaVentaDetalle> detalles,
-            bool idempotente)
-        {
-            return ResultadoVenta.Correcto(venta, detalles, idempotente);
         }
     }
 }

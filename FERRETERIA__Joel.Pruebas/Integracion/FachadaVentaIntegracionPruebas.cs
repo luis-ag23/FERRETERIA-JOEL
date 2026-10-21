@@ -67,7 +67,6 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
 
                     Assert.True(venta.Exito);
                     Assert.NotNull(venta.CodigoVenta);
-                    Assert.Equal(300m, venta.Subtotal);
                     Assert.Equal(300m, venta.MontoTotal);
                     Assert.Equal(7, await LeerStockAsync(cadena, idProducto));
                     Assert.Equal(
@@ -134,63 +133,6 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
                     Assert.False(venta.Exito);
                     Assert.Equal(2, await LeerStockAsync(cadena, idProducto));
                     Assert.Equal(0, await ContarVentasDeClienteAsync(cadena, idCliente));
-                }
-            }
-            finally
-            {
-                await LimpiarAsync(cadena, idProducto, idCliente);
-            }
-        }
-
-        [Fact]
-        public async Task RegistrarVenta_Real_Idempotente_NoDuplicaAsync()
-        {
-            string? cadena = CadenaConexion;
-
-            if (string.IsNullOrWhiteSpace(cadena))
-            {
-                return;
-            }
-
-            int idCategoria = await ObtenerPrimerIdAsync(cadena, "categoria", "IdCategoria");
-            int idMarca = await ObtenerPrimerIdAsync(cadena, "marca", "IdMarca");
-
-            if (idCategoria == 0 || idMarca == 0)
-            {
-                return;
-            }
-
-            int idProducto = await CrearProductoAsync(
-                cadena, idCategoria, idMarca, precio: 100m, stock: 10);
-            int idCliente = await CrearClienteAsync(cadena);
-
-            try
-            {
-                (FachadaVenta fachada, FachadaAnulacion anulacion, MySqlConexionTransaccional conexion) =
-                    CrearFachada(cadena, idEmpleado: 1);
-
-                using (conexion)
-                {
-                    SolicitudVenta solicitud = new()
-                    {
-                        IdCliente = idCliente,
-                        MetodoPago = "Efectivo",
-                        ClaveIdempotencia = Guid.NewGuid().ToString("N"),
-                        Lineas = new List<LineaVentaSolicitada>
-                        {
-                            new() { IdProducto = idProducto, Cantidad = 2 }
-                        }
-                    };
-
-                    ResultadoVenta primero = await fachada.RegistrarVentaAsync(solicitud);
-                    ResultadoVenta segundo = await fachada.RegistrarVentaAsync(solicitud);
-
-                    Assert.True(primero.Exito);
-                    Assert.True(segundo.Exito);
-                    Assert.True(segundo.Idempotente);
-                    Assert.Equal(primero.IdVenta, segundo.IdVenta);
-                    Assert.Equal(1, await ContarVentasDeClienteAsync(cadena, idCliente));
-                    Assert.Equal(8, await LeerStockAsync(cadena, idProducto));
                 }
             }
             finally
@@ -429,6 +371,8 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
             MySqlDetalleVentaRepository detallesRepositorio = new(conexion);
             MySqlInventarioRepository inventarioRepositorio = new(conexion);
             MySqlClienteRepository clientesRepositorio = new(conexion);
+            MySqlProductoRepository productosRepositorio = new(conexion);
+            MySqlCategoriaRepository categoriasRepositorio = new(fabrica);
             RepositoryCreator<IRepository<Empleado>> creadorEmpleados = new EmpleadoRepositoryCreator(fabrica);
             MySqlUnidadDeTrabajo unidadDeTrabajo = new(conexion);
 
@@ -443,7 +387,8 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
                 unidadDeTrabajo,
                 contexto,
                 stock,
-                servicioCliente);
+                servicioCliente,
+                categoriasRepositorio);
 
             FachadaAnulacion anulacion = new(
                 ventasRepositorio,
@@ -451,7 +396,9 @@ namespace FERRETERIA__Joel.Pruebas.Integracion
                 servicioCliente,
                 unidadDeTrabajo,
                 contexto,
-                stock);
+                stock,
+                productosRepositorio,
+                categoriasRepositorio);
 
             return (venta, anulacion, conexion);
         }

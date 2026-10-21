@@ -2,7 +2,6 @@ using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
 using FERRETERIA__Joel.Infraestructura.Conexion;
-using FERRETERIA__Joel.Infraestructura.Servicios;
 using MySql.Data.MySqlClient;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
@@ -10,7 +9,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
     /// <summary>
     /// Repositorio de ventas. Implementa el contrato genérico
     /// <see cref="IRepository{T}"/> y expone las operaciones propias del flujo
-    /// de venta (folios, idempotencia y anulación) como métodos concretos que
+    /// de venta (folios, y anulación) como métodos concretos que
     /// se inyectan directamente por DI. Participa de la transacción ambiente.
     /// </summary>
     public class MySqlVentaRepository : IRepository<Venta>
@@ -24,7 +23,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             EstadoPago,
             MontoTotal,
             Subtotal,
-            ClaveIdempotencia,
             FechaRegistro,
             FechaActualizacion,
             FechaAnulacion,
@@ -33,12 +31,10 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             IdEmpleadoResponsable";
 
         private readonly IConexionTransaccional _conexion;
-        private readonly RedisCacheHelper? _cache;
 
-        public MySqlVentaRepository(IConexionTransaccional conexion, RedisCacheHelper? cache = null)
+        public MySqlVentaRepository(IConexionTransaccional conexion)
         {
             _conexion = conexion;
-            _cache = cache;
         }
 
         private async Task<MySqlCommand> CrearComandoAsync(string query)
@@ -57,14 +53,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
         public virtual async Task<List<Venta>> ObtenerTodosAsync()
         {
-            const string cacheKey = "cache:select:ventas:todos";
-            if (_cache != null)
-            {
-                var cached = await _cache.GetAsync<List<Venta>>(cacheKey);
-                if (cached != null)
-                    return cached;
-            }
-
             List<Venta> ventas = new();
 
             string query = $@"
@@ -81,9 +69,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 ventas.Add(MapearVenta(reader));
             }
 
-            if (_cache != null)
-                await _cache.SetAsync(cacheKey, ventas, TimeSpan.FromMinutes(5));
-
             return ventas;
         }
 
@@ -98,7 +83,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     EstadoPago,
                     MontoTotal,
                     Subtotal,
-                    ClaveIdempotencia,
                     IdEmpleadoResponsable
                 )
                 VALUES
@@ -109,7 +93,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     @estadoPago,
                     @montoTotal,
                     @subtotal,
-                    @claveIdempotencia,
                     @idEmpleadoResponsable
                 )";
 
@@ -121,19 +104,13 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.Parameters.AddWithValue("@estadoPago", venta.EstadoPago);
             command.Parameters.AddWithValue("@montoTotal", venta.MontoTotal);
             command.Parameters.AddWithValue("@subtotal", venta.Subtotal);
-            command.Parameters.AddWithValue(
-                "@claveIdempotencia",
-                (object?)venta.ClaveIdempotencia ?? DBNull.Value);
+
             command.Parameters.AddWithValue(
                 "@idEmpleadoResponsable",
                 venta.IdEmpleadoResponsable);
 
             await command.ExecuteNonQueryAsync();
-            if (_cache != null)
-            {
-                await _cache.RemoveByPatternAsync("cache:select:ventas:*");
-                await _cache.RemoveByPatternAsync("cache:select:productos:*");
-            }
+
             return Convert.ToInt32(command.LastInsertedId);
         }
 
@@ -155,8 +132,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.Parameters.AddWithValue("@idVenta", idVenta);
 
             await command.ExecuteNonQueryAsync();
-            if (_cache != null)
-                await _cache.RemoveByPatternAsync("cache:select:ventas:*");
         }
 
         public virtual async Task<Venta?> ObtenerPorIdAsync(int idVenta)
@@ -176,39 +151,25 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return await reader.ReadAsync() ? MapearVenta(reader) : null;
         }
 
-        public virtual async Task<Venta?> ObtenerPorClaveIdempotenciaAsync(
-            string claveIdempotencia)
-        {
-            string query = $@"
-                SELECT {Columnas}
-                FROM venta
-                WHERE ClaveIdempotencia = @clave
-                LIMIT 1";
-
-            using MySqlCommand command = await CrearComandoAsync(query);
-
-            command.Parameters.AddWithValue("@clave", claveIdempotencia);
-
-            using MySqlDataReader reader = (MySqlDataReader)await command.ExecuteReaderAsync();
-
-            return await reader.ReadAsync() ? MapearVenta(reader) : null;
-        }
-
         public virtual async Task<bool> MarcarAnuladaAsync(
             int idVenta,
             int idEmpleadoAnulacion,
             string motivo)
         {
             const string query = @"
-                UPDATE venta
-                SET
-                    EstadoVenta = @estadoAnulada,
-                    FechaAnulacion = CURRENT_TIMESTAMP,
-                    MotivoAnulacion = @motivo,
-                    IdEmpleadoAnulacion = @idEmpleadoAnulacion,
-                    FechaActualizacion = CURRENT_TIMESTAMP
-                WHERE IdVenta = @idVenta
-                  AND EstadoVenta = @estadoRegistrada";
+        UPDATE venta
+        SET
+            EstadoVenta = @estadoAnulada,
+            MontoTotal = 0.00,
+            Subtotal = 0.00,
+            MontoDescuento = 0.00,
+            PorcentajeDescuento = 0.00,
+            FechaAnulacion = CURRENT_TIMESTAMP,
+            MotivoAnulacion = @motivo,
+            IdEmpleadoAnulacion = @idEmpleadoAnulacion,
+            FechaActualizacion = CURRENT_TIMESTAMP
+        WHERE IdVenta = @idVenta
+          AND EstadoVenta = @estadoRegistrada";
 
             using MySqlCommand command = await CrearComandoAsync(query);
 
@@ -218,13 +179,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.Parameters.AddWithValue("@motivo", motivo);
             command.Parameters.AddWithValue("@idEmpleadoAnulacion", idEmpleadoAnulacion);
 
-            var result = await command.ExecuteNonQueryAsync() == 1;
-            if (_cache != null)
-            {
-                await _cache.RemoveByPatternAsync("cache:select:ventas:*");
-                await _cache.RemoveByPatternAsync("cache:select:productos:*");
-            }
-            return result;
+            return await command.ExecuteNonQueryAsync() == 1;
         }
 
         private static Venta MapearVenta(MySqlDataReader reader)
@@ -241,9 +196,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 EstadoPago = reader["EstadoPago"].ToString() ?? "",
                 MontoTotal = reader.GetDecimal("MontoTotal"),
                 Subtotal = reader.GetDecimal("Subtotal"),
-                ClaveIdempotencia = reader["ClaveIdempotencia"] == DBNull.Value
-                    ? null
-                    : reader["ClaveIdempotencia"].ToString(),
                 FechaRegistro = reader.GetDateTime("FechaRegistro"),
                 FechaActualizacion = reader["FechaActualizacion"] == DBNull.Value
                     ? null

@@ -3,6 +3,8 @@ using FERRETERIA__Joel.Aplicacion.Servicios;
 using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
+using FERRETERIA__Joel.Infraestructura.Conexion;
+using FERRETERIA__Joel.Infraestructura.Repositorios;
 using FERRETERIA__Joel.Pruebas.Compartido;
 
 namespace FERRETERIA__Joel.Pruebas.Servicios
@@ -64,6 +66,10 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
 
             ServicioCliente servicioCliente = new(clientesRepo, contexto);
 
+            // Dependencias de repositorio auxiliares requeridas por los constructores actualizados
+            MySqlCategoriaRepository categoriasRepo = new(null!);
+            MySqlProductoRepository productosRepo = new(null!);
+
             FachadaVenta fachada = new(
                 ventasRepo,
                 detallesRepo,
@@ -71,7 +77,8 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                 unidadDeTrabajo,
                 contexto,
                 stock,
-                servicioCliente);
+                servicioCliente,
+                categoriasRepo);
 
             FachadaAnulacion anulacion = new(
                 ventasRepo,
@@ -79,7 +86,9 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                 servicioCliente,
                 unidadDeTrabajo,
                 contexto,
-                stock);
+                stock,
+                productosRepo,
+                categoriasRepo);
 
             return new Escenario
             {
@@ -183,7 +192,6 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                 });
 
             Assert.True(resultado.Exito);
-            Assert.False(resultado.Idempotente);
             Assert.Equal(200m, resultado.Subtotal);
             Assert.Equal(200m, resultado.MontoTotal);
             Assert.Equal(8, escenario.Inventario.Stock(1));
@@ -215,33 +223,6 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
             Assert.Equal(0, escenario.Ventas.VecesInsertar);
             Assert.Equal(1, escenario.UnidadDeTrabajo.VecesRevertir);
             Assert.Equal(0, escenario.UnidadDeTrabajo.VecesConfirmar);
-        }
-
-        [Fact]
-        public async Task RegistrarVenta_Idempotente_NoDuplicaAsync()
-        {
-            Escenario escenario = CrearEscenario(CrearProducto(1, 100m, 10));
-
-            SolicitudVenta solicitud = new()
-            {
-                IdCliente = 1,
-                MetodoPago = "Efectivo",
-                ClaveIdempotencia = "clave-123",
-                Lineas = new List<LineaVentaSolicitada>
-                {
-                    new() { IdProducto = 1, Cantidad = 2 }
-                }
-            };
-
-            ResultadoVenta primero = await escenario.Fachada.RegistrarVentaAsync(solicitud);
-            ResultadoVenta segundo = await escenario.Fachada.RegistrarVentaAsync(solicitud);
-
-            Assert.True(primero.Exito);
-            Assert.True(segundo.Exito);
-            Assert.True(segundo.Idempotente);
-            Assert.Equal(primero.IdVenta, segundo.IdVenta);
-            Assert.Equal(1, escenario.Ventas.VecesInsertar);
-            Assert.Equal(8, escenario.Inventario.Stock(1));
         }
 
         [Fact]
@@ -384,7 +365,6 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
                     }
                 });
 
-            Assert.Equal(1200m, resumen.Subtotal);
             Assert.Equal(1200m, resumen.MontoTotal);
         }
 
