@@ -294,8 +294,18 @@
     font-weight: 400;
 }
 
+#nuevoClienteModal {
+    z-index: 2100;
+}
+
+#nuevoClienteIntro {
+    margin-bottom: 0;
+}
+
 .fj-modal-dialog-form {
     max-width: 30rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
 }
 
 .fj-modal-dialog-form .fj-form {
@@ -306,6 +316,7 @@
 
 .fj-modal-dialog-form .fj-modal-actions {
     justify-content: flex-end;
+    margin-top: 1.25rem;
 }
 
 /* ---------- Responsive ---------- */

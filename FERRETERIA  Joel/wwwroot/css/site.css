@@ -136,6 +136,13 @@ a {
     gap: 0.75rem;
 }
 
+.fj-header-atendido {
+    color: var(--texto-ter);
+    font-size: 0.68rem;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
 .fj-brand-mark {
     width: 2.25rem;
     height: 2.25rem;
@@ -2062,9 +2069,28 @@ header.fj-header + main.fj-main {
 }
 
 @media (max-width: 40rem) {
+    .fj-header {
+        height: auto;
+    }
+
     .fj-header-inner {
         padding: 0 1rem;
-        height: 3.625rem;
+        height: auto;
+        min-height: 3.625rem;
+    }
+
+    .fj-brand {
+        max-width: calc(100vw - 5rem);
+        flex-wrap: wrap;
+        column-gap: 0.5rem;
+        row-gap: 0.125rem;
+    }
+
+    .fj-header-atendido {
+        flex-basis: 100%;
+        font-size: 0.6rem;
+        line-height: 1.25;
+        white-space: normal;
     }
 
     .fj-brand-name {
@@ -2522,4 +2548,3 @@ body.fj-modal-open {
 .fj-password.is-visible .fj-password-toggle .fj-eye-off {
     display: block;
 }
-
