@@ -138,10 +138,13 @@
                                 <div class="fj-acciones">
 
                                     <a class="fj-btn fj-btn-edit fj-btn-icon"
-                                       asp-page="VentaComprobante"
-                                       asp-route-token="@UrlProtector.Cifrar(item.Venta.IdVenta.ToString())"
-                                       title="Ver comprobante"
-                                       aria-label="Ver comprobante de la venta">
+                                        asp-page="VentaComprobante"
+                                        asp-page-handler="Pdf"
+                                        asp-route-token="@UrlProtector.Cifrar(item.Venta.IdVenta.ToString())"
+                                        target="_blank"
+                                        rel="noopener"
+                                        title="Ver comprobante (PDF)"
+                                        aria-label="Ver comprobante de la venta en PDF">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z" /><path d="M14 13H8" /><path d="M16 9H8" /><path d="M10 17H8" /></svg>
                                     </a>
 

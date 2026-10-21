@@ -13,36 +13,14 @@
 <div class="fj-container fj-page-venta"
      id="ventaApp"
      data-url-clientes="@Url.Page("/Venta", "BuscarClientes")"
-     data-url-productos="@Url.Page("/Venta", "BuscarProductos")">
+     data-url-productos="@Url.Page("/Venta", "BuscarProductos")"
+     data-url-registrar-ajax="@Url.Page("/Venta", "RegistrarAjax")">
 
     <section class="fj-page-head">
         <p class="fj-eyebrow">Módulo · Ventas</p>
         <h1>Registrar venta</h1>
         <p class="fj-page-sub">Seleccione el cliente, agregue productos y confirme la venta.</p>
     </section>
-
-    @if (Model.VentaRegistrada is not null)
-    {
-        var tokenComprobante = FERRETERIA__Joel.Helpers.UrlProtector
-            .Cifrar(Model.VentaRegistrada.IdVenta.ToString());
-
-        <div class="fj-alert fj-alert-success venta-alerta-exito" role="status">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                <polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
-            <div class="venta-exito">
-                <strong>@Model.VentaRegistrada.Mensaje</strong>
-                <span>
-                    Comprobante <span class="fj-codigo">@Model.VentaRegistrada.CodigoVenta</span>
-                    · Total <strong>@Model.VentaRegistrada.MontoTotal.ToString("N2") Bs</strong>
-                </span>
-                <a class="fj-btn fj-btn-primary venta-exito-accion"
-                   asp-page="VentaComprobante"
-                   asp-route-token="@tokenComprobante">Ver comprobante</a>
-            </div>
-        </div>
-    }
 
     @if (Model.MensajeError is not null)
     {

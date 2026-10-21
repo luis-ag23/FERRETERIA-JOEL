@@ -1,6 +1,7 @@
 using FERRETERIA__Joel.Aplicacion.Modelos;
 using FERRETERIA__Joel.Aplicacion.Servicios;
 using FERRETERIA__Joel.Dominio.Constantes;
+using FERRETERIA__Joel.Helpers;  
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -174,6 +175,50 @@ namespace FERRETERIA__Joel.Pages
             IdCliente = 0;
             NombreCliente = null;
             return Page();
+        }
+
+        public async Task<IActionResult> OnPostRegistrarAjaxAsync()
+        {
+            ResultadoVenta resultado;
+            try
+            {
+                resultado = await _fachada.RegistrarVentaAsync(ConstruirSolicitud());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error no controlado al registrar la venta");
+                return StatusCode(503, new
+                {
+                    exito = false,
+                    mensaje = "No se pudo registrar la venta. Revise la conexión a MySQL o consulte al administrador."
+                });
+            }
+
+            if (!resultado.Exito)
+            {
+                return BadRequest(new { exito = false, mensaje = resultado.Mensaje });
+            }
+
+            string token = UrlProtector.Cifrar(resultado.IdVenta.ToString());
+
+            return new JsonResult(new
+            {
+                exito = true,
+                mensaje = resultado.Mensaje,
+                urlPdf = Url.Page("/VentaComprobante", "Pdf", new { token })
+            });
+        }
+
+        private SolicitudVenta ConstruirSolicitud()
+        {
+            // El estado del pago no se toma del cliente: lo fija el servidor.
+            return new SolicitudVenta
+            {
+                IdCliente = IdCliente,
+                MetodoPago = MetodoPago,
+                EstadoPago = EstadoPago.Pagado,
+                Lineas = Lineas
+            };
         }
 
     }
