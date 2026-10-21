@@ -122,11 +122,11 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             return Regex.Replace(telefono ?? string.Empty, @"[\s\-]", string.Empty);
         }
         
-        // Quita espacios y guiones: "1234 567" -> "1234567". No quita letras:
-        // si las hay, la validación debe rechazar el CI.
+        // Quita espacios y pasa a mayúsculas: "1234567 - 1a" -> "1234567-1A".
+        // No inventa el guion: sin él, "12345671A" no cumple el formato y se rechaza.
         private static string NormalizarCi(string? ci)
         {
-            return Regex.Replace(ci ?? string.Empty, @"[\s\-]", string.Empty);
+            return Regex.Replace(ci ?? string.Empty, @"\s", string.Empty).ToUpperInvariant();
         }
     }
 }

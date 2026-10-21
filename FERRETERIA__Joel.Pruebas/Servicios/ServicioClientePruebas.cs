@@ -85,6 +85,14 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
         [InlineData("12345", "Ana", "Mamani", "71112222", "Ci")]
         [InlineData("123456789", "Ana", "Mamani", "71112222", "Ci")]
         [InlineData("12A4567", "Ana", "Mamani", "71112222", "Ci")]
+        [InlineData("1234567-AA", "Ana", "Mamani", "71112222", "Ci")]
+        [InlineData("1234567-A1", "Ana", "Mamani", "71112222", "Ci")]
+        [InlineData("1234567-11", "Ana", "Mamani", "71112222", "Ci")]
+        [InlineData("1234567-1AB", "Ana", "Mamani", "71112222", "Ci")]
+        [InlineData("1234567-", "Ana", "Mamani", "71112222", "Ci")]
+        [InlineData("-1A", "Ana", "Mamani", "71112222", "Ci")]
+        [InlineData("1234567 1A", "Ana", "Mamani", "71112222", "Ci")]
+        [InlineData("12345-1A", "Ana", "Mamani", "71112222", "Ci")]
         public async Task Crear_ConFormatoInvalido_FallaConErrorPorCampoAsync(
             string ci,
             string nombre,
@@ -197,6 +205,41 @@ namespace FERRETERIA__Joel.Pruebas.Servicios
             });
 
             Assert.Empty(await _servicio.BuscarAsync("   "));
+        }
+
+        [Theory]
+        [InlineData("1234567", "1234567")]
+        [InlineData("1234567-1A", "1234567-1A")]
+        [InlineData("1234567-1a", "1234567-1A")]
+        [InlineData(" 1234567 - 1A ", "1234567-1A")]
+        [InlineData("1234 567", "1234567")]
+        public async Task Crear_ConCiValido_LoGuardaNormalizadoAsync(string entrada, string esperado)
+        {
+            var resultado = await _servicio.CrearAsync(entrada, "Ana", "Mamani", "71112222");
+
+            Assert.True(resultado.Exito);
+            Assert.Equal(esperado, resultado.Cliente!.Ci);
+        }
+
+        [Fact]
+        public async Task Crear_MismoNumeroConOtroComplemento_EsValidoAsync()
+        {
+            await _servicio.CrearAsync("1234567-1A", "Ana", "Mamani", "71112222");
+
+            var resultado = await _servicio.CrearAsync("1234567-1B", "Luis", "Quispe", "72223333");
+
+            Assert.True(resultado.Exito);
+        }
+
+        [Fact]
+        public async Task Crear_CiDuplicadoConOtraCapitalizacion_FallaAsync()
+        {
+            await _servicio.CrearAsync("1234567-1A", "Ana", "Mamani", "71112222");
+
+            var resultado = await _servicio.CrearAsync("1234567-1a", "Luis", "Quispe", "72223333");
+
+            Assert.False(resultado.Exito);
+            Assert.Contains("Ci", resultado.Errores.Keys);
         }
     }
 }

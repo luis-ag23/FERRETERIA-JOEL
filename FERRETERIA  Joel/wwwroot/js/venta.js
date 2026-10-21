@@ -697,7 +697,14 @@
     };
     var formatoNombre = /^\p{L}[\p{L}\s.,'\-&()]*$/u;
     var formatoTelefono = /^[5-8][0-9]{7}$/;
-    var formatoCi = /^[0-9]{6,8}$/;
+    var formatoCi = /^[0-9]{6,8}(-[0-9][A-Z])?$/;
+
+    var inputCi = document.getElementById('nuevoClienteCi');
+    if (inputCi) {
+        inputCi.addEventListener('input', function () {
+            inputCi.value = inputCi.value.toUpperCase().replace(/[^0-9A-Z-]/g, '');
+        });
+    }
 
     function limpiarErroresCliente() {
         errorCliente.hidden = true;
@@ -733,11 +740,11 @@
         var errores = {};
         var nombre = datos.nombre.trim();
         var apellido = datos.apellido.trim();
-        var ci = datos.ci.replace(/[\s-]/g, '');
+        var ci = datos.ci.replace(/\s/g, '').toUpperCase();
         var telefono = datos.telefono.trim();
 
         if (!ci) errores.Ci = 'El CI del cliente es obligatorio.';
-        else if (!formatoCi.test(ci)) errores.Ci = 'El CI debe tener entre 6 y 8 dígitos.';
+        else if (!formatoCi.test(ci)) errores.Ci = 'El CI debe tener de 6 a 8 dígitos y, si tiene complemento, un guion con un dígito y una letra (ej: 1234567-1A).';
 
         if (!nombre) errores.Nombre = 'Los nombres del cliente son obligatorios.';
         else if (nombre.length > 100 || !formatoNombre.test(nombre))
