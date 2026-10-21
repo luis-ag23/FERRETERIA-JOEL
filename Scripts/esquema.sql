@@ -36,13 +36,17 @@ CREATE TABLE empleado
     Rol                   VARCHAR(50)  NOT NULL,
     Telefono              VARCHAR(20)  NOT NULL,
     CorreoElectronico     VARCHAR(150) NULL DEFAULT NULL,
-    Contrasena            VARCHAR(255) NOT NULL,
+    Contrasena            VARCHAR(255) NULL DEFAULT NULL,
+    TokenActivacion       VARCHAR(128) NULL DEFAULT NULL,
+    TokenExpira           DATETIME     NULL DEFAULT NULL,
+    TokenUsado            TINYINT(1)   NOT NULL DEFAULT 0,
     Estado                TINYINT      NOT NULL DEFAULT 1,
     FechaRegistro         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FechaActualizacion    DATETIME     NULL DEFAULT NULL,
     IdEmpleadoResponsable INT          NULL DEFAULT NULL,
     PRIMARY KEY (IdEmpleado),
     UNIQUE KEY UNIQUE_EMPLEADO_CORREO (CorreoElectronico),
+    KEY IDX_EMPLEADO_TOKEN (TokenActivacion),
     CONSTRAINT FK_empleado_responsable
         FOREIGN KEY (IdEmpleadoResponsable) REFERENCES empleado (IdEmpleado)
 ) ENGINE = InnoDB

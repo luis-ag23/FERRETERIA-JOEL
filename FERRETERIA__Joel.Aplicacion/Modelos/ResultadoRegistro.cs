@@ -10,6 +10,12 @@ namespace FERRETERIA__Joel.Aplicacion.Modelos
 
         public int Id { get; init; }
 
+        /// <summary>
+        /// Enlace de activación generado (solo se rellena en desarrollo, para
+        /// poder probar el flujo cuando no hay SMTP configurado).
+        /// </summary>
+        public string? EnlaceActivacion { get; init; }
+
         public List<string> Errores { get; init; } = new();
 
         public Dictionary<string, string> ErroresCampo { get; init; } = new();

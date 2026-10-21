@@ -46,8 +46,14 @@ services:
       - Redis__Connection=redis:6379
       - Redis__SessionTtlMinutes=30
       - Redis__CacheTtlMinutes=5
-      - UrlProteccion__Clave=FerreteriaJoel2026$ClaveSecretaUrl#Cambiar
-      - REGISTRO_CLAVE_EMPLEADO=Ferreteria@Joel@Empleado
+      - UrlProteccion__Clave=FerreteriaJoel2026$$ClaveSecretaUrl#Cambiar
+      - Smtp__Host=smtp.gmail.com
+      - Smtp__Puerto=587
+      - Smtp__Usuario=ferreteriajoel42@gmail.com
+      - Smtp__Clave=zcxwuursjghnfcvz
+      - Smtp__UsarSsl=true
+      - Smtp__Remitente=ferreteriajoel42@gmail.com
+      - Smtp__RemitenteNombre=Ferretería Joel
     depends_on:
       mysql:
         condition: service_healthy
@@ -69,8 +75,14 @@ services:
       - Redis__Connection=redis:6379
       - Redis__SessionTtlMinutes=30
       - Redis__CacheTtlMinutes=5
-      - UrlProteccion__Clave=FerreteriaJoel2026$ClaveSecretaUrl#Cambiar
-      - REGISTRO_CLAVE_EMPLEADO=Ferreteria@Joel@Empleado
+      - UrlProteccion__Clave=FerreteriaJoel2026$$ClaveSecretaUrl#Cambiar
+      - Smtp__Host=smtp.gmail.com
+      - Smtp__Puerto=587
+      - Smtp__Usuario=ferreteriajoel42@gmail.com
+      - Smtp__Clave=zcxwuursjghnfcvz
+      - Smtp__UsarSsl=true
+      - Smtp__Remitente=ferreteriajoel42@gmail.com
+      - Smtp__RemitenteNombre=Ferretería Joel
     depends_on:
       mysql:
         condition: service_healthy
@@ -92,8 +104,14 @@ services:
       - Redis__Connection=redis:6379
       - Redis__SessionTtlMinutes=30
       - Redis__CacheTtlMinutes=5
-      - UrlProteccion__Clave=FerreteriaJoel2026$ClaveSecretaUrl#Cambiar
-      - REGISTRO_CLAVE_EMPLEADO=Ferreteria@Joel@Empleado
+      - UrlProteccion__Clave=FerreteriaJoel2026$$ClaveSecretaUrl#Cambiar
+      - Smtp__Host=smtp.gmail.com
+      - Smtp__Puerto=587
+      - Smtp__Usuario=ferreteriajoel42@gmail.com
+      - Smtp__Clave=zcxwuursjghnfcvz
+      - Smtp__UsarSsl=true
+      - Smtp__Remitente=ferreteriajoel42@gmail.com
+      - Smtp__RemitenteNombre=Ferretería Joel
     depends_on:
       mysql:
         condition: service_healthy

@@ -1,8 +1,9 @@
 namespace FERRETERIA__Joel.Aplicacion.Modelos
 {
     /// <summary>
-    /// Campos de credenciales comunes al alta de personal. Permite validar una
-    /// sola vez sin depender de la entidad concreta.
+    /// Campos comunes al alta de personal autorizada por un administrador.
+    /// La contraseña ya no forma parte del alta: el empleado la define al
+    /// abrir el enlace de activación que recibe por correo.
     /// </summary>
     public interface IRegistroCredenciales
     {
@@ -14,8 +15,7 @@ namespace FERRETERIA__Joel.Aplicacion.Modelos
 
         string CorreoElectronico { get; }
 
-        string Contrasena { get; }
-
-        string ConfirmarContrasena { get; }
+        /// <summary>Rol a asignar: Administrador o EmpleadoVenta.</summary>
+        string Rol { get; }
     }
 }

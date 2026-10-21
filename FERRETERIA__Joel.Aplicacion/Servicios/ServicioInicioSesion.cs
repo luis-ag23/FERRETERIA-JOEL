@@ -22,6 +22,9 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         private const string MensajeInactivo =
             "La cuenta está inactiva. Contacte al administrador.";
 
+        private const string MensajePendienteActivacion =
+            "La cuenta aún no está activada. Revise el enlace enviado a su correo.";
+
         private readonly MySqlEmpleadoRepository _repositorioEmpleado;
         private readonly IHasheadorContrasena _hasheador;
         private readonly CredencialesValidaciones _credenciales = new();
@@ -69,6 +72,15 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             Empleado empleado,
             string contrasena)
         {
+            if (empleado.Estado == EstadoEmpleado.PendienteActivacion)
+            {
+                return new ResultadoInicioSesion
+                {
+                    Exitoso = false,
+                    Mensaje = MensajePendienteActivacion
+                };
+            }
+
             if (!Coincide(
                     contrasena,
                     empleado.Contrasena ?? string.Empty,
@@ -77,7 +89,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 return CredencialesInvalidas();
             }
 
-            if (empleado.Estado != 1)
+            if (empleado.Estado != EstadoEmpleado.Activo)
             {
                 return new ResultadoInicioSesion
                 {
