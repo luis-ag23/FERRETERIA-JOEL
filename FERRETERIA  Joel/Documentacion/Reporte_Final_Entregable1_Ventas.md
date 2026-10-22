@@ -13,13 +13,13 @@
 
 Se completó el módulo de **Ventas** con estas piezas:
 
-- Registro de venta con buscadores de cliente y producto, tabla temporal M:N de líneas, confirmación por modal y descuentos automáticos.
+- Registro de venta con buscadores de cliente y producto, tabla temporal M:N de líneas y confirmación por modal.
 - Alta rápida de **cliente nuevo** desde la pantalla de venta (AJAX, sin recargar ni perder los productos seleccionados).
 - **Historial de ventas** con modal de detalle de solo lectura, refresco del listado y **anulación** con motivo obligatorio.
 - **Comprobante/recibo** con los elementos del Anexo 2, obtenido por token y protegido por autorización.
-- Backend asíncrono de extremo a extremo con **Facade + Factory Method + Strategy + Unit of Work**, control de stock, idempotencia y concurrencia.
+- Backend asíncrono de extremo a extremo con **Facade + Factory Method + Repository + Unit of Work**, control de stock y concurrencia.
 
-Resultados verificados: **59/59 pruebas** (unitarias + integración) contra MySQL, con **build sin advertencias ni errores**.
+Resultados verificados: **114/114 pruebas** (unitarias + integración) contra MySQL, con **build sin errores**.
 
 > Nota de vigencia: este reporte describe el módulo de Ventas. Tras su entrega, la
 > solución se consolidó: los puertos específicos por entidad se eliminaron
@@ -27,6 +27,14 @@ Resultados verificados: **59/59 pruebas** (unitarias + integración) contra MySQ
 > a contratos genéricos y los roles pasaron a `Administrador` / `EmpleadoVenta`.
 > Ver `Informe_SOLID_FerreteriaJoel.md` y `Guia_Defensa_SOLID.md` para el estado
 > final.
+>
+> En el segundo entregable (EC2) el módulo de Ventas no cambió de
+> comportamiento: lo que se añadió alrededor fue el escalamiento horizontal
+> (cuatro réplicas detrás de Nginx), la caché distribuida en Redis, las claves
+> de Data Protection compartidas y cifradas, la baja lógica del personal y el
+> traslado de los secretos a un archivo `.env` fuera del repositorio. La
+> protección contra ventas duplicadas, que se había retirado del código y de la
+> base de datos, no vuelve a introducirse en este entregable.
 
 ---
 
@@ -35,7 +43,7 @@ Resultados verificados: **59/59 pruebas** (unitarias + integración) contra MySQ
 **Es trabajo propio de este entregable:**
 
 - El caso de uso de venta completo (registro, listado, detalle, comprobante y anulación).
-- La fachada, las fábricas, las estrategias de descuento y la unidad de trabajo del proceso de venta.
+- La fachada, las fábricas, los repositorios y la unidad de trabajo del proceso de venta.
 - Los repositorios MySQL de venta, detalle de venta, inventario y cliente.
 - La asincronía real y los mecanismos de concurrencia del flujo de venta.
 
@@ -53,13 +61,13 @@ Arquitectura **hexagonal por capas**, con la regla de dependencia apuntando haci
 
 ```
 FERRETERIA__Joel.Dominio          -> contratos (puertos) y modelos. No depende de ASP.NET ni de MySql.Data.
-FERRETERIA__Joel.Aplicacion       -> caso de uso de venta (fachadas, políticas, DTOs). Depende del dominio y de las implementaciones concretas/fábricas de Infraestructura.
+FERRETERIA__Joel.Aplicacion       -> caso de uso de venta (fachadas, DTOs). Depende del dominio y de las implementaciones concretas/fábricas de Infraestructura.
 FERRETERIA__Joel.Infraestructura  -> adaptadores MySQL (repositorios, conexión transaccional, unidad de trabajo, fábricas).
 FERRETERIA  Joel (Web)            -> Razor Pages y adaptador de identidad. Inyecta la fachada por DI.
 FERRETERIA__Joel.Pruebas          -> pruebas unitarias (fakes) e integración (MySQL real).
 ```
 
-Regla verificada: la capa Web (Page Models) **solo** inyecta `FachadaVenta` y `ServicioCliente`; nunca ve repositorios, transacciones ni estrategias.
+Regla verificada: la capa Web (Page Models) **solo** inyecta `FachadaVenta` y `ServicioCliente`; nunca ve repositorios ni transacciones.
 
 ---
 
@@ -76,18 +84,12 @@ Regla verificada: la capa Web (Page Models) **solo** inyecta `FachadaVenta` y `S
 - **Fábricas concretas:** `ProductoRepositoryCreator`, `CategoriaRepositoryCreator`, `MarcaRepositoryCreator`, `ProveedorRepositoryCreator` y `EmpleadoRepositoryCreator` (todas en `Infraestructura/Factories/`). Los repositorios de operación especial del módulo de venta se inyectan como clase concreta.
 - **Uso:** los servicios piden, p. ej., `RepositoryCreator<IGestionarRepository<Producto>>` y obtienen el repositorio con `CreateRepository()`. No hay `new MySql*Repository(...)` dentro del caso de uso: cambiar de motor solo exige otra fábrica.
 
-### 4.3 Strategy — descuentos
-- **Interfaz:** `IPoliticaDescuento` (`Calcular(subtotal, unidades)`).
-- **Estrategias:** `DescuentoPorMonto` (monto ≥ 1000 Bs → 5%) y `DescuentoPorCantidad` (≥ 12 unidades → 3%).
-- **Contexto:** `SelectorDescuento.Seleccionar(...)` elige el **mayor beneficio**.
-- Agregar una política nueva no toca la fachada (Open/Closed).
-
-### 4.4 Unit of Work — `IUnidadDeTrabajo`
+### 4.3 Unit of Work — `IUnidadDeTrabajo`
 - **Puerto:** `Dominio/Puertos/IUnidadDeTrabajo.cs` → `IniciarAsync`, `ConfirmarAsync`, `RevertirAsync`.
 - **Adaptador:** `Infraestructura/MySqlUnidadDeTrabajo.cs`, que delega en `IConexionTransaccional` (`Infraestructura/Conexion/MySqlConexionTransaccional.cs`).
-- **Uso:** `RegistrarVentaAsync` y `AnularVentaAsync` abren **una sola transacción MySQL por operación** (`IniciarAsync`), aplican descuento/reposición de stock + inserción/estado de la venta, y cierran con `ConfirmarAsync`; ante cualquier error, `RevertirAsync`. Resultado: o todo, o nada.
+- **Uso:** `RegistrarVentaAsync` y `AnularVentaAsync` abren **una sola transacción MySQL por operación** (`IniciarAsync`), aplican la reposición de stock + inserción/estado de la venta, y cierran con `ConfirmarAsync`; ante cualquier error, `RevertirAsync`. Resultado: o todo, o nada.
 
-### 4.5 Puertos y adaptadores (Hexagonal)
+### 4.4 Puertos y adaptadores (Hexagonal)
 - **Puertos (Dominio):** `IRepository<T>`, `IGestionarRepository<T>`, `IUnidadDeTrabajo`, `IContextoUsuario`.
 - **Contratos de infraestructura:** `IConexionTransaccional` (agnóstica del caso de uso).
 - **Adaptadores:** repositorios MySQL en `Infraestructura/Repositorios` (los de operación especial del módulo de venta se inyectan como clase concreta) y el adaptador de identidad `ContextoUsuarioHttp` en Web.
@@ -104,7 +106,7 @@ Ruta asíncrona:
 1. **Páginas Razor (Web):** handlers `OnGetBuscarClientesAsync`, `OnGetBuscarProductosAsync`, `OnPostCrearClienteAsync`, `OnPostRegistrarAsync`, `OnGetAsync`, `OnGetDetalleAsync`, `OnPostAnularAsync`, `OnGetAsync(string token)`.
 2. **Fachada:** `BuscarClientesAsync`, `RegistrarVentaAsync`, `AnularVentaAsync`, `ObtenerComprobanteAsync`, etc.
 3. **Servicio de clientes:** `ServicioCliente` con `ListarAsync`, `BuscarAsync`, `CrearAsync`.
-4. **Puertos y repositorios:** `DescontarAsync`, `ReponerAsync`, `InsertarAsync`, `MarcarAnuladaAsync`, `ObtenerPorClaveIdempotenciaAsync`, `ObtenerParaVentaAsync`, etc.
+4. **Puertos y repositorios:** `DescontarAsync`, `ReponerAsync`, `InsertarAsync`, `MarcarAnuladaAsync`, `ObtenerParaVentaAsync`, etc.
 5. **Conexión/transacción:** `OpenAsync`, `BeginTransactionAsync`, `CommitAsync`, `RollbackAsync`, `DisposeAsync`.
 
 **Evidencia:** 60 llamadas `await` a operaciones asíncronas de MySQL en `FERRETERIA__Joel.Infraestructura`; `MySqlConexionTransaccional` usa `OpenAsync`/`BeginTransactionAsync`/`CommitAsync`/`RollbackAsync` y `IAsyncDisposable`.
@@ -115,14 +117,13 @@ Ruta asíncrona:
 
 ## 6. Concurrencia y consistencia
 
-Los cuatro escenarios críticos se garantizan en el nivel donde la concurrencia es real: **la base de datos**.
+Los tres escenarios críticos se garantizan en el nivel donde la concurrencia es real: **la base de datos**.
 
 | # | Escenario | Mecanismo | Prueba |
 |---|-----------|-----------|--------|
 | 1 | Dos ventas simultáneas de la **última unidad**: solo una gana, el stock nunca queda negativo | `UPDATE producto SET CantidadStock = CantidadStock - @c WHERE IdProducto=@id AND CantidadStock >= @c` (descuento atómico condicional) | `RegistrarVenta_Real_Concurrente_SoloUnaGana` |
 | 2 | Ventas concurrentes no repiten **código de venta** | Correlativo por `IdVenta` (`V-YYYYMMDD-######`) + índice `UNIQUE_CODIGO_VENTA` | `RegistrarVenta_Real_Concurrente_CodigosUnicosAsync` |
-| 3 | **Idempotencia**: reenviar la misma venta no duplica ni descuenta dos veces | `ObtenerPorClaveIdempotenciaAsync` + índice `UNIQUE_VENTA_IDEMPOTENCIA`; ante carrera se relee la venta por clave | `RegistrarVenta_Real_Idempotente_NoDuplicaAsync` |
-| 4 | **Anulación concurrente** repone el stock exactamente una vez | `UPDATE venta SET EstadoVenta='Anulada' ... WHERE IdVenta=@id AND EstadoVenta='Registrada'` (afecta 1 fila solo una vez) + reposición en la misma transacción | `AnularVenta_Real_Concurrente_RestauraStockUnaVezAsync` |
+| 3 | **Anulación concurrente** repone el stock exactamente una vez | `UPDATE venta SET EstadoVenta='Anulada' ... WHERE IdVenta=@id AND EstadoVenta='Registrada'` (afecta 1 fila solo una vez) + reposición en la misma transacción | `AnularVenta_Real_Concurrente_RestauraStockUnaVezAsync` |
 
 Consideración de errores transaccionales: si el `UPDATE` atómico no afecta filas (stock insuficiente por carrera) o si ocurre cualquier excepción (por ejemplo, colisión de índice único), el flujo llama a `RevertirAsync` y devuelve un fallo explícito, **sin dejar estados parciales**. Las operaciones de registrar y anular tocan el stock en direcciones opuestas, de modo que ante solapamiento la transacción revierte completa.
 
@@ -155,8 +156,8 @@ El módulo de Ventas **no** implementa login, roles ni sesiones. La identidad se
 `IRepository<T>`, `IGestionarRepository<T>`, `IUnidadDeTrabajo`, `IContextoUsuario`.
 
 **Aplicación:**
-`FachadaVenta`, `FachadaAnulacion`, `FachadaActualizacionStock`, `ServicioCliente`, `SelectorDescuento`, `IPoliticaDescuento`, `DescuentoPorMonto`, `DescuentoPorCantidad`, `ConfiguracionDescuentos`.
-Modelos/DTOs: `SolicitudVenta`, `LineaVentaSolicitada`, `ResultadoVenta`, `ResultadoCliente`, `ComprobanteVenta`, `VentaListado`, `LineaVentaDetalle`, `SeleccionDescuento`.
+`FachadaVenta`, `FachadaAnulacion`, `FachadaActualizacionStock`, `ServicioCliente`.
+Modelos/DTOs: `SolicitudVenta`, `LineaVentaSolicitada`, `ResultadoVenta`, `ResultadoCliente`, `ComprobanteVenta`, `VentaListado`, `LineaVentaDetalle`.
 
 **Infraestructura:**
 `MySqlConexionTransaccional`, `MySqlUnidadDeTrabajo`, `MySqlClienteRepository`, `MySqlVentaRepository`, `MySqlDetalleVentaRepository`, `MySqlInventarioRepository`, y las fábricas `ProductoRepositoryCreator`, `CategoriaRepositoryCreator`, `MarcaRepositoryCreator`, `ProveedorRepositoryCreator`, `EmpleadoRepositoryCreator`.
@@ -165,7 +166,7 @@ Modelos/DTOs: `SolicitudVenta`, `LineaVentaSolicitada`, `ResultadoVenta`, `Resul
 `Venta.cshtml(.cs)`, `Ventas.cshtml(.cs)`, `VentaComprobante.cshtml(.cs)`, y el adaptador `ContextoUsuarioHttp`.
 
 **Base de datos (solo `bdferreteria_dev`):**
-`UNIQUE_CODIGO_VENTA`, `UNIQUE_VENTA_IDEMPOTENCIA`, columnas de anulación (`EstadoVenta`, `FechaAnulacion`, `MotivoAnulacion`, `IdEmpleadoAnulacion`) e idempotencia (`ClaveIdempotencia`).
+`UNIQUE_CODIGO_VENTA` y columnas de anulación (`EstadoVenta`, `FechaAnulacion`, `MotivoAnulacion`, `IdEmpleadoAnulacion`).
 
 ---
 
@@ -174,34 +175,43 @@ Modelos/DTOs: `SolicitudVenta`, `LineaVentaSolicitada`, `ResultadoVenta`, `Resul
 Comando base:
 `dotnet test "FERRETERIA__Joel.Pruebas\FERRETERIA__Joel.Pruebas.csproj"`
 
-### 10.1 Suite completa (unitarias con fakes, políticas y utilidades)
+### 10.1 Suite completa (unitarias con fakes y utilidades)
 
 ```
-Passed!  - Failed: 0, Passed: 59, Skipped: 0, Total: 59
+Passed!  - Failed: 0, Passed: 119, Skipped: 0, Total: 119
 ```
 
-Cubren: registro correcto (stock, totales, descuentos por monto y por cantidad), agrupación de líneas duplicadas, stock insuficiente, cliente inactivo, idempotencia, anulación (estado no registrada falla), empleado inválido (`IdEmpleado <= 0`) en registrar y anular, listado con y sin filtro de cliente, comprobante con líneas y catálogo, comprobante inexistente; `ServicioCliente` (alta válida, campos obligatorios, empleado responsable, búsqueda solo de activos); elección de descuento y conversión de número a letras.
+Cubren: registro correcto (stock y totales), agrupación de líneas duplicadas, stock insuficiente, cliente inactivo, anulación (estado no registrada falla), empleado inválido (`IdEmpleado <= 0`) en registrar y anular, listado con y sin filtro de cliente, comprobante con líneas y catálogo, comprobante inexistente; `ServicioCliente` (alta válida, campos obligatorios, empleado responsable, búsqueda solo de activos); activación de cuentas y validación de credenciales; conversión de número a letras.
 
-> Las 6 pruebas de integración (sección 10.2) se **omiten sin fallar** cuando no hay cadena de conexión; por eso pueden reportarse por separado.
+De las 119 pruebas, **109 son unitarias** (con fakes) y **10 son de integración
+real contra MySQL** (sección 10.2).
+
+> Las pruebas de integración (sección 10.2) se **omiten sin fallar** cuando no hay cadena de conexión; por eso pueden reportarse por separado.
 
 ### 10.2 Integración real contra MySQL (`bdferreteria_dev`)
 
 Requiere `FERRETERIA_TEST_CONNECTION` apuntando a la base de desarrollo; se ejecutó con conexiones **independientes**.
 
 ```
-Passed!  - Failed: 0, Passed: 6, Skipped: 0, Total: 6   (~0.5 s)
+Passed!  - Failed: 0, Passed: 10, Skipped: 0, Total: 10   (~0.8 s)
 ```
 
 | Prueba | Qué verifica |
 |--------|--------------|
 | `RegistrarVenta_Real_DescuentaStockYAnulacionRestauraAsync` | commit real: descuenta stock y la anulación lo restaura |
 | `RegistrarVenta_Real_StockInsuficiente_NoPersisteAsync` | rollback por validación: no persiste ni altera stock |
-| `RegistrarVenta_Real_Idempotente_NoDuplicaAsync` | idempotencia: 1 sola venta, stock descontado una vez |
 | `RegistrarVenta_Real_Concurrente_SoloUnaGana` | escenario 1: última unidad, gana una sola venta |
 | `RegistrarVenta_Real_Concurrente_CodigosUnicosAsync` | escenario 2: códigos de venta únicos |
-| `AnularVenta_Real_Concurrente_RestauraStockUnaVezAsync` | escenario 4: reposición exactamente una vez |
+| `AnularVenta_Real_Concurrente_RestauraStockUnaVezAsync` | escenario 3: reposición exactamente una vez |
+| `Listar_Publico_DevuelvePersonal_SinCredencialesAsync` | la proyección pública del personal no filtra contraseña ni token |
+| `Listar_Publico_NoDevuelveElHashDeLaContrasenaAsync` | la proyección con credenciales solo se usa para autenticar |
+| `ExistePorCorreo_UsaProyeccionSinCredencialesAsync` | la consulta de existencia no necesita credenciales |
+| `BajaLogica_DesactivaLaCuenta_SinBorrarlaAsync` | la baja cambia el estado y **no borra** la fila; la reactivación la deja pendiente de activación |
+| `ServicioPersonal_NoPermiteDarDeBajaLaPropiaCuentaAsync` | el administrador no puede darse de baja a sí mismo |
 
 > Las pruebas de integración están escritas para **omitirse sin fallar** si falta la cadena de conexión; por eso se reportan **por separado** de las unitarias. Las cifras anteriores corresponden a ejecuciones **reales** contra `bdferreteria_dev` (no a omisiones).
+>
+> Estas pruebas detectaron dos defectos reales que no se veían sin base de datos: el script de arranque de Docker (`Scripts/init-completo.sql`) definía `detalle_venta` y `historico_precio` con columnas distintas a las que usa el código (por lo que **era imposible registrar una venta** en el despliegue Docker), y el mapeo de la proyección pública del empleado leía la columna `TokenExpira`, que esa proyección no trae.
 
 ### 10.3 Build
 `dotnet build "FERRETERIA  Joel.slnx"` → **0 advertencias, 0 errores**.
@@ -229,17 +239,16 @@ Rama **`feature/ventas-scope-cleanup`** (aislada, sin merge a `master`):
 - Rama `feature/ventas-scope-cleanup` aislada; **no se hizo merge a `master`**.
 - La base principal `bdferreteria` **no fue modificada**; todo el trabajo y las pruebas usaron `bdferreteria_dev`.
 - `appsettings.json` permanece **sin versionar** (contiene la cadena de conexión).
-- Build limpio y suites en verde (59 pruebas).
+- Build limpio y suites en verde (119 pruebas).
 - Login, roles, sesiones y los CRUD de catálogo **no** se reclaman como trabajo de este módulo.
 
 ---
 
 ## 13. Preguntas frecuentes de defensa (módulo de Ventas)
 
-1. **¿Por qué una fachada y no llamar directo a los repositorios?** `FachadaVenta` coordina cliente, stock, descuento y transacción; la Web queda simple y el caso de uso es reutilizable.
+1. **¿Por qué una fachada y no llamar directo a los repositorios?** `FachadaVenta` coordina cliente, el descuento de stock y la transacción; la Web queda simple y el caso de uso es reutilizable.
 2. **¿Dónde está la transacción y qué cubre?** En `RegistrarVentaAsync`/`AnularVentaAsync` vía `IUnidadDeTrabajo`: descontar/reponer stock + venta + detalles como una sola operación atómica.
-3. **¿Cómo evitan vender dos veces?** `ClaveIdempotencia` + `UNIQUE_VENTA_IDEMPOTENCIA`; el reenvío devuelve la venta existente.
-4. **¿Cómo evitan el sobre-stock bajo concurrencia?** Descuento atómico `UPDATE ... WHERE CantidadStock >= @c`; si no afecta filas, se revierte y se informa el fallo.
-5. **¿Cómo garantizan reponer el stock una sola vez?** `UPDATE venta ... WHERE EstadoVenta='Registrada'`: la segunda anulación no afecta filas.
-6. **¿La asincronía es real?** Sí: `async`/`await` hasta MySQL (`OpenAsync`, `BeginTransactionAsync`, `ExecuteReaderAsync`, `CommitAsync`/`RollbackAsync`); sin `Task.Run`.
-7. **¿Cómo se integra con la autenticación del compañero?** A través de `IContextoUsuario`; el adaptador `ContextoUsuarioHttp` es temporal y reemplazable sin tocar Ventas.
+3. **¿Cómo evitan el sobre-stock bajo concurrencia?** Descuento atómico `UPDATE ... WHERE CantidadStock >= @c`; si no afecta filas, se revierte y se informa el fallo.
+4. **¿Cómo garantizan reponer el stock una sola vez?** `UPDATE venta ... WHERE EstadoVenta='Registrada'`: la segunda anulación no afecta filas.
+5. **¿La asincronía es real?** Sí: `async`/`await` hasta MySQL (`OpenAsync`, `BeginTransactionAsync`, `ExecuteReaderAsync`, `CommitAsync`/`RollbackAsync`); sin `Task.Run`.
+6. **¿Cómo se integra con la autenticación del compañero?** A través de `IContextoUsuario`; el adaptador `ContextoUsuarioHttp` es temporal y reemplazable sin tocar Ventas.

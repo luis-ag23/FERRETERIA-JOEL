@@ -107,8 +107,8 @@ características:
    completo, validaciones de negocio y **histórico de precios** del producto.
 3. **Seguridad** —inicio/cierre de sesión por cookie **solo para empleados**
    (roles `Administrador` y `EmpleadoVenta`) y bitácora de sesiones.
-4. **Módulo de Ventas** —registro de venta con carrito y descuentos automáticos,
-   historial, comprobante/recibo y **anulación lógica**— todo sobre
+4. **Módulo de Ventas** —registro de venta con carrito, historial,
+   comprobante/recibo y **anulación lógica**— todo sobre
    **transacciones atómicas** y **flujo asíncrono de extremo a extremo**.
 
 ## 2.2 Requisitos funcionales y evidencia en el código
@@ -129,7 +129,7 @@ características:
 | R12 | Home + menú con logo | — | `Pages/Index.cshtml` + `Pages/Shared/_Layout.cshtml` |
 | R13 | Login + logout | Empleado | `ServicioInicioSesion.cs`, `Pages/Login.cshtml` |
 | R14 | ≥2 roles diferenciados | — | `Dominio/Constantes/RolesSistema.cs` (`Administrador`, `EmpleadoVenta`) + convenciones `AuthorizePage` en `Program.cs` |
-| R15 | Registro de venta con descuentos | Venta/DetalleVenta | `Aplicacion/Servicios/FachadaVenta.cs` (`RegistrarVentaAsync`) |
+| R15 | Registro de venta | Venta/DetalleVenta | `Aplicacion/Servicios/FachadaVenta.cs` (`RegistrarVentaAsync`) |
 | R16 | Anulación lógica + reposición | Venta | `Aplicacion/Servicios/FachadaAnulacion.cs` (`AnularVentaAsync`) |
 | R17 | Comprobante/recibo | Venta | `FachadaVenta.ObtenerComprobanteAsync` + `Dominio/Utilidades/NumeroALetras.cs` |
 | R18 | Bitácora de sesiones | Bitácora | `ServicioBitacora.cs` + `MySqlBitacoraRepository.cs` |
@@ -163,7 +163,7 @@ solución (`.slnx`).
 | Proyecto | Responsabilidad | Depende de |
 |----------|-----------------|------------|
 | `FERRETERIA__Joel.Dominio` | Núcleo: `Entidades/`, `Puertos/`, `Validaciones/`, `ConfiguracionValidacion/`, `Constantes/`, `Utilidades/` | (nada) |
-| `FERRETERIA__Joel.Aplicacion` | Casos de uso: `Servicios/` (servicios y **fachadas**), `Modelos/` (DTOs) y `Politicas/` | Dominio + Infraestructura |
+| `FERRETERIA__Joel.Aplicacion` | Casos de uso: `Servicios/` (servicios y **fachadas**) y `Modelos/` (DTOs) | Dominio + Infraestructura |
 | `FERRETERIA__Joel.Infraestructura` | Adaptadores de salida: `Repositorios/` (MySQL), `Conexion/`, `Factories/`, `Seguridad/` (Argon2) | Dominio |
 | `FERRETERIA  Joel` (Web) | Adaptador de entrada: `Pages/` (Razor Pages), `Servicios/ContextoUsuarioHttp`, `Helpers/`, `Program.cs` | Dominio + Aplicación + Infraestructura |
 | `FERRETERIA__Joel.Pruebas` | Pruebas unitarias e integración (xUnit) | Todas |
@@ -189,21 +189,24 @@ no conoce ni `MySql.Data` ni ASP.NET Core.
 |--------|-----|
 | `IRepository<T>` | Contrato base: `Task<List<T>> ObtenerTodosAsync()`, `Task<int> InsertarAsync(T)` |
 | `IGestionarRepository<T>` | Extiende el base: `ActualizarAsync`, `CambiarEstadoAsync`, `MostrarActivosAsync` |
+| `IRepositoryEmpleado` | Extiende `IRepository<Empleado>`: ciclo de vida de la cuenta (baja/reactivación) y proyecciones con y sin credenciales |
 | `IUnidadDeTrabajo` | Transacción (`IniciarAsync` / `ConfirmarAsync` / `RevertirAsync`) |
 | `IHasheadorContrasena` | Hash y verificación de contraseñas |
 | `IContextoUsuario` | Identidad del usuario en sesión (`IdEmpleado`, `NombreCompleto`, `Rol`) |
+| `ICacheSeleccion` | Caché distribuida compartida entre réplicas (`ObtenerAsync`, `GuardarAsync`, `InvalidarPorPrefijoAsync`) |
+| `IIdentificadorReplica` | Identificador real de la réplica que atiende la petición |
 
 > Ya **no** existen puertos específicos por entidad: los repositorios concretos
 > implementan **solo** `IRepository<T>` / `IGestionarRepository<T>`. Las
-> operaciones que no encajan en un CRUD (folio de venta, idempotencia, anulación,
-> stock, precio vigente, bitácora) se exponen como **métodos concretos** `virtual`
-> y se inyectan directamente por DI.
+> operaciones que no encajan en un CRUD (folio de venta, anulación, stock,
+> precio vigente, bitácora) se exponen como **métodos concretos** `virtual` y
+> se inyectan directamente por DI.
 
 **Adaptadores (Infraestructura y Web):**
 
 - `MySql*Repository` implementan los puertos genéricos (`MySqlProductoRepository`
   implementa `IGestionarRepository<Producto>`, `MySqlEmpleadoRepository`
-  implementa `IRepository<Empleado>`, etc. — 11 en total).
+  implementa `IRepositoryEmpleado`, etc. — 11 en total).
 - Los repositorios de operación especial (`MySqlVentaRepository`,
   `MySqlDetalleVentaRepository`, `MySqlInventarioRepository`,
   `MySqlHistoricoPrecioRepository`, `MySqlBitacoraRepository`) se inyectan como
@@ -331,7 +334,6 @@ package "FERRETERIA__Joel.Dominio.Entidades" {
     + CodigoVenta : string?
     + EstadoVenta : string
     + MontoTotal : decimal
-    + ClaveIdempotencia : string?
     + MotivoAnulacion : string?
   }
   class DetalleVenta {
@@ -575,8 +577,13 @@ builder.Services.AddScoped<RepositoryCreator<IRepository<Empleado>>, EmpleadoRep
 builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Producto>>, ProductoRepositoryCreator>();
 ```
 
-- **Nuevo descuento** → nueva clase `IPoliticaDescuento`, sin tocar
-  `SelectorDescuento` (`Aplicacion/Politicas/`).
+- **Nuevo campo de solo lectura en una entidad** → nueva propiedad en
+  `Dominio/Entidades/` (por ejemplo `Producto`), proyección en el
+  `MySql*Repository` correspondiente y columna en `Scripts/esquema.sql`; el
+  resto de capas no se modifica.
+- **Nuevo puerto** (por ejemplo `ICacheSeleccion`) → nueva interfaz en
+  `Dominio/Puertos/` + su adaptador en `Infraestructura/` + una línea de
+  registro en `Program.cs`.
 - **Nuevo motor de base de datos** → nueva implementación del puerto + ajuste
   **solo** en `Program.cs`. Ninguna página Razor se modifica.
 
@@ -630,14 +637,13 @@ repositorios de operación especial) que la Infraestructura implementa.
 
 ## 4.6 Patrones de diseño aplicados
 
-Se implementan **cinco patrones** (se exigía un mínimo de tres, con Facade
+Se implementan **cuatro patrones** (se exigía un mínimo de tres, con Facade
 obligatorio):
 
 | Patrón | Dónde | Propósito |
 |--------|-------|-----------|
 | **Facade** | `FachadaVenta`, `FachadaAnulacion`, `FachadaActualizacionStock` | Una única puerta de entrada por pantalla a un subsistema de varios servicios/repositorios/transacción |
 | **Factory Method** | `RepositoryCreator<TContrato>` + `Infraestructura/Factories/*` | Crear repositorios sin que el caso de uso conozca las clases concretas |
-| **Strategy** | `IPoliticaDescuento`, `DescuentoPorMonto`, `DescuentoPorCantidad`, `SelectorDescuento` | Intercambiar la política de descuento sin modificar la fachada |
 | **Repository** | `MySql*Repository` (11) | Separar la persistencia (SQL) de la lógica de dominio |
 | **Unit of Work** | `IUnidadDeTrabajo` / `MySqlUnidadDeTrabajo` | Agrupar varias operaciones en **una sola transacción** (todo o nada) |
 
@@ -646,10 +652,6 @@ obligatorio):
 `CalcularResumen`, `RegistrarVentaAsync`, `ObtenerComprobanteAsync`). Las páginas
 `Venta.cshtml.cs` y `Ventas.cshtml.cs` no conocen `IUnidadDeTrabajo` ni los
 repositorios.
-
-**Strategy (detalle):** `SelectorDescuento` evalúa todas las políticas y aplica
-la que otorgue el **mayor beneficio**; si ninguna aplica, el descuento es 0.
-Agregar una política nueva no modifica el selector (Open/Closed).
 
 ## 4.7 Clean Code aplicado
 
@@ -714,8 +716,6 @@ en **una sola transacción**:
    `FachadaActualizacionStock.DescontarAsync`).
 3. `ConfirmarAsync`; ante cualquier fallo, `RevertirAsync`: **nada** queda
    persistido.
-4. **Idempotencia:** repetir la misma venta (misma `ClaveIdempotencia`) no la
-   duplica.
 
 **Anulación (`FachadaAnulacion.AnularVentaAsync`)** — borrado **lógico**:
 
@@ -731,7 +731,6 @@ en **una sola transacción**:
 |-----------|-----------|
 | Dos ventas simultáneas de la última unidad | `UPDATE producto SET CantidadStock = CantidadStock - @c WHERE IdProducto=@id AND CantidadStock >= @c` (descuento atómico condicional) |
 | Códigos de venta únicos | Correlativo por `IdVenta` (`V-YYYYMMDD-######`) + índice `UNIQUE_CODIGO_VENTA` |
-| Idempotencia | `UNIQUE_VENTA_IDEMPOTENCIA` + relectura de la venta por clave ante carrera |
 | Anulación concurrente | `UPDATE venta ... WHERE EstadoVenta='Registrada'` (afecta una sola fila) + reposición en la misma transacción |
 
 **Comprobante:** `FachadaVenta.ObtenerComprobanteAsync` arma el comprobante
@@ -790,7 +789,7 @@ Se mantienen **sincrónicos** solo los cálculos en memoria (por ejemplo, el
 
 # 5. Pruebas
 
-El proyecto `FERRETERIA__Joel.Pruebas` (xUnit) cubre lógica de dominio, políticas,
+El proyecto `FERRETERIA__Joel.Pruebas` (xUnit) cubre utilidades de dominio,
 servicios, fachadas (con fakes) e integración real contra MySQL.
 
 ```
@@ -799,14 +798,29 @@ dotnet test "FERRETERIA  Joel.slnx"
 
 | Suite | Archivo | Qué verifica |
 |-------|---------|--------------|
-| Fachada de venta (unitarias) | `Servicios/FachadaVentaPruebas.cs` | Registro, descuentos, stock insuficiente, idempotencia, anulación, comprobante |
+| Fachada de venta (unitarias) | `Servicios/FachadaVentaPruebas.cs` | Registro, stock insuficiente, agrupación de líneas duplicadas, anulación y comprobante |
 | Cliente | `Servicios/ServicioClientePruebas.cs` | Alta válida, campos obligatorios, búsqueda de activos |
-| Strategy | `Politicas/SelectorDescuentoPruebas.cs` | Elección del mayor beneficio |
-| Utilidades | `Utilidades/NumeroALetrasPruebas.cs` | Conversión de número a letras |
-| Integración | `Integracion/FachadaVentaIntegracionPruebas.cs` | Concurrencia e idempotencia contra MySQL real (se omite sin cadena de conexión) |
+| Registro de personal | `Servicios/ServicioRegistroEmpleadoPruebas.cs` | Alta con cuenta pendiente, envío y reenvío del enlace de activación, validación del token y activación de la cuenta |
+| Utilidades | `Utilidades/NumeroALetrasPruebas.cs`, `Utilidades/NombreAbreviadoPruebas.cs`, `Utilidades/SiglasPruebas.cs` | Conversión de número a letras, nombre abreviado y siglas |
+| Integración (ventas) | `Integracion/FachadaVentaIntegracionPruebas.cs` | Registro de venta contra MySQL real: descuento de stock, anulación que lo restaura y concurrencia (se omite sin cadena de conexión) |
+| Integración (personal) | `Integracion/MySqlEmpleadoRepositoryIntegracionPruebas.cs` | Proyecciones sin credenciales, credenciales solo para autenticación, existencia por correo, baja lógica y reactivación (se omite sin cadena de conexión) |
 
-Resultado actual: **59/59 pruebas correctas** y `dotnet build` con **0
-advertencias y 0 errores**.
+Resultado actual: **119/119 pruebas correctas** (109 unitarias + 10 de integración
+real contra MySQL) y `dotnet build` sin errores ni advertencias.
+
+Las pruebas de integración se activan con la variable de entorno
+`FERRETERIA_TEST_CONNECTION` apuntando a una base de desarrollo; sin ella se
+omiten sin fallar:
+
+```bash
+FERRETERIA_TEST_CONNECTION="Server=localhost;Port=3307;Database=bdferreteria;Uid=root;Pwd=..." \
+  dotnet test "FERRETERIA  Joel.slnx"
+```
+
+Estas pruebas son las que detectaron que el script de arranque de Docker
+(`Scripts/init-completo.sql`) estaba desincronizado con el esquema canónico
+(`Scripts/esquema.sql`) y que el mapeo de la proyección pública del empleado
+leía una columna que esa proyección no trae.
 
 ---
 
@@ -840,7 +854,7 @@ Ejemplos del historial de commits (integración mediante *pull requests*):
 ```
 refact: extracción de fachadas de venta y anulación
 refact: conversión asíncrona de puertos, repositorios, servicios y páginas
-feat: módulo de ventas con transacción, idempotencia y anulación
+feat: módulo de ventas con transacción y anulación
 67364aa feat: Historial de precios añadido
 e5f4d8e refact: Solid en Productos
 dd6d99b feat: Agregar campo PorcentajeGanancia a Categoria
@@ -905,7 +919,189 @@ tocar puertos, repositorios, servicios y páginas de forma coordinada.*
 
 ---
 
-# 8. Bibliografía / Fuentes consultadas
+# 8. Estado actual del proyecto (segundo entregable — EC2)
+
+## 8.1 Escalamiento horizontal
+
+El monolito dejó de desplegarse como una única instancia: ahora corre en
+**cuatro réplicas idénticas** (`app1`, `app2`, `app3`, `app4`) construidas con
+la **misma imagen Docker** y diferenciadas solo por la variable `HOSTNAME`.
+Delante de ellas está **Nginx**, que actúa como balanceador **round-robin** y
+como punto de entrada único de la aplicación.
+
+```text
+                    ┌──────────────┐
+   Cliente ────────▶│    Nginx     │  round-robin + failover
+                    └──────┬───────┘
+             ┌─────────────┼─────────────┬─────────────┐
+             ▼             ▼             ▼             ▼
+          ┌──────┐     ┌──────┐     ┌──────┐     ┌──────┐
+          │ app1 │     │ app2 │     │ app3 │     │ app4 │   réplicas ASP.NET Core
+          └──┬───┘     └──┬───┘     └──┬───┘     └──┬───┘
+             └─────────────┼─────────────┘
+                           ▼         ▼
+                     ┌──────────┐ ┌──────────┐
+                     │  MySQL   │ │  Redis   │  caché distribuida
+                     └──────────┘ └──────────┘
+```
+
+El balanceo y el failover están configurados en `nginx/nginx.conf`:
+
+```nginx
+upstream ferreteria_backend {
+    server app1:8080 max_fails=3 fail_timeout=10s;
+    server app2:8080 max_fails=3 fail_timeout=10s;
+    server app3:8080 max_fails=3 fail_timeout=10s;
+    server app4:8080 max_fails=3 fail_timeout=10s;
+    keepalive 32;
+}
+
+proxy_next_upstream error timeout http_502 http_503 http_504;
+proxy_next_upstream_tries 4;
+proxy_next_upstream_timeout 15s;
+```
+
+- **Balanceo:** cada petición se envía a la siguiente réplica del *upstream*
+  (round-robin); `keepalive 32` mantiene las conexiones abiertas hacia ellas.
+- **Failover:** con `max_fails=3 fail_timeout=10s`, una réplica que acumula tres
+  errores en diez segundos queda marcada como no disponible y Nginx deja de
+  enviarle peticiones. Si la petición falla, `proxy_next_upstream` la reenvía a
+  otra réplica (hasta 4 intentos) sin que el cliente lo note; al vencer
+  `fail_timeout` la réplica vuelve a entrar en la rotación.
+- **Volumen compartido:** el volumen Docker `proteccion_datos` se monta en las
+  cuatro réplicas (`/var/ferreteria/proteccion`) y guarda el certificado con el
+  que se cifran las claves de Data Protection. Debe ser **el mismo** en las
+  cuatro réplicas.
+
+Todo el estado que debe sobrevivir al cambio de réplica (sesión, claves de Data
+Protection, caché) vive en **Redis**; MySQL sigue siendo el sistema de
+registro.
+
+## 8.2 Evidencias de escalamiento
+
+| Evidencia | Quién la escribe | Qué demuestra |
+|-----------|------------------|---------------|
+| Cabecera `X-Replica-Id` | La réplica que atiende la petición (`Program.cs`); Nginx la reenvía al cliente (`proxy_pass_header X-Replica-Id`) | Qué réplica respondió la petición |
+| Cabecera `X-Replica-Served` | Nginx (`add_header X-Replica-Served $upstream_addr always`) | La dirección del *upstream* que atendió la petición |
+| Sonda `GET /health` | La réplica | Estado, identificador de réplica y si Redis responde |
+
+```bash
+curl -I http://localhost/ | grep -i x-replica
+# X-Replica-Id: app3
+# X-Replica-Served: 172.18.0.5:8080
+
+curl -s http://localhost/health
+# {"estado":"saludable","replica":"app3","redis":true,"fecha":"..."}
+```
+
+La sonda `/health` la usan el *healthcheck* de Docker Compose y el balanceador:
+si una réplica deja de responder, Nginx la saca de la rotación.
+
+## 8.3 Caché distribuida (Redis)
+
+Los repositorios de catálogo (producto, categoría, marca y proveedor) aplican
+el patrón **cache-aside** a través del puerto `ICacheSeleccion` (Dominio) y su
+adaptador `CacheSeleccionRedis` (Infraestructura).
+
+- **Lectura (cache-aside):** se consulta primero Redis; ante un `MISS` se lee
+  MySQL y el resultado se guarda en Redis con el TTL configurado.
+- **TTL configurable:** `Redis:CacheTtlMinutes` (5 minutos por defecto).
+- **Invalidación:** al insertar, actualizar o cambiar el estado de un registro
+  se borran las claves del prefijo de esa tabla (`cache:select:productos:*`,
+  `cache:select:categorias:*`, `cache:select:marcas:*`,
+  `cache:select:proveedores:*`), de modo que la siguiente lectura vuelva a la
+  base de datos.
+- **Registro compartido:** cada acceso queda anotado como `HIT` o `MISS` con la
+  clave, la réplica que lo produjo y el origen real del dato (`REDIS` o
+  `MYSQL`). El registro se guarda en Redis, así que es **compartido** entre las
+  cuatro réplicas.
+- **Degradación segura:** si Redis cae, el adaptador degrada a `MISS` y la
+  aplicación sigue operando contra MySQL.
+
+La evidencia en pantalla es la vista **`/DiagnosticoCache`** (solo
+**administrador**): lista las claves que hay en Redis con su tiempo de vida
+restante y los últimos 50 accesos registrados por cualquier réplica.
+
+## 8.4 Data Protection compartido y cifrado
+
+Las cookies de sesión y de antiforgery se cifran con las claves de Data
+Protection. Para que la sesión sobreviva al cambio de réplica:
+
+1. Las claves se guardan en **Redis**
+   (`PersistKeysToStackExchangeRedis(redisMultiplexer,
+   "FerreteriaJoel-DataProtection-Keys")`), de modo que las cuatro réplicas las
+   comparten.
+2. Además se **cifran con un certificado X.509**
+   (`ProtectKeysWithCertificate(certificadoProteccion)`); sin este paso las
+   claves quedarían almacenadas en Redis en claro.
+
+El certificado lo genera `docker/entrypoint.sh` de forma atómica en el volumen
+compartido `proteccion_datos` (`/var/ferreteria/proteccion/proteccion.pfx`) y
+**tiene que ser el mismo en las cuatro réplicas**: si cada una usara uno
+distinto, una cookie emitida por `app1` no se podría descifrar en `app2` y el
+inicio de sesión se rompería al cambiar de réplica.
+
+## 8.5 Personal: alta, baja lógica y reactivación
+
+El ciclo de vida de las cuentas de personal se encapsula en un **nuevo puerto**
+`IRepositoryEmpleado` (Dominio) y un **nuevo caso de uso** `ServicioPersonal`
+(Aplicación):
+
+| Método | Qué hace |
+|--------|----------|
+| `ListarAsync` | Lista el personal con la **proyección sin credenciales** (`ObtenerTodosSinCredencialesAsync`) |
+| `DarDeBajaAsync` | Baja **lógica**: la cuenta pasa a estado `Inactivo` (`EstadoEmpleado.Inactivo`); la fila **no** se borra |
+| `ReactivarAsync` | Reactiva una cuenta dada de baja (vuelve a `PendienteActivacion`) |
+
+- La **baja es lógica, no física**: la fila nunca se elimina, de modo que el
+  histórico de ventas, los comprobantes y la auditoría siguen siendo
+  trazables. La cuenta deja de poder iniciar sesión porque la autenticación
+  exige el estado activo.
+- El listado usa una **proyección sin credenciales**: ni la contraseña ni el
+  token de activación se consultan para mostrar el personal; solo la
+  autenticación usa la proyección **con** credenciales
+  (`ObtenerPorCorreoConCredencialesAsync`).
+- Vista nueva **`/Personal`** (solo **administrador**): listado de cuentas con
+  las acciones de baja y reactivación.
+
+## 8.6 Secretos fuera del repositorio
+
+Los secretos **no están en el repositorio**:
+
+- La plantilla `.env.example` (sin valores reales) sí está versionada.
+- El archivo `.env` de la raíz, con los valores reales, está en `.gitignore`:
+  nunca se versiona.
+- **Docker Compose** resuelve los `${VARIABLE}` del `docker-compose.yml` desde
+  ese `.env` (p. ej. `MYSQL_ROOT_PASSWORD`, `URL_PROTECCION_CLAVE`,
+  `SMTP_CLAVE`), y la aplicación también lo lee al arrancar (lo busca en su
+  carpeta y en las carpetas padre), de modo que el mismo archivo sirve para
+  Docker y para una ejecución local.
+
+```bash
+cp .env.example .env
+# editar .env y completar las variables obligatorias
+docker compose up -d --build
+```
+
+## 8.7 Identificador de réplica
+
+Para distinguir en todo momento **qué réplica** atiende cada petición se añadió
+el puerto `IIdentificadorReplica` (Dominio) y su adaptador `IdentificadorReplica`
+(Infraestructura). El identificador **no es un valor fijo simulado**: se
+resuelve en este orden:
+
+1. La variable de entorno `HOSTNAME` (la define Docker Compose para cada
+   réplica: `app1`…`app4`).
+2. El archivo `/etc/hostname` del contenedor.
+3. Como último recurso, el nombre de la máquina.
+
+Este identificador es el que viaja en la cabecera `X-Replica-Id`, el que
+devuelve la sonda `/health` y el que se registra junto a cada `HIT`/`MISS` de
+la caché.
+
+---
+
+# 9. Bibliografía / Fuentes consultadas
 
 1. MARTIN, Robert C. *Clean Code: A Handbook of Agile Software Craftsmanship.*
    Prentice Hall, 2008.

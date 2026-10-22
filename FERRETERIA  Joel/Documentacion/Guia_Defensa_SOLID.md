@@ -5,8 +5,10 @@ fórmula: **concepto → ejemplo en el proyecto → ubicación exacta**.
 
 > Estado actual del código: solución .NET 10, **5 proyectos por capa**,
 > arquitectura **hexagonal (puertos y adaptadores)** dentro de un **monolito
-> por responsabilidad técnica**, **3 fachadas** en el módulo de ventas y
-> **todo el flujo asíncrono** (`async`/`await` de extremo a extremo).
+> por responsabilidad técnica**, **3 fachadas** en el módulo de ventas,
+> **despliegue en 4 réplicas** detrás de Nginx con **Redis** como caché
+> distribuida y **todo el flujo asíncrono** (`async`/`await` de extremo a
+> extremo).
 
 ---
 
@@ -18,7 +20,9 @@ como **arquitectura hexagonal (puertos y adaptadores)**, con el código dividido
 en **proyectos por responsabilidad técnica**.
 
 - **Monolito** → un solo ejecutable (el proyecto web `FERRETERIA  Joel`) que
-  contiene todos los módulos: catálogo, seguridad, ventas.
+  contiene todos los módulos: catálogo, seguridad, ventas. En el despliegue
+  actual se ejecutan **4 instancias idénticas** de ese mismo ejecutable
+  (sección 13).
 - **Hexagonal** → el núcleo de negocio (**Dominio**) define **puertos**
   (interfaces) y expone **casos de uso** (**Aplicación**); los detalles de
   infraestructura (MySQL, claims HTTP, hash Argon2) se conectan como
@@ -29,10 +33,10 @@ en **proyectos por responsabilidad técnica**.
 
 | Proyecto | Responsabilidad | Depende de |
 |----------|-----------------|------------|
-| `FERRETERIA__Joel.Dominio` | Núcleo: `Entidades/`, `Puertos/`, `Validaciones/`, `ConfiguracionValidacion/`, `Constantes/`, `Utilidades/` | (nada) |
-| `FERRETERIA__Joel.Aplicacion` | Casos de uso: `Servicios/` (servicios + **fachadas**), `Modelos/` (DTOs) y `Politicas/` (restricciones de descuento) | Dominio |
-| `FERRETERIA__Joel.Infraestructura` | Adaptadores de salida: `Repositorios/` (MySQL), `Conexion/`, `Factories/`, `Seguridad/` (Argon2) y `MySqlUnidadDeTrabajo` | Dominio |
-| `FERRETERIA  Joel` (Web) | Adaptador de entrada: `Pages/` (Razor Pages), `Servicios/ContextoUsuarioHttp`, `Helpers/` y `Program.cs` (**Composition Root**) | Dominio + Aplicación + Infraestructura |
+| `FERRETERIA__Joel.Dominio` | Núcleo: `Entidades/`, `Puertos/`, `Modelos/`, `Validaciones/`, `ConfiguracionValidacion/`, `Constantes/`, `Utilidades/` | (nada) |
+| `FERRETERIA__Joel.Aplicacion` | Casos de uso: `Servicios/` (servicios + **fachadas**) y `Modelos/` (DTOs) | Dominio |
+| `FERRETERIA__Joel.Infraestructura` | Adaptadores de salida: `Repositorios/` (MySQL), `Conexion/`, `Factories/`, `Seguridad/` (Argon2), `Servicios/` (Redis), `Correo/` (SMTP) y `MySqlUnidadDeTrabajo` | Dominio |
+| `FERRETERIA  Joel` (Web) | Adaptador de entrada: `Pages/` (Razor Pages), `Servicios/ContextoUsuarioHttp`, `Seguridad/` (certificado de Data Protection), `Helpers/` y `Program.cs` (**Composition Root**) | Dominio + Aplicación + Infraestructura |
 | `FERRETERIA__Joel.Pruebas` | Pruebas unitarias e integración (xUnit) | Todas |
 
 **¿Por qué esta separación?**
@@ -63,12 +67,19 @@ puertos del Dominio (inversión de dependencias); Web los compone y los consume.
 | `IUnidadDeTrabajo` | Transacción (Unit of Work) |
 | `IHasheadorContrasena` | Hash/verificación de contraseñas |
 | `IContextoUsuario` | Identidad del usuario en sesión |
+| `IRepositoryEmpleado` | Contrato del personal: `ActualizarEstadoAsync` (baja/reactivación) y proyecciones (`ObtenerTodosSinCredencialesAsync`, `ObtenerPorCorreoConCredencialesAsync`) |
+| `ICacheSeleccion` | Caché distribuida compartida entre réplicas (cache-aside) |
+| `IIdentificadorReplica` | Identificador de la réplica que atiende la petición (`app1`..`app4`) |
+| `IEnviadorCorreo` | Envío del correo de activación de cuentas |
 
 > Ya **no** existen puertos específicos por entidad (`IVentaRepository`,
 > `IClienteRepository`, …). Los repositorios concretos implementan **solo** los
 > dos contratos genéricos; las operaciones que no encajan en un CRUD
 > (folios/venta, anulación, stock, precio vigente, bitácora) se
 > exponen como **métodos concretos** e se inyectan directamente por DI.
+> La **única** excepción es `IRepositoryEmpleado`: se mantiene porque su
+> ciclo de vida (baja lógica, reactivación) y sus **proyecciones sin
+> credenciales** no encajan en el CRUD genérico.
 
 **Factory Method (mecanismo, ya no en el Dominio):**
 `FERRETERIA__Joel.Infraestructura/Factories/RepositoryCreator.cs` define
@@ -88,6 +99,9 @@ puertos del Dominio (inversión de dependencias); Web los compone y los consume.
 - `Argon2HasheadorContrasena` implementa `IHasheadorContrasena`.
 - `ContextoUsuarioHttp` (en Web) implementa `IContextoUsuario` leyendo las
   *claims* de la cookie.
+- `CacheSeleccionRedis` (Infraestructura) implementa `ICacheSeleccion`;
+  `IdentificadorReplica` implementa `IIdentificadorReplica`; y
+  `SmtpEnviadorCorreo` implementa `IEnviadorCorreo`.
 
 **Clave de defensa:** *"El Dominio declara el 'qué' (puertos); la
 Infraestructura aporta el 'cómo' (adaptadores). Por eso puedo cambiar MySQL por
@@ -149,7 +163,7 @@ datos.
 
 ## 4. Patrones de diseño usados (para la rúbrica de "Patrones")
 
-Se piden **al menos 3**, con **Facade obligatorio**. Aquí hay 5:
+Se piden **al menos 3**, con **Facade obligatorio**. Aquí hay 4:
 
 ### 4.1 Facade (fachadas del módulo de ventas) — obligatorio
 `FERRETERIA__Joel.Aplicacion/Servicios/`
@@ -180,19 +194,11 @@ subsistema de stock reutilizable por venta y anulación.
   `RepositoryCreator<IGestionarRepository<Producto>>` y obtienen un repositorio
   **ligado a la transacción ambiente**.
 
-### 4.3 Strategy
-- **`Politicas/IPoliticaDescuento`** con estrategias concretas
-  `DescuentoPorMonto` y `DescuentoPorCantidad`.
-- **`Politicas/SelectorDescuento`** es el contexto: evalúa todas las políticas y
-  aplica la que otorgue el **mayor beneficio**; si ninguna aplica, descuento 0.
-- Agregar una política nueva = agregar una clase `IPoliticaDescuento`, sin tocar
-  el selector (Open/Closed).
-
-### 4.4 Repository
+### 4.3 Repository
 - Los `MySql*Repository` encapsulan el SQL/ADO.NET; la lógica no ve tablas, solo
   entidades. `MySqlProductoRepository`, `MySqlVentaRepository`, etc.
 
-### 4.5 Unit of Work + transacción
+### 4.4 Unit of Work + transacción
 - **`IUnidadDeTrabajo`** (Dominio) con `IniciarAsync` / `ConfirmarAsync` /
   `RevertirAsync`; implementada por **`MySqlUnidadDeTrabajo`** sobre
   `IConexionTransaccional` (`MySqlConexionTransaccional`, que abre una conexión y
@@ -240,8 +246,14 @@ Cada clase/archivo hace **una cosa**:
 - Mapear fila→entidad → método privado `Mapear*` dentro de cada repositorio.
 
 ### O — Open/Closed
-- Nuevo descuento → nueva clase `IPoliticaDescuento`, sin tocar
-  `SelectorDescuento`.
+- Nuevo dato del empleado (p. ej. una propiedad de solo lectura en
+  `Empleado`) → propiedad nueva en `Dominio/Entidades/Empleado.cs`, su
+  proyección en `Infraestructura/Repositorios/MySqlEmpleadoRepository.cs`
+  (`ColumnasPublicas`) y la columna en `Scripts/esquema.sql`. Las páginas, los
+  casos de uso y las demás tablas **no se tocan**.
+- Nuevo puerto (p. ej. `ICacheSeleccion`) → interfaz en `Dominio/Puertos/`,
+  adaptador en `Infraestructura/Servicios/` y **una línea** en `Program.cs`.
+  Ninguna página se modifica.
 - Nuevo motor de BD → nueva implementación del puerto + ajuste **solo** en
   `Program.cs`. Ninguna página se modifica.
 
@@ -289,7 +301,7 @@ Clean Code = código **legible, sin duplicación y con intención clara**.
 
 | Rol | Alcance |
 |-----|---------|
-| `Administrador` | **Gestión total** del catálogo (CRUD de productos, categorías, marcas, proveedores, precios). En ventas **solo las visualiza**, no las anula. |
+| `Administrador` | **Gestión total** del catálogo (CRUD de productos, categorías, marcas, proveedores, precios) **y del personal** (`/Registro`, `/Personal`). En ventas **solo las visualiza**, no las anula. |
 | `EmpleadoVenta` | Registra ventas, ve el historial de ventas y **puede anularlas**. |
 
 - El login es **solo para empleados** (`ServicioInicioSesion`); los clientes ya
@@ -345,6 +357,17 @@ servidor bajo carga (escenario de ventas concurrentes).
 lanza dos registros/anulaciones en paralelo y verifica que **solo una gana**
 (reposición única).
 
+**Pruebas de integración reales contra MySQL:** se activan con la variable de
+entorno `FERRETERIA_TEST_CONNECTION`. Hoy hay dos archivos:
+
+| Archivo | Qué cubre |
+|---------|-----------|
+| `Integracion/FachadaVentaIntegracionPruebas.cs` | commit y rollback reales, descuento y reposición de stock, concurrencia y unicidad de códigos |
+| `Integracion/MySqlEmpleadoRepositoryIntegracionPruebas.cs` | las tres proyecciones del repositorio de personal (sin credenciales, con credenciales, activación), la baja lógica y la reactivación |
+
+Son las pruebas que evidencian que la **baja es lógica** (la fila sigue
+existiendo) y que la **contraseña nunca sale del proceso que la necesita**.
+
 ---
 
 ## 11. Otras preguntas clásicas
@@ -353,6 +376,9 @@ lanza dos registros/anulaciones en paralelo y verifica que **solo una gana**
 Por **auditoría**: `CambiarEstadoAsync` alterna `Estado=1/0` (activo/inactivo).
 En ventas, anular es un `UPDATE ... EstadoVenta='Anulada'`; el `detalle_venta`
 se conserva para reponer stock y para historial.
+En el **personal** la baja lógica la hace `ServicioPersonal.DarDeBajaAsync`
+(estado `Inactivo`): la fila nunca se borra, para que el histórico de ventas y
+la auditoría sigan siendo trazables.
 
 ### ¿Cómo validas los datos antes de insertar?
 Dos capas: (1) **validaciones de dominio** en `Dominio/Validaciones/*` y
@@ -360,7 +386,8 @@ Dos capas: (1) **validaciones de dominio** en `Dominio/Validaciones/*` y
 error 1062 capturado en el `catch`).
 
 ### ¿Dónde está la cadena de conexión? (seguridad)
-En `appsettings*.json` (y variables de entorno), leída por `IDbConnectionFactory`
+En `appsettings*.json`, en variables de entorno y en el archivo **`.env`** de la
+raíz del repositorio (ignorado por Git), leída por `IDbConnectionFactory`
 (`MySqlConnectionFactory`). **Nunca** en el código.
 
 ### ¿Cómo se guardan las contraseñas?
@@ -402,19 +429,133 @@ Clean Architecture (DIP, regla de dependencias) sin el andamiaje formal.
 ## 12. Cómo defender (checklist contra la rúbrica)
 
 1. **Monolito + Hexagonal** → sección 1 y 2.
-2. **≥3 patrones con Facade** → sección 4 (Facade, Factory Method, Strategy,
-   Repository, Unit of Work).
+2. **≥3 patrones con Facade** → sección 4 (Facade, Factory Method, Repository
+   y Unit of Work).
 3. **≥2 roles diferenciados** → sección 8 (`Administrador` gestiona el catálogo,
    `EmpleadoVenta` registra y anula ventas).
 4. **Login + Home** → `Pages/Login.cshtml.cs`, `Pages/Index.cshtml.cs`.
 5. **UI del proceso principal (25 pts)** → `Pages/Venta.cshtml(.cs)` (búsqueda de
-   cliente/producto, carrito, totales con descuento en vivo).
+   cliente/producto, carrito y totales calculados en vivo).
 6. **Transacción (10 pts)** → sección 5 (`RegistrarVentaAsync`).
 7. **Anulación lógica (8 pts)** → sección 5 (`AnularVentaAsync`).
 8. **Comprobante (8 pts)** → `FachadaVenta.ObtenerComprobanteAsync` +
    `Pages/VentaComprobante.cshtml`.
 9. **Patrones/SOLID (12 pts)** → secciones 4 y 6.
 10. **Asincronía** → sección 10.
+11. **Escalamiento horizontal (EC2)** → sección 13 (4 réplicas + Nginx, failover
+    y evidencias `X-Replica-Id`, `X-Replica-Served` y sonda `/health`).
+12. **Caché, Data Protection y secretos (EC2)** → sección 13.
+
+---
+
+## 13. Estado actual del proyecto (EC2): escalamiento, caché y secretos
+
+> El diseño **no cambia**: el mismo monolito hexagonal, desplegado **cuatro
+> veces** detrás de un balanceador **Nginx**, con **Redis** como caché
+> compartida y **Data Protection** replicado. Lo que se añade son
+> **adaptadores de salida** (Redis, SMTP) y configuración de despliegue.
+
+### 13.1 Escalamiento horizontal (4 réplicas + Nginx)
+
+- **Topología**: `docker-compose.yml` levanta `app1`, `app2`, `app3` y `app4`
+  (cuatro contenedores **idénticos**: misma imagen, solo cambia `HOSTNAME`),
+  más `nginx`, `mysql` y `redis`. Las cuatro réplicas comparten la
+  configuración del ancla `x-app-common`.
+- **Balanceo round-robin**: en `nginx/nginx.conf`, el *upstream*
+  `ferreteria_backend` declara las cuatro réplicas con su política de
+  *failover*:
+  ```nginx
+  server app1:8080 max_fails=3 fail_timeout=10s;
+  server app2:8080 max_fails=3 fail_timeout=10s;
+  server app3:8080 max_fails=3 fail_timeout=10s;
+  server app4:8080 max_fails=3 fail_timeout=10s;
+  ```
+- **Failover**: `proxy_next_upstream error timeout http_502 http_503 http_504;`
+  con `proxy_next_upstream_tries 4;`. Si una réplica no responde, la **misma**
+  petición se reenvía a otra sin que el cliente lo note. Tras `max_fails`
+  errores en `fail_timeout` segundos la réplica queda fuera de la rotación y
+  vuelve a entrar al vencer el plazo.
+- **Volumen compartido `proteccion_datos`**: se monta en las cuatro réplicas en
+  `/var/ferreteria/proteccion` y guarda el certificado con el que se cifran las
+  claves de Data Protection. **Debe ser el mismo** en las cuatro (ver 13.4).
+- El estado compartido (sesión, caché, claves de Data Protection) vive en
+  **Redis**, de modo que cualquier réplica puede atender cualquier petición.
+
+### 13.2 Evidencias de escalamiento
+
+| Evidencia | Quién la escribe | Qué demuestra |
+|-----------|------------------|----------------|
+| Cabecera `X-Replica-Id` | la **réplica** que atendió la petición (`Program.cs`); Nginx la reenvía al cliente (`proxy_pass_header X-Replica-Id`) | qué réplica respondió |
+| Cabecera `X-Replica-Served` | **Nginx** (`add_header ... $upstream_addr always`) | dirección del *upstream* que sirvió la petición |
+| Sonda `GET /health` | la réplica (`Program.cs`) | estado, identificador de réplica y si Redis responde |
+
+```bash
+curl -s http://localhost/health
+# {"estado":"saludable","replica":"app2","redis":true,"fecha":"..."}
+```
+
+> Prueba del failover: con `docker compose stop app2` las peticiones **siguen**
+> atendiéndose y la cabecera `X-Replica-Id` deja de mostrar `app2`.
+
+### 13.3 Caché distribuida (cache-aside con Redis)
+
+- **Puerto** `ICacheSeleccion` (Dominio) y adaptador `CacheSeleccionRedis`
+  (Infraestructura): patrón **cache-aside**. Los repositorios de **producto,
+  categoría, marca y proveedor** consultan la caché y solo ante un **MISS**
+  recurren a MySQL.
+- **TTL configurable**: `Redis:CacheTtlMinutes` (**5 minutos** por defecto; en
+  Docker, `REDIS_CACHE_TTL_MINUTES`).
+- **Invalidación por prefijo**: al insertar, actualizar o cambiar el estado de
+  un registro se borran las claves de esa tabla
+  (`cache:select:productos:*`, `cache:select:categorias:*`, …), de modo que la
+  siguiente lectura vuelva a la base de datos.
+- **Registro compartido**: cada acceso se anota como **HIT** o **MISS** con la
+  **clave**, la **réplica** que lo produjo y el **origen** del dato (`REDIS` o
+  `MYSQL`). El rastro se guarda en Redis, así que lo ven **todas** las
+  réplicas, y se muestra en la vista **`/DiagnosticoCache`** (solo
+  administrador).
+- Si Redis se cae, el adaptador **degrada a MISS**: la aplicación sigue
+  funcionando contra MySQL.
+
+### 13.4 Data Protection compartido y cifrado
+
+1. Las claves se guardan en **Redis** (`PersistKeysToStackExchangeRedis`), de
+   modo que las cuatro réplicas las comparten: una cookie emitida por `app1` es
+   válida en `app2`, `app3` y `app4`.
+2. Además se **cifran con un certificado X.509**
+   (`ProtectKeysWithCertificate`); sin este paso las claves quedarían
+   almacenadas en Redis **en claro**.
+
+El certificado lo genera `docker/entrypoint.sh` (autofirmado, con `openssl`) de
+forma **atómica** en el volumen compartido `proteccion_datos`: la primera
+réplica que arranca lo crea y las demás reutilizan ese mismo.
+
+### 13.5 Personal y baja lógica
+
+- **Puerto** `IRepositoryEmpleado` (Dominio) y caso de uso **`ServicioPersonal`**
+  (Aplicación) con `ListarAsync`, `DarDeBajaAsync` y `ReactivarAsync`.
+- La **baja es lógica**: la cuenta pasa a estado `Inactivo`
+  (`EstadoEmpleado.Inactivo`) y **la fila no se borra**; la reactivación la
+  deja en `PendienteActivacion` para que el empleado vuelva a definir su
+  contraseña.
+- **Proyección sin credenciales**: el listado usa
+  `ObtenerTodosSinCredencialesAsync`, que **no consulta** la contraseña ni el
+  token de activación. Solo la **autenticación** usa la proyección **con
+  credenciales** (`ObtenerPorCorreoConCredencialesAsync`), así que el hash
+  nunca sale del proceso que lo necesita.
+- **Vista** `/Personal` (solo administrador).
+
+### 13.6 Secretos fuera del repositorio
+
+- Archivo **`.env`** en la **raíz** del repositorio, **ignorado por Git**
+  (`.gitignore`), y su plantilla **`.env.example`**.
+- **Docker Compose** resuelve los `${VARIABLE}` de `docker-compose.yml` desde
+  ese archivo (`MYSQL_ROOT_PASSWORD`, `URL_PROTECCION_CLAVE`, `SMTP_*`,
+  puertos…). La aplicación también lo lee al arrancar
+  (`Program.cs` → `CargarVariablesEntorno`, que busca el archivo en su carpeta
+  y en las carpetas padre).
+- **Ningún secreto está versionado**: los que se publicaron antes hay que
+  **rotarlos** (en especial la clave de aplicación del servidor de correo).
 
 **Fórmula de respuesta:** *concepto (1 frase) → archivo/método exacto → frase que
 cierra*: *"por eso dependemos de puertos y no de MySQL, y por eso lo podemos
