@@ -176,7 +176,7 @@ CREATE TABLE cliente
   COLLATE = utf8mb4_unicode_ci;
 
 -- ============================================================
--- VENTA (con campos finales: estado, auditoría, idempotencia, descuento)
+-- VENTA (con campos finales: estado, auditoría y descuento)
 -- ============================================================
 CREATE TABLE venta
 (
@@ -190,7 +190,6 @@ CREATE TABLE venta
     Subtotal              DECIMAL(12,2)  NOT NULL DEFAULT 0,
     MontoDescuento        DECIMAL(12,2)  NOT NULL DEFAULT 0,
     PorcentajeDescuento   DECIMAL(5,2)   NOT NULL DEFAULT 0,
-    ClaveIdempotencia     VARCHAR(64)    NULL DEFAULT NULL,
     FechaRegistro         DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FechaActualizacion    DATETIME       NULL DEFAULT NULL,
     FechaAnulacion        DATETIME       NULL DEFAULT NULL,
@@ -198,7 +197,6 @@ CREATE TABLE venta
     IdEmpleadoAnulacion   INT            NULL DEFAULT NULL,
     IdEmpleadoResponsable INT            NOT NULL,
     PRIMARY KEY (IdVenta),
-    UNIQUE KEY UNIQUE_VENTA_IDEMPOTENCIA (ClaveIdempotencia),
     CONSTRAINT FK_venta_cliente
         FOREIGN KEY (IdCliente) REFERENCES cliente (IdCliente),
     CONSTRAINT FK_venta_empleado_anulacion
@@ -214,17 +212,21 @@ CREATE TABLE venta
 -- ============================================================
 CREATE TABLE detalle_venta
 (
-    IdDetalleVenta        INT            NOT NULL AUTO_INCREMENT,
-    IdVenta               INT            NOT NULL,
-    IdProducto            INT            NOT NULL,
-    Cantidad              INT            NOT NULL,
-    PrecioUnitario        DECIMAL(12,2)  NOT NULL,
-    Subtotal              DECIMAL(12,2)  NOT NULL,
+    IdDetalleVenta        INT           NOT NULL AUTO_INCREMENT,
+    IdVenta               INT           NOT NULL,
+    IdProducto            INT           NOT NULL,
+    Cantidad              INT           NOT NULL,
+    PrecioUnitario        DECIMAL(12,2) NOT NULL,
+    TotalProducto         DECIMAL(12,2) NOT NULL,
+    FechaRegistro         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    IdEmpleadoResponsable INT           NOT NULL,
     PRIMARY KEY (IdDetalleVenta),
     CONSTRAINT FK_detalle_venta
         FOREIGN KEY (IdVenta) REFERENCES venta (IdVenta),
     CONSTRAINT FK_detalle_producto
-        FOREIGN KEY (IdProducto) REFERENCES producto (IdProducto)
+        FOREIGN KEY (IdProducto) REFERENCES producto (IdProducto),
+    CONSTRAINT FK_detalle_empleado
+        FOREIGN KEY (IdEmpleadoResponsable) REFERENCES empleado (IdEmpleado)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_unicode_ci;
@@ -234,12 +236,14 @@ CREATE TABLE detalle_venta
 -- ============================================================
 CREATE TABLE historico_precio
 (
-    IdHistoricoPrecio     INT            NOT NULL AUTO_INCREMENT,
-    IdProducto            INT            NOT NULL,
-    PrecioVenta           DECIMAL(12,2)  NOT NULL,
-    FechaInicio           DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FechaFin              DATETIME       NULL DEFAULT NULL,
-    IdEmpleadoResponsable INT            NOT NULL,
+    IdHistoricoPrecio     INT           NOT NULL AUTO_INCREMENT,
+    IdProducto            INT           NOT NULL,
+    Precio                DECIMAL(12,2) NOT NULL,
+    FechaInicioVigencia   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FechaFinVigencia      DATETIME      NULL DEFAULT NULL,
+    MotivoCambio          VARCHAR(255)  NOT NULL DEFAULT '',
+    FechaRegistro         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    IdEmpleadoResponsable INT           NOT NULL,
     PRIMARY KEY (IdHistoricoPrecio),
     CONSTRAINT FK_historico_producto
         FOREIGN KEY (IdProducto) REFERENCES producto (IdProducto),
@@ -277,14 +281,14 @@ CREATE TABLE bitacora_sesion
 INSERT INTO empleado
     (Nombre, Apellido, Rol, Telefono, CorreoElectronico, Contrasena, Estado, IdEmpleadoResponsable)
 VALUES
-    ('Joel',   'Rios',      'Administrador', '70000001', 'joel.rios@ferreteria.com',    '$argon2id$v=19$m=19456,t=2,p=1$Z+Kb/5STembq6DWHh6ZgBg$vSM1I7ha07sC1lViQivu6mQFHo52FiCSl5zSYMFcfqI',   1, NULL),
-    ('Maria',    'Lopez',     'EmpleadoVenta', '70000002', 'maria.lopez@ferreteria.com',    '$argon2id$v=19$m=19456,t=2,p=1$432CJ2xhzoutD3YceF5mfQ$BGAYPqa6XVk6osyHgnFTeg7pB5NL8yAK05UhDHHlRm0', 1, 1),
+    ('Joel',   'Ríos',      'Administrador', '70000001', 'joel.rios@ferreteria.com',    '$argon2id$v=19$m=19456,t=2,p=1$Z+Kb/5STembq6DWHh6ZgBg$vSM1I7ha07sC1lViQivu6mQFHo52FiCSl5zSYMFcfqI',   1, NULL),
+    ('María',    'López',     'EmpleadoVenta', '70000002', 'maria.lopez@ferreteria.com',    '$argon2id$v=19$m=19456,t=2,p=1$432CJ2xhzoutD3YceF5mfQ$BGAYPqa6XVk6osyHgnFTeg7pB5NL8yAK05UhDHHlRm0', 1, 1),
     ('Carlos',   'Mendoza',   'EmpleadoVenta', '70000003', 'carlos.mendoza@ferreteria.com', '$argon2id$v=19$m=19456,t=2,p=1$UxDIBBPv5brarthGWQNkRQ$73iY2wXaUNsrAlHpXgImy3ZrigjX0q5UIPATOirSJgY', 1, 1),
-    ('Ana',      'Gutierrez', 'EmpleadoVenta',   '70000004', 'ana.gutierrez@ferreteria.com',  '$argon2id$v=19$m=19456,t=2,p=1$U8EUBa0bu4tDk3f82hCdYg$D4YF8Aq9qprVM1q3lPNC9FbXdq09lQkw2dK1pnridQY', 1, 1),
-    ('Luis',     'Fernandez', 'EmpleadoVenta',  '70000005', 'luis.fernandez@ferreteria.com', '$argon2id$v=19$m=19456,t=2,p=1$mXiLh5CNwb1XmsPoZlCKYg$vqF5qWziDQV+EoyFtBBK9omnCnJTM6ywS78DephbAwM', 1, 1),
-    ('Sofia',    'Ramirez',   'EmpleadoVenta', '70000006', 'sofia.ramirez@ferreteria.com',  '$argon2id$v=19$m=19456,t=2,p=1$UKLS7lcxWKbEWJvAacTqRw$b65cck9cbwNYbvCFTLly9nQfAKimKKV/PIEyGj+fvvc', 1, 1),
+    ('Ana',      'Gutiérrez', 'EmpleadoVenta',   '70000004', 'ana.gutierrez@ferreteria.com',  '$argon2id$v=19$m=19456,t=2,p=1$U8EUBa0bu4tDk3f82hCdYg$D4YF8Aq9qprVM1q3lPNC9FbXdq09lQkw2dK1pnridQY', 1, 1),
+    ('Luis',     'Fernández', 'EmpleadoVenta',  '70000005', 'luis.fernandez@ferreteria.com', '$argon2id$v=19$m=19456,t=2,p=1$mXiLh5CNwb1XmsPoZlCKYg$vqF5qWziDQV+EoyFtBBK9omnCnJTM6ywS78DephbAwM', 1, 1),
+    ('Sofía',    'Ramírez',   'EmpleadoVenta', '70000006', 'sofia.ramirez@ferreteria.com',  '$argon2id$v=19$m=19456,t=2,p=1$UKLS7lcxWKbEWJvAacTqRw$b65cck9cbwNYbvCFTLly9nQfAKimKKV/PIEyGj+fvvc', 1, 1),
     ('Diego',    'Torres',    'EmpleadoVenta',   '70000007', 'diego.torres@ferreteria.com',   '$argon2id$v=19$m=19456,t=2,p=1$Rrba/l4K/4cRwn61P3A9gw$4IRRCq2JTCzsREoDcDDPqB5DczR+VrzRol4/WGyeTU4', 1, 1),
-    ('Lucia',    'Vargas',    'EmpleadoVenta',  '70000008', 'lucia.vargas@ferreteria.com',   '$argon2id$v=19$m=19456,t=2,p=1$0Fns0IHrq/Kd6krlFhsQIQ$yjXH1tZbCRCs8ZbKwoybMf4UEkZVTc/EfZGUX/yFnDo', 1, 1),
+    ('Lucía',    'Vargas',    'EmpleadoVenta',  '70000008', 'lucia.vargas@ferreteria.com',   '$argon2id$v=19$m=19456,t=2,p=1$0Fns0IHrq/Kd6krlFhsQIQ$yjXH1tZbCRCs8ZbKwoybMf4UEkZVTc/EfZGUX/yFnDo', 1, 1),
     ('Pedro',    'Castillo',  'EmpleadoVenta','70000009','pedro.castillo@ferreteria.com', '$argon2id$v=19$m=19456,t=2,p=1$DkC+fWxOlRk1/X6aGj7e9A$a34WBFccYECQ3Ka+UwVczdl8Rn5zku1/kXvK+Yjpdsc', 1, 1),
     ('Elena',    'Rojas',     'EmpleadoVenta', '70000010', 'elena.rojas@ferreteria.com',    '$argon2id$v=19$m=19456,t=2,p=1$6lLxKhg6camSJXMOp3SN9A$vkifcdnD0iQr6VnYP1kF05W/7N/4AcCXfrd7Olubf0o', 1, 1);
 
@@ -292,8 +296,8 @@ VALUES
 INSERT INTO cliente
     (Ci, Nombre, Apellido, Telefono, Estado, IdEmpleadoResponsable)
 VALUES
-    ('1234567', 'Juan',   'Perez',  '71234567', 1, 1),
-    ('2345678', 'Maria',  'Quispe', '72345678', 1, 1),
+    ('1234567', 'Juan',   'Pérez',  '71234567', 1, 1),
+    ('2345678', 'María',  'Quispe', '72345678', 1, 1),
     ('3456789', 'Carlos', 'Ticona', '73456789', 1, 1),
     ('4567890', 'Ana',    'Mamani', '74567890', 1, 1),
     ('5678901', 'Luis',   'Choque', '75678901', 1, 1);
@@ -302,30 +306,30 @@ VALUES
 INSERT INTO marca
     (Nombre, Descripcion, PaisOrigen, Calidad, Estado, IdEmpleadoResponsable)
 VALUES
-    ('Bosch',       'Herramientas electricas',            'Alemania',    'Alta',  1, 1),
+    ('Bosch',       'Herramientas eléctricas',            'Alemania',    'Alta',  1, 1),
     ('Stanley',     'Herramientas manuales',              'Estados Unidos', 'Alta', 1, 1),
-    ('Truper',      'Herramientas y ferreteria general',  'Mexico',      'Media', 1, 1),
-    ('DeWalt',      'Herramientas electricas profesionales','Estados Unidos','Alta', 1, 1),
-    ('Makita',      'Herramientas electricas',            'Japon',       'Alta',  1, 1),
-    ('Milwaukee',   'Herramientas electricas',            'Estados Unidos','Alta', 1, 1),
+    ('Truper',      'Herramientas y ferreteria general',  'México',      'Media', 1, 1),
+    ('DeWalt',      'Herramientas eléctricas profesionales','Estados Unidos','Alta', 1, 1),
+    ('Makita',      'Herramientas eléctricas',            'Japón',       'Alta',  1, 1),
+    ('Milwaukee',   'Herramientas eléctricas',            'Estados Unidos','Alta', 1, 1),
     ('M',           'Seguridad industrial',               'Estados Unidos','Alta', 1, 1),
     ('Sika',        'Adhesivos y sellantes',              'Suiza',       'Alta',  1, 1),
     ('Fischer',     'Fijaciones y anclajes',              'Alemania',    'Alta',  1, 1),
-    ('Cemex',       'Materiales de construccion',         'Mexico',      'Alta',  1, 1);
+    ('Cemex',       'Materiales de construcción',         'México',      'Alta',  1, 1);
 
 -- CATEGORÍAS (10)
 INSERT INTO categoria
     (Codigo, Nombre, Descripcion, PorcentajeGanancia, Estado, IdEmpleadoResponsable)
 VALUES
     ('HER-01',  'Herramientas Manuales',   'Martillos desarmadores y llaves',    25.00, 1, 1),
-    ('HER-02',  'Herramientas Electricas', 'Taladros esmeriles y sierras',       30.00, 1, 1),
-    ('PLM-01',  'Plomeria',                'Tuberia conexiones y griferia',      20.00, 1, 1),
+    ('HER-02',  'Herramientas Eléctricas', 'Taladros esmeriles y sierras',       30.00, 1, 1),
+    ('PLM-01',  'Plomería',                'Tubería conexiones y grifería',      20.00, 1, 1),
     ('ELE-01',  'Electricidad',            'Cables interruptores y contactos',   22.00, 1, 1),
     ('PIN-01',  'Pinturas',                'Pinturas brochas y rodillos',        35.00, 1, 1),
-    ('FIJ-01',  'Fijaciones y Tornilleria','Tornillos taquetes y anclajes',      40.00, 1, 1),
+    ('FIJ-01',  'Fijaciones y Tornillería','Tornillos taquetes y anclajes',      40.00, 1, 1),
     ('SEG-01',  'Seguridad Industrial',    'Cascos guantes y respiradores',      28.00, 1, 1),
-    ('JAR-01',  'Jardineria',              'Herramientas y accesorios de jardin',30.00, 1, 1),
-    ('CON-01',  'Construccion',            'Cemento varilla y agregados',        18.00, 1, 1),
+    ('JAR-01',  'Jardinería',              'Herramientas y accesorios de jardín',30.00, 1, 1),
+    ('CON-01',  'Construcción',            'Cemento varilla y agregados',        18.00, 1, 1),
     ('ADP-01',  'Adhesivos y Sellantes',   'Silicona pegamento y selladores',    32.00, 1, 1);
 
 -- PRODUCTOS (10)
@@ -338,22 +342,22 @@ VALUES
     (2,  'PROD-004', 'Esmeriladora angular',  'Velocidad variable',              4, 'Pieza', 1680.00, 12, 1, 1),
     (2,  'PROD-005', 'Sierra circular',       'Incluye disco de corte',          5, 'Pieza', 2100.00, 10, 1, 1),
     (6,  'PROD-006', 'Ancla expansiva',         'Caja con piezas',              9, 'Caja',  420.00,  30, 1, 1),
-    (10, 'PROD-007', 'Silicona transparente ml',  'Sellador multiproposito',         8, 'Pieza', 95.00,   60, 1, 1),
+    (10, 'PROD-007', 'Silicona transparente ml',  'Sellador multipropósito',         8, 'Pieza', 95.00,   60, 1, 1),
     (7,  'PROD-008', 'Respirador media cara',        'Incluye dos filtros',             7, 'Pieza', 540.00,  20, 1, 1),
-    (9,  'PROD-009', 'Cemento gris kg',           'Uso general en construccion',    10, 'Saco',  280.00,  50, 1, 1),
-    (2,  'PROD-010', 'Rotomartillo SDS Plus W',   'Empunadura antivibracion',        6, 'Pieza', 2650.00,  8, 1, 1);
+    (9,  'PROD-009', 'Cemento gris kg',           'Uso general en construcción',    10, 'Saco',  280.00,  50, 1, 1),
+    (2,  'PROD-010', 'Rotomartillo SDS Plus W',   'Empuñadura antivibración',        6, 'Pieza', 2650.00,  8, 1, 1);
 
 -- PROVEEDORES (10)
 INSERT INTO proveedor
     (RazonSocial, NombreComercial, NombreContacto, Telefono, CorreoElectronico, Direccion, Estado, IdEmpleadoResponsable)
 VALUES
     ('Distribuidora Ferretera del Norte SA de CV', 'FerreNorte',   'Jorge Salinas',  '81000001', 'ventas@ferrenorte.com',   'Av Industrial Monterrey', 1, 1),
-    ('Herramientas Profesionales del Bajio',           'ProfesBajio',  'Rosa Herrera',   '81000002', 'contacto@profesbajio.com','Blvd del Trabajo Leon',   1, 1),
-    ('Suministros Electricos MX',                      'ElectroSum',   'Hugo Marrero',   '81000003', 'info@electrosum.com',     'Calle Voltios CDMX',         1, 1),
-    ('Plomeria y Tuberia Nacional',                    'PlomNal',      'Sara Duarte',    '81000004', 'ventas@plomnal.com',      'Av Canales Guadalajara',   1, 1),
+    ('Herramientas Profesionales del Bajío',           'ProfesBajio',  'Rosa Herrera',   '81000002', 'contacto@profesbajio.com','Blvd del Trabajo León',   1, 1),
+    ('Suministros Eléctricos MX',                      'ElectroSum',   'Hugo Marrero',   '81000003', 'info@electrosum.com',     'Calle Voltios CDMX',         1, 1),
+    ('Plomería y Tubería Nacional',                    'PlomNal',      'Sara Duarte',    '81000004', 'ventas@plomnal.com',      'Av Canales Guadalajara',   1, 1),
     ('Pinturas y Acabados del Sur',                    'PintuSur',     'Mario Cano',     '81000005', 'pedidos@pintusur.com',    'Calle Color Puebla',         1, 1),
-    ('Fijaciones Tecnicas del Centro',                 'FijaTec',      'Nadia Rios',     '81000006', 'contacto@fijatec.com',    'Av Tornillos Queretaro',  1, 1),
-    ('Seguridad Industrial Integral',                  'SeguridadInt', 'Raul Pineda',    '81000007', 'ventas@seguridadint.com', 'Blvd Proteccion Tijuana',  1, 1),
-    ('Adhesivos y Quimicos del Golfo',                 'AdhiGolfo',    'Irene Solis',    '81000008', 'info@adhigolfo.com',      'Zona Portuaria Veracruz',   1, 1),
-    ('Materiales de Construccion del Pacifico',        'ConsPacifico', 'Tomas Lira',     '81000009', 'ventas@conspacifico.com', 'Av Concreto Mazatlan',    1, 1),
-    ('Importadora de Herramientas Globales',           'ImportGlobal', 'Karla Mena',     '81000010', 'contacto@importglobal.com','Calle Comercio Merida',     1, 1);
+    ('Fijaciones Técnicas del Centro',                 'FijaTec',      'Nadia Ríos',     '81000006', 'contacto@fijatec.com',    'Av Tornillos Querétaro',  1, 1),
+    ('Seguridad Industrial Integral',                  'SeguridadInt', 'Raúl Pineda',    '81000007', 'ventas@seguridadint.com', 'Blvd Protección Tijuana',  1, 1),
+    ('Adhesivos y Químicos del Golfo',                 'AdhiGolfo',    'Irene Solís',    '81000008', 'info@adhigolfo.com',      'Zona Portuaria Veracruz',   1, 1),
+    ('Materiales de Construcción del Pacífico',        'ConsPacifico', 'Tomás Lira',     '81000009', 'ventas@conspacifico.com', 'Av Concreto Mazatlán',    1, 1),
+    ('Importadora de Herramientas Globales',           'ImportGlobal', 'Karla Mena',     '81000010', 'contacto@importglobal.com','Calle Comercio Mérida',     1, 1);
