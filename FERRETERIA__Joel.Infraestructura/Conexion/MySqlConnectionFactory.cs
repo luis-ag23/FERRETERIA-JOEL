@@ -9,10 +9,18 @@ namespace FERRETERIA__Joel.Infraestructura.Conexion
 
         public MySqlConnectionFactory(IConfiguration configuration)
         {
-            _connectionString =
-                configuration.GetConnectionString("MySqlConnection")
-                ?? throw new InvalidOperationException(
-                    "No se encontró la cadena de conexión MySqlConnection.");
+            string? cadena =
+                configuration.GetConnectionString("MySqlConnection");
+
+            if (string.IsNullOrWhiteSpace(cadena))
+            {
+                throw new InvalidOperationException(
+                    "Falta la cadena de conexión 'ConnectionStrings:MySqlConnection'. "
+                    + "Defina la variable de entorno ConnectionStrings__MySqlConnection "
+                    + "(archivo .env de la raíz o docker-compose.yml).");
+            }
+
+            _connectionString = cadena;
         }
 
         public MySqlConnection CreateConnection()

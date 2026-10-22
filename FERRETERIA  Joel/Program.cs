@@ -9,9 +9,12 @@ using FERRETERIA__Joel.Infraestructura.Factories;
 using FERRETERIA__Joel.Infraestructura.Repositorios;
 using FERRETERIA__Joel.Infraestructura.Seguridad;
 using FERRETERIA__Joel.Infraestructura.Servicios;
+using FERRETERIA__Joel.Seguridad;
 using FERRETERIA__Joel.Servicios;
+using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -46,7 +49,7 @@ builder.Services.AddRazorPages(options =>
 
     // Deshabilitar filtro automático de antiforgery para páginas con POST - usamos autenticación por cookie + Redis
     var ignoreAntiforgery = new Microsoft.AspNetCore.Mvc.IgnoreAntiforgeryTokenAttribute();
-    var pagesToIgnore = new[] { "/Login", "/ProductoNuevo", "/ProductoEditar", "/CategoriaNueva", "/CategoriaEditar", "/MarcaNueva", "/MarcaEditar", "/ProveedorNuevo", "/ProveedorEditar", "/Venta", "/Logout" };
+    var pagesToIgnore = new[] { "/Login", "/ProductoNuevo", "/ProductoEditar", "/CategoriaNueva", "/CategoriaEditar", "/MarcaNueva", "/MarcaEditar", "/ProveedorNuevo", "/ProveedorEditar", "/Venta", "/Logout", "/Personal" };
     foreach (var page in pagesToIgnore)
     {
         options.Conventions.AddPageApplicationModelConvention(page, model =>
@@ -82,10 +85,20 @@ builder.Services.AddAntiforgery(options =>
     options.SuppressXFrameOptionsHeader = true;
 });
 
-UrlProtector.Inicializar(
-    builder.Configuration["UrlProteccion:Clave"]
-        ?? throw new InvalidOperationException(
-            "Falta la clave 'UrlProteccion:Clave' en la configuración."));
+// La clave del protector de URLs no se versiona: llega desde el archivo .env
+// (variable UrlProteccion__Clave) o desde las variables de entorno de Docker
+// Compose. Si falta, la aplicación no arranca: es preferible a firmar tokens
+// con una clave vacía.
+string? claveUrlProteccion = builder.Configuration["UrlProteccion:Clave"];
+
+if (string.IsNullOrWhiteSpace(claveUrlProteccion))
+{
+    throw new InvalidOperationException(
+        "Falta la clave 'UrlProteccion:Clave'. Defina la variable de entorno "
+        + "UrlProteccion__Clave (archivo .env de la raíz o docker-compose.yml).");
+}
+
+UrlProtector.Inicializar(claveUrlProteccion);
 
 builder.Services.AddHttpContextAccessor();
 
@@ -95,22 +108,50 @@ var redisConnectionString = builder.Configuration["Redis:Connection"]
     ?? Environment.GetEnvironmentVariable("Redis__Connection")
     ?? "redis:6379";
 
+// Tiempo de vida de las entradas de caché, configurable desde el entorno.
+int cacheTtlMinutos = 5;
+int.TryParse(
+    builder.Configuration["Redis:CacheTtlMinutes"]
+        ?? builder.Configuration["Redis__CacheTtlMinutes"]
+        ?? Environment.GetEnvironmentVariable("Redis__CacheTtlMinutes"),
+    out cacheTtlMinutos);
+
 var redisMultiplexer = ConnectionMultiplexer.Connect(redisConnectionString);
 
 builder.Services.AddSingleton<RedisConnection>(sp => new RedisConnection(redisConnectionString));
 builder.Services.AddSingleton<RedisCacheHelper>(sp =>
 {
     var conn = sp.GetRequiredService<RedisConnection>();
-    return new RedisCacheHelper(conn, "ferreteria:");
+    return new RedisCacheHelper(
+        conn,
+        "ferreteria:",
+        TimeSpan.FromMinutes(cacheTtlMinutos));
 });
 builder.Services.AddScoped<SesionRedisServicio>();
-builder.Services.AddScoped<CacheSelectRedisServicio>();
-builder.Services.AddSingleton<InfoContenedor>();
 
-// DataProtection with Redis - shared keys across containers
+// Identificador real de la réplica en ejecución (nombre del contenedor).
+builder.Services.AddSingleton<IIdentificadorReplica, IdentificadorReplica>();
+
+// Puerto de la caché distribuida: patrón cache-aside con registro de cada
+// HIT/MISS (clave, réplica y origen del dato).
+builder.Services.AddSingleton<ICacheSeleccion, CacheSeleccionRedis>();
+
+// DataProtection con Redis: las claves se comparten entre todas las réplicas
+// para que una cookie emitida por app1 sea válida en app2, app3 y app4.
+X509Certificate2? certificadoProteccion =
+    ProteccionClaves.CargarCertificado(builder.Configuration);
+
 builder.Services.AddDataProtection()
     .PersistKeysToStackExchangeRedis(redisMultiplexer, "FerreteriaJoel-DataProtection-Keys")
     .SetApplicationName("FerreteriaJoel");
+
+if (certificadoProteccion is not null)
+{
+    // Cifra las claves de Data Protection con el certificado: sin él, las
+    // claves se guardan en Redis en claro.
+    builder.Services.AddDataProtection()
+        .ProtectKeysWithCertificate(certificadoProteccion);
+}
 
 builder.Services.AddDistributedMemoryCache();
 try
@@ -151,6 +192,11 @@ builder.Services.AddScoped<MySqlBitacoraRepository>();
 builder.Services.AddScoped<MySqlProductoRepository>();
 builder.Services.AddScoped<MySqlCategoriaRepository>();
 
+// Contrato de personal: la misma implementación concreta, expuesta por su
+// abstracción (baja lógica y proyecciones sin credenciales).
+builder.Services.AddScoped<IRepositoryEmpleado>(sp =>
+    sp.GetRequiredService<MySqlEmpleadoRepository>());
+
 builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Producto>>, ProductoRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Categoria>>, CategoriaRepositoryCreator>();
 builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Proveedor>>, ProveedorRepositoryCreator>();
@@ -182,9 +228,42 @@ builder.Services.AddScoped<RegistroCredencialesValidador>();
 builder.Services.AddScoped<ServicioRegistroEmpleado>();
 builder.Services.AddScoped<ServicioActivacionCuenta>();
 builder.Services.AddScoped<ServicioInicioSesion>();
+builder.Services.AddScoped<ServicioPersonal>();
 builder.Services.AddScoped<ServicioBitacora>();
 
+// Nginx es el proxy frontal: reenvia la cabecera X-Forwarded-For, el
+// protocolo original y el host. Se confia en sus cabeceras porque es el
+// unico punto de entrada de la aplicacion dentro de la red de Docker.
+//
+// La configuracion debe registrarse antes de builder.Build(): despues del
+// build, el proveedor de servicios ya esta construido y la opcion no se
+// aplicaria.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
+        | ForwardedHeaders.XForwardedProto
+        | ForwardedHeaders.XForwardedHost;
+
+    // Nginx corre dentro de la red de Docker, con una IP dinamica: no se
+    // puede fijar la lista de redes o proxies conocidos. Se vacian para
+    // confiar en las cabeceras reenviadas por el unico proxy de entrada.
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 var app = builder.Build();
+
+if (certificadoProteccion is not null)
+{
+    app.Logger.LogInformation(
+        "Las claves de Data Protection se cifran con el certificado compartido: {Certificado}",
+        certificadoProteccion.Thumbprint);
+}
+else
+{
+    app.Logger.LogWarning(
+        "No se encontro certificado de Data Protection: las claves se guardan en Redis sin cifrar con un certificado adicional.");
+}
 
 if (!app.Environment.IsDevelopment())
 {
@@ -192,7 +271,33 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+app.UseForwardedHeaders();
+
+// Identificador de la replica que atendio la peticion. Nginx lo reenvia al
+// cliente (proxy_pass_header X-Replica-Id): sirve como evidencia de que el
+// escalamiento horizontal esta distribuyendo las peticiones.
+string idReplica =
+    app.Services.GetRequiredService<IIdentificadorReplica>().Id;
+
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Replica-Id"] = idReplica;
+
+    await next();
+});
+
+// La redireccion a HTTPS solo se activa si hay un puerto HTTPS configurado.
+// En el laboratorio, Nginx termina la conexion en HTTP: activarla sin un
+// listener HTTPS solo produciria advertencias en el log.
+bool hayPuertoHttps = !string.IsNullOrWhiteSpace(
+    builder.Configuration["https_port"]
+        ?? Environment.GetEnvironmentVariable("ASPNETCORE_HTTPS_PORT")
+        ?? Environment.GetEnvironmentVariable("HTTPS_PORT"));
+
+if (hayPuertoHttps)
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseRouting();
 
@@ -205,16 +310,53 @@ app.MapStaticAssets();
 app.MapRazorPages()
    .WithStaticAssets();
 
+// Sonda de salud: la usan Docker (healthcheck) y Nginx para comprobar que la
+// replica responde. Devuelve tambien el identificador real de la replica
+// que atendio la peticion.
+app.MapGet("/health", async (
+    IIdentificadorReplica replica,
+    RedisConnection redis,
+    CancellationToken cancelacion) =>
+{
+    bool redisDisponible = false;
+
+    try
+    {
+        await redis.Db.PingAsync()
+            .WaitAsync(TimeSpan.FromSeconds(2), cancelacion);
+
+        redisDisponible = true;
+    }
+    catch
+    {
+        redisDisponible = false;
+    }
+
+    return Results.Ok(new
+    {
+        // La replica responde, pero sin Redis se pierde la sesion compartida
+        // y la cache distribuida: se informa como degradada.
+        estado = redisDisponible ? "saludable" : "degradado",
+        replica = replica.Id,
+        redis = redisDisponible,
+        fecha = DateTime.UtcNow
+    });
+});
+
 app.Run();
 
-// Lee un archivo .env (clave=valor por línea) desde el directorio indicado y
-// define cada variable de entorno si aún no existe. Las líneas vacías o que
-// comienzan con '#' se ignoran.
+// Lee un archivo .env (clave=valor por línea) y define cada variable de
+// entorno si aún no existe. Las líneas vacías o que comienzan con '#' se
+// ignoran.
+//
+// El archivo se busca primero en el directorio indicado y luego en sus
+// directorios padre: así el .env de la raíz del repositorio sirve tanto
+// para Docker Compose como para una ejecución local de la aplicación.
 static void CargarVariablesEntorno(string directorio)
 {
-    string ruta = Path.Combine(directorio, ".env");
+    string? ruta = BuscarArchivoEnv(directorio);
 
-    if (!File.Exists(ruta))
+    if (ruta is null)
     {
         return;
     }
@@ -243,4 +385,27 @@ static void CargarVariablesEntorno(string directorio)
             Environment.SetEnvironmentVariable(clave, valor);
         }
     }
+}
+
+// Busca el archivo .env en el directorio recibido y, si no lo encuentra, sube
+// hasta cuatro niveles. Devuelve la ruta completa o null.
+static string? BuscarArchivoEnv(string directorio)
+{
+    string? actual = Path.GetFullPath(directorio);
+
+    for (int nivel = 0; nivel < 5 && actual is not null; nivel++)
+    {
+        string ruta = Path.Combine(actual, ".env");
+
+        if (File.Exists(ruta))
+        {
+            return ruta;
+        }
+
+        DirectoryInfo? padre = Directory.GetParent(actual);
+
+        actual = padre?.FullName;
+    }
+
+    return null;
 }

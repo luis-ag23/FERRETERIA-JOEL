@@ -1,0 +1,124 @@
+@page
+@model FERRETERIA__Joel.Pages.PersonalModel
+@{
+    ViewData["Title"] = "Personal";
+    ViewData["ActiveMenu"] = "Registro";
+}
+@section Styles {
+    <link rel="stylesheet" href="~/css/productos.css" asp-append-version="true" />
+}
+
+<div class="fj-container fj-page-products">
+    <section class="fj-page-head">
+        <p class="fj-eyebrow">Administración · Personal</p>
+        <h1>Personal</h1>
+        <p class="fj-page-sub">
+            Listado de cuentas del sistema. La <strong>baja es lógica</strong>: la cuenta no se borra,
+            pasa a estado inactivo y deja de poder iniciar sesión, pero el histórico de ventas y la
+            auditoría se conservan.
+        </p>
+    </section>
+
+    @if (TempData["Mensaje"] != null)
+    {
+        <div class="fj-alert fj-alert-success" role="status">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+            <div>
+                <span>@TempData["Mensaje"]</span>
+            </div>
+        </div>
+    }
+
+    @if (Model.Errores.Any())
+    {
+        <div class="fj-alert" role="alert">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+            <div>
+                <strong>No se pudo completar la operación:</strong>
+                <ul class="fj-alert-lista">
+                    @foreach (var error in Model.Errores)
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    }
+
+    <section class="fj-card" style="margin-top:1.5rem;">
+        <div class="fj-form-field" style="gap:.35rem;">
+            <h2 style="margin:0;font-size:1.15rem;">Cuentas registradas</h2>
+            <p class="fj-form-hint" style="margin:0;">
+                La consulta no trae la contraseña ni el token de activación: el listado usa una
+                proyección sin credenciales.
+            </p>
+        </div>
+
+        @if (!Model.Personal.Any())
+        {
+            <p class="fj-form-hint" style="margin-top:1rem;">Todavía no hay personal registrado.</p>
+        }
+        else
+        {
+            <div style="overflow-x:auto;margin-top:1rem;">
+                <table class="fj-table" style="width:100%;border-collapse:collapse;">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left;padding:.5rem;">Empleado</th>
+                            <th style="text-align:left;padding:.5rem;">Rol</th>
+                            <th style="text-align:left;padding:.5rem;">Correo</th>
+                            <th style="text-align:left;padding:.5rem;">Estado</th>
+                            <th style="text-align:left;padding:.5rem;">Alta</th>
+                            <th style="text-align:left;padding:.5rem;">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var empleado in Model.Personal)
+                        {
+                            <tr>
+                                <td style="padding:.5rem;">@empleado.Nombre @empleado.Apellido</td>
+                                <td style="padding:.5rem;">@empleado.Rol</td>
+                                <td style="padding:.5rem;">@empleado.CorreoElectronico</td>
+                                <td style="padding:.5rem;">
+                                    @switch (empleado.Estado)
+                                    {
+                                        case FERRETERIA__Joel.Dominio.Constantes.EstadoEmpleado.Activo:
+                                            <span style="color:#027a48;font-weight:600;">Activo</span>
+                                            break;
+                                        case FERRETERIA__Joel.Dominio.Constantes.EstadoEmpleado.Inactivo:
+                                            <span style="color:#b42318;font-weight:600;">Inactivo</span>
+                                            break;
+                                        default:
+                                            <span style="color:#b54708;font-weight:600;">Pendiente de activación</span>
+                                            break;
+                                    }
+                                </td>
+                                <td style="padding:.5rem;">@empleado.FechaRegistro.ToString("dd/MM/yyyy")</td>
+                                <td style="padding:.5rem;">
+                                    @if (empleado.Estado == FERRETERIA__Joel.Dominio.Constantes.EstadoEmpleado.Inactivo)
+                                    {
+                                        <form method="post" asp-page-handler="Reactivar" style="display:inline;">
+                                            <input type="hidden" name="idEmpleado" value="@empleado.IdEmpleado" />
+                                            <button type="submit" class="fj-btn fj-btn-primary" style="padding:.35rem .8rem;font-size:.85rem;">
+                                                Reactivar
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <form method="post" asp-page-handler="Baja" style="display:inline;">
+                                            <input type="hidden" name="idEmpleado" value="@empleado.IdEmpleado" />
+                                            <button type="submit" class="fj-btn fj-btn-ghost" style="padding:.35rem .8rem;font-size:.85rem;">
+                                                Dar de baja
+                                            </button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>

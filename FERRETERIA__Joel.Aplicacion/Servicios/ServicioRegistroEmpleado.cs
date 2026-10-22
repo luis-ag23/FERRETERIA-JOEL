@@ -45,6 +45,14 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         private IRepository<Empleado> Repositorio =>
             _repositorio ??= _creador.CreateRepository();
 
+        /// <summary>
+        /// Acceso al repositorio con su contrato de personal: permite usar la
+        /// proyección sin credenciales y las operaciones del flujo de
+        /// activación.
+        /// </summary>
+        private MySqlEmpleadoRepository RepositorioEmpleado =>
+            (MySqlEmpleadoRepository)Repositorio;
+
         public async Task<ResultadoRegistro> RegistrarAsync(
             IRegistroCredenciales solicitud)
         {
@@ -53,9 +61,8 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
             if (!erroresCampo.ContainsKey(
                     nameof(IRegistroCredenciales.CorreoElectronico))
-                && (await ((MySqlEmpleadoRepository)Repositorio)
-                    .ObtenerPorCorreoAsync(solicitud.CorreoElectronico.Trim()))
-                is not null)
+                && await RepositorioEmpleado.ExistePorCorreoAsync(
+                    solicitud.CorreoElectronico.Trim()))
             {
                 erroresCampo[
                     nameof(IRegistroCredenciales.CorreoElectronico)] =
@@ -120,8 +127,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         public async Task<ResultadoRegistro> ReenviarActivacionAsync(
             int idEmpleado)
         {
-            MySqlEmpleadoRepository repositorio =
-                (MySqlEmpleadoRepository)Repositorio;
+            MySqlEmpleadoRepository repositorio = RepositorioEmpleado;
 
             Empleado? empleado = (await repositorio.ObtenerPendientesActivacionAsync())
                 .FirstOrDefault(e => e.IdEmpleado == idEmpleado);
@@ -202,8 +208,8 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             }
 
             Empleado? empleado =
-                await ((MySqlEmpleadoRepository)Repositorio)
-                    .ObtenerPorCorreoAsync(correo.Trim());
+                await RepositorioEmpleado
+                    .ObtenerPorCorreoSinCredencialesAsync(correo.Trim());
 
             if (empleado is null)
             {
@@ -245,8 +251,8 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             }
 
             Empleado? empleado =
-                await ((MySqlEmpleadoRepository)Repositorio)
-                    .ObtenerPorCorreoAsync(correo.Trim());
+                await RepositorioEmpleado
+                    .ObtenerPorCorreoSinCredencialesAsync(correo.Trim());
 
             return empleado is not null
                 && empleado.Estado == EstadoEmpleado.PendienteActivacion;
@@ -258,8 +264,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         /// </summary>
         public async Task<List<Empleado>> ObtenerPendientesAsync()
         {
-            return await ((MySqlEmpleadoRepository)Repositorio)
-                .ObtenerPendientesActivacionAsync();
+            return await RepositorioEmpleado.ObtenerPendientesActivacionAsync();
         }
     }
 }

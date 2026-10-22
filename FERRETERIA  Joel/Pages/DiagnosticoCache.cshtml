@@ -1,0 +1,150 @@
+@page
+@model FERRETERIA__Joel.Pages.DiagnosticoCacheModel
+@{
+    ViewData["Title"] = "Diagnóstico de caché";
+    ViewData["ActiveMenu"] = "Registro";
+}
+@section Styles {
+    <link rel="stylesheet" href="~/css/productos.css" asp-append-version="true" />
+}
+
+<div class="fj-container fj-page-products">
+    <section class="fj-page-head">
+        <p class="fj-eyebrow">Administración · Infraestructura</p>
+        <h1>Diagnóstico de caché</h1>
+        <p class="fj-page-sub">
+            Estado de la caché distribuida de <strong>Redis</strong>, compartida por todas las réplicas
+            del monolito. Esta página se atiende desde la réplica
+            <strong>@Model.Replica</strong>: los eventos que ves abajo fueron registrados por las
+            distintas réplicas.
+        </p>
+    </section>
+
+    @if (Model.Errores.Any())
+    {
+        <div class="fj-alert" role="alert">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+            <div>
+                <strong>No se pudo completar la lectura:</strong>
+                <ul class="fj-alert-lista">
+                    @foreach (var error in Model.Errores)
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    }
+
+    <section class="fj-card" style="margin-top:1.5rem;">
+        <div class="fj-form-field" style="gap:.35rem;">
+            <h2 style="margin:0;font-size:1.15rem;">Claves en Redis</h2>
+            <p class="fj-form-hint" style="margin:0;">
+                Entradas de consulta cacheadas. El tiempo de vida restante se descuenta solo:
+                cuando llega a cero, la siguiente lectura vuelve a MySQL.
+            </p>
+        </div>
+
+        @if (!Model.Claves.Any())
+        {
+            <p class="fj-form-hint" style="margin-top:1rem;">
+                No hay claves de consulta en Redis todavía. Abre el catálogo de productos o las
+                categorías para que se generen.
+            </p>
+        }
+        else
+        {
+            <div style="overflow-x:auto;margin-top:1rem;">
+                <table class="fj-table" style="width:100%;border-collapse:collapse;">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left;padding:.5rem;">Clave</th>
+                            <th style="text-align:left;padding:.5rem;">Tiempo de vida</th>
+                            <th style="text-align:left;padding:.5rem;">Tamaño</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var clave in Model.Claves)
+                        {
+                            <tr>
+                                <td style="padding:.5rem;"><code>@clave.ClaveLogica</code></td>
+                                <td style="padding:.5rem;">
+                                    @if (clave.TtlSegundos < 0)
+                                    {
+                                        <span>sin expiración</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@clave.TtlSegundos s</span>
+                                    }
+                                </td>
+                                <td style="padding:.5rem;">@clave.Longitud B</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <section class="fj-card" style="margin-top:1.5rem;">
+        <div class="fj-form-field" style="gap:.35rem;">
+            <h2 style="margin:0;font-size:1.15rem;">Accesos recientes</h2>
+            <p class="fj-form-hint" style="margin:0;">
+                Registro compartido de los últimos 50 accesos a la caché. Un <strong>HIT</strong>
+                significa que el dato vino de Redis; un <strong>MISS</strong>, que hubo que ir a
+                MySQL. La columna <em>réplica</em> indica quién lo pidió.
+            </p>
+        </div>
+
+        @if (!Model.Eventos.Any())
+        {
+            <p class="fj-form-hint" style="margin-top:1rem;">
+                Todavía no hay accesos registrados.
+            </p>
+        }
+        else
+        {
+            <div style="overflow-x:auto;margin-top:1rem;">
+                <table class="fj-table" style="width:100%;border-collapse:collapse;">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left;padding:.5rem;">Hora</th>
+                            <th style="text-align:left;padding:.5rem;">Resultado</th>
+                            <th style="text-align:left;padding:.5rem;">Clave</th>
+                            <th style="text-align:left;padding:.5rem;">Réplica</th>
+                            <th style="text-align:left;padding:.5rem;">Origen</th>
+                            <th style="text-align:left;padding:.5rem;">Filas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var evento in Model.Eventos)
+                        {
+                            <tr>
+                                <td style="padding:.5rem;">@evento.Fecha.ToString("HH:mm:ss")</td>
+                                <td style="padding:.5rem;">
+                                    @if (evento.Resultado == "HIT")
+                                    {
+                                        <span style="color:#027a48;font-weight:600;">HIT</span>
+                                    }
+                                    else if (evento.Resultado == "MISS")
+                                    {
+                                        <span style="color:#b54708;font-weight:600;">MISS</span>
+                                    }
+                                    else
+                                    {
+                                        <span style="color:#175cd3;font-weight:600;">@evento.Resultado</span>
+                                    }
+                                </td>
+                                <td style="padding:.5rem;"><code>@evento.Clave</code></td>
+                                <td style="padding:.5rem;">@evento.Replica</td>
+                                <td style="padding:.5rem;">@evento.Origen</td>
+                                <td style="padding:.5rem;">@evento.Filas</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>

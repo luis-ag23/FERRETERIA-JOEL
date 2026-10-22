@@ -3,7 +3,6 @@ using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
 using FERRETERIA__Joel.Dominio.Validaciones;
-using FERRETERIA__Joel.Infraestructura.Repositorios;
 
 namespace FERRETERIA__Joel.Aplicacion.Servicios
 {
@@ -25,12 +24,12 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         private const string MensajePendienteActivacion =
             "La cuenta aún no está activada. Revise el enlace enviado a su correo.";
 
-        private readonly MySqlEmpleadoRepository _repositorioEmpleado;
+        private readonly IRepositoryEmpleado _repositorioEmpleado;
         private readonly IHasheadorContrasena _hasheador;
         private readonly CredencialesValidaciones _credenciales = new();
 
         public ServicioInicioSesion(
-            MySqlEmpleadoRepository repositorioEmpleado,
+            IRepositoryEmpleado repositorioEmpleado,
             IHasheadorContrasena hasheador)
         {
             _repositorioEmpleado = repositorioEmpleado;
@@ -53,8 +52,12 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 };
             }
 
+            // Única operación que recupera el hash de la contraseña: el
+            // resto de lecturas del personal se hacen con la proyección
+            // sin credenciales.
             Empleado? empleado =
-                await _repositorioEmpleado.ObtenerPorCorreoAsync(correo);
+                await _repositorioEmpleado
+                    .ObtenerPorCorreoConCredencialesAsync(correo);
 
             if (empleado is null)
             {

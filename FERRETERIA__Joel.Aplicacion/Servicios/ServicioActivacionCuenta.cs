@@ -2,7 +2,6 @@ using FERRETERIA__Joel.Aplicacion.Modelos;
 using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
-using FERRETERIA__Joel.Infraestructura.Repositorios;
 
 namespace FERRETERIA__Joel.Aplicacion.Servicios
 {
@@ -22,12 +21,12 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         private const string MensajeNoPendiente =
             "Esta cuenta ya fue activada. Puede iniciar sesión.";
 
-        private readonly MySqlEmpleadoRepository _repositorio;
+        private readonly IRepositoryEmpleado _repositorio;
         private readonly IHasheadorContrasena _hasheador;
         private readonly RegistroCredencialesValidador _validador;
 
         public ServicioActivacionCuenta(
-            MySqlEmpleadoRepository repositorio,
+            IRepositoryEmpleado repositorio,
             IHasheadorContrasena hasheador,
             RegistroCredencialesValidador validador)
         {

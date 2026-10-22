@@ -1,7 +1,6 @@
 using FERRETERIA__Joel.Infraestructura.Conexion;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
-using FERRETERIA__Joel.Infraestructura.Servicios;
 using MySql.Data.MySqlClient;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
@@ -9,9 +8,9 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
     public class MySqlProveedorRepository : IGestionarRepository<Proveedor>
     {
         private readonly IDbConnectionFactory _connectionFactory;
-        private readonly RedisCacheHelper? _cache;
+        private readonly ICacheSeleccion? _cache;
 
-        public MySqlProveedorRepository(IDbConnectionFactory connectionFactory, RedisCacheHelper? cache = null)
+        public MySqlProveedorRepository(IDbConnectionFactory connectionFactory, ICacheSeleccion? cache = null)
         {
             _connectionFactory = connectionFactory;
             _cache = cache;
@@ -22,9 +21,9 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             const string cacheKey = "cache:select:proveedores:todos";
             if (_cache != null)
             {
-                var cached = await _cache.GetAsync<List<Proveedor>>(cacheKey);
-                if (cached != null)
-                    return cached;
+                var resultado = await _cache.ObtenerAsync<List<Proveedor>>(cacheKey);
+                if (resultado.EsHit && resultado.Valor is not null)
+                    return resultado.Valor;
             }
 
             List<Proveedor> proveedores = new();
@@ -62,7 +61,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             }
 
             if (_cache != null)
-                await _cache.SetAsync(cacheKey, proveedores, TimeSpan.FromMinutes(5));
+                await _cache.GuardarAsync(cacheKey, proveedores);
 
             return proveedores;
         }
@@ -135,7 +134,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
             await command.ExecuteNonQueryAsync();
             if (_cache != null)
-                await _cache.RemoveByPatternAsync("cache:select:proveedores:*");
+                await _cache.InvalidarPorPrefijoAsync("cache:select:proveedores:*");
 
             return Convert.ToInt32(command.LastInsertedId);
         }
@@ -203,6 +202,11 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             await connection.OpenAsync();
 
             await command.ExecuteNonQueryAsync();
+
+            // La actualización cambia el listado de proveedores que la
+            // aplicación sirve desde la caché: se invalida el prefijo.
+            if (_cache != null)
+                await _cache.InvalidarPorPrefijoAsync("cache:select:proveedores:*");
         }
 
         public virtual async Task CambiarEstadoAsync(int idProveedor, int idEmpleadoResponsable)
@@ -235,6 +239,11 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             await connection.OpenAsync();
 
             await command.ExecuteNonQueryAsync();
+
+            // El cambio de estado (alta o baja lógica) altera el listado
+            // cacheado: se invalida el prefijo completo.
+            if (_cache != null)
+                await _cache.InvalidarPorPrefijoAsync("cache:select:proveedores:*");
         }
 
         public virtual async Task<List<Proveedor>> MostrarActivosAsync()

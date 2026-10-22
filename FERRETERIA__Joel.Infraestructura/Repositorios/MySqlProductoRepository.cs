@@ -1,7 +1,6 @@
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
 using FERRETERIA__Joel.Infraestructura.Conexion;
-using FERRETERIA__Joel.Infraestructura.Servicios;
 using MySql.Data.MySqlClient;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
@@ -30,9 +29,9 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             p.IdEmpleadoResponsable";
 
         private readonly IConexionTransaccional _conexion;
-        private readonly RedisCacheHelper? _cache;
+        private readonly ICacheSeleccion? _cache;
 
-        public MySqlProductoRepository(IConexionTransaccional conexion, RedisCacheHelper? cache = null)
+        public MySqlProductoRepository(IConexionTransaccional conexion, ICacheSeleccion? cache = null)
         {
             _conexion = conexion;
             _cache = cache;
@@ -55,9 +54,9 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             const string cacheKey = "cache:select:productos:todos";
             if (_cache != null)
             {
-                var cached = await _cache.GetAsync<List<Producto>>(cacheKey);
-                if (cached != null)
-                    return cached;
+                var resultado = await _cache.ObtenerAsync<List<Producto>>(cacheKey);
+                if (resultado.EsHit && resultado.Valor is not null)
+                    return resultado.Valor;
             }
 
             List<Producto> productos = new();
@@ -78,7 +77,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             }
 
             if (_cache != null)
-                await _cache.SetAsync(cacheKey, productos, TimeSpan.FromMinutes(5));
+                await _cache.GuardarAsync(cacheKey, productos);
 
             return productos;
         }
@@ -131,7 +130,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
             await command.ExecuteNonQueryAsync();
             if (_cache != null)
-                await _cache.RemoveByPatternAsync("cache:select:productos:*");
+                await _cache.InvalidarPorPrefijoAsync("cache:select:productos:*");
 
             return Convert.ToInt32(command.LastInsertedId);
         }
@@ -174,7 +173,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
             await command.ExecuteNonQueryAsync();
             if (_cache != null)
-                await _cache.RemoveByPatternAsync("cache:select:productos:*");
+                await _cache.InvalidarPorPrefijoAsync("cache:select:productos:*");
         }
 
         public virtual async Task CambiarEstadoAsync(
@@ -201,7 +200,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
             await command.ExecuteNonQueryAsync();
             if (_cache != null)
-                await _cache.RemoveByPatternAsync("cache:select:productos:*");
+                await _cache.InvalidarPorPrefijoAsync("cache:select:productos:*");
         }
 
         public virtual async Task<List<Producto>> MostrarActivosAsync()
@@ -209,9 +208,9 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             const string cacheKey = "cache:select:productos:activos";
             if (_cache != null)
             {
-                var cached = await _cache.GetAsync<List<Producto>>(cacheKey);
-                if (cached != null)
-                    return cached;
+                var resultado = await _cache.ObtenerAsync<List<Producto>>(cacheKey);
+                if (resultado.EsHit && resultado.Valor is not null)
+                    return resultado.Valor;
             }
 
             List<Producto> productos = new();
@@ -233,7 +232,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             }
 
             if (_cache != null)
-                await _cache.SetAsync(cacheKey, productos, TimeSpan.FromMinutes(5));
+                await _cache.GuardarAsync(cacheKey, productos);
 
             return productos;
         }
@@ -258,7 +257,7 @@ public virtual async Task CambiarEstadoAsync(Producto producto)
 
 await command.ExecuteNonQueryAsync();
             if (_cache != null)
-                await _cache.RemoveByPatternAsync("cache:select:productos:*");
+                await _cache.InvalidarPorPrefijoAsync("cache:select:productos:*");
         }
 
         // ================== Operaciones propias ==================

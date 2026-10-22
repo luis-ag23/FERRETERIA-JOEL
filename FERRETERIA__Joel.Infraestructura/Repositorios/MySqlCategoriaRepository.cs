@@ -2,16 +2,15 @@ using MySql.Data.MySqlClient;
 using FERRETERIA__Joel.Infraestructura.Conexion;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
-using FERRETERIA__Joel.Infraestructura.Servicios;
 
 namespace FERRETERIA__Joel.Infraestructura.Repositorios
 {
     public class MySqlCategoriaRepository : IGestionarRepository<Categoria>
     {
         private readonly IDbConnectionFactory _connectionFactory;
-        private readonly RedisCacheHelper? _cache;
+        private readonly ICacheSeleccion? _cache;
 
-        public MySqlCategoriaRepository(IDbConnectionFactory connectionFactory, RedisCacheHelper? cache = null)
+        public MySqlCategoriaRepository(IDbConnectionFactory connectionFactory, ICacheSeleccion? cache = null)
         {
             _connectionFactory = connectionFactory;
             _cache = cache;
@@ -22,9 +21,9 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             const string cacheKey = "cache:select:categorias:todos";
             if (_cache != null)
             {
-                var cached = await _cache.GetAsync<List<Categoria>>(cacheKey);
-                if (cached != null)
-                    return cached;
+                var resultado = await _cache.ObtenerAsync<List<Categoria>>(cacheKey);
+                if (resultado.EsHit && resultado.Valor is not null)
+                    return resultado.Valor;
             }
 
             List<Categoria> categorias = new();
@@ -60,7 +59,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             }
 
             if (_cache != null)
-                await _cache.SetAsync(cacheKey, categorias, TimeSpan.FromMinutes(5));
+                await _cache.GuardarAsync(cacheKey, categorias);
 
             return categorias;
         }
@@ -88,7 +87,7 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             await connection.OpenAsync();
             await command.ExecuteNonQueryAsync();
             if (_cache != null)
-                await _cache.RemoveByPatternAsync("cache:select:categorias:*");
+                await _cache.InvalidarPorPrefijoAsync("cache:select:categorias:*");
 
             return Convert.ToInt32(command.LastInsertedId);
         }
@@ -121,6 +120,12 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
             await connection.OpenAsync();
             await command.ExecuteNonQueryAsync();
+
+            // La vista de categorías se sirve desde la caché: se invalida
+            // para que la próxima lectura vuelva a MySQL y devuelva el dato
+            // ya actualizado.
+            if (_cache != null)
+                await _cache.InvalidarPorPrefijoAsync("cache:select:categorias:*");
         }
 
         public virtual async Task CambiarEstadoAsync(int id, int idEmpleadoResponsable)
@@ -148,6 +153,11 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
             await connection.OpenAsync();
             await command.ExecuteNonQueryAsync();
+
+            // El alta y la baja lógica de una categoría cambian lo que muestra
+            // el listado cacheado: se invalida el prefijo completo.
+            if (_cache != null)
+                await _cache.InvalidarPorPrefijoAsync("cache:select:categorias:*");
         }
 
         public virtual async Task<List<Categoria>> MostrarActivosAsync()

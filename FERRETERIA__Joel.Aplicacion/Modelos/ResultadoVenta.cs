@@ -11,11 +11,6 @@ namespace FERRETERIA__Joel.Aplicacion.Modelos
     {
         public bool Exito { get; private init; }
 
-        /// <summary>
-        /// Verdadero cuando el resultado proviene de un reenvío con la
-        /// misma clave de idempotencia (no se creó una nueva venta).
-        /// </summary>
-
         public string Mensaje { get; private init; } = string.Empty;
 
         public int IdVenta { get; private init; }
