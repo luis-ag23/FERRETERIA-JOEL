@@ -43,7 +43,7 @@
 
     <section class="fj-card fj-table-card" aria-label="Listado de personal">
         <div class="fj-table-wrap fj-table-wrap-scroll">
-            <table class="fj-table fj-table-proveedores">
+            <table class="fj-table fj-table-personal">
                 <thead>
                     <tr>
                         <th scope="col">Empleado</th>
@@ -86,7 +86,7 @@
                             <td class="fj-td-secundario">
                                 @if (!string.IsNullOrEmpty(empleado.CorreoElectronico))
                                 {
-                                    <span class="fj-ellipsis" title="@empleado.CorreoElectronico">
+                                    <span title="@empleado.CorreoElectronico">
                                         @empleado.CorreoElectronico
                                     </span>
                                 }
@@ -95,7 +95,6 @@
                                     <span>—</span>
                                 }
                             </td>
-
                             <td class="fj-td-secundario">
                                 @empleado.FechaRegistro.ToString("dd/MM/yyyy")
                             </td>
