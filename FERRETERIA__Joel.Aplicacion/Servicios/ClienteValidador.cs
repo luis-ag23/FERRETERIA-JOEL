@@ -5,7 +5,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 {
     /// <summary>
     /// Valida los datos del cliente que se registra desde la pantalla de
-    /// venta (nombres, apellidos y teléfono) y arma un mensaje por campo.
+    /// venta (nombres y apellidos) y arma un mensaje por campo.
     /// Reutiliza las reglas de <see cref="CredencialesValidaciones"/> para que
     /// empleados y clientes se validen con el mismo criterio.
     /// </summary>
@@ -13,7 +13,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
     {
         public const string CampoNombre = "Nombre";
         public const string CampoApellido = "Apellido";
-        public const string CampoTelefono = "Telefono";
         public const string CampoCi = "Ci";
 
         private static readonly Regex FormatoCi = new(
@@ -28,16 +27,12 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         private static readonly string MensajeApellido =
             $"Los apellidos solo admiten letras y espacios (máximo {ConfiguracionCredenciales.ApellidoMaxLength} caracteres).";
 
-        private const string MensajeTelefono =
-            "El teléfono debe tener 8 dígitos y comenzar con 5, 6, 7 u 8.";
-
         private readonly CredencialesValidaciones _credenciales = new();
 
         public Dictionary<string, string> Validar(
             string ci,
             string nombre,
-            string apellido,
-            string telefono)
+            string apellido)
         {
             Dictionary<string, string> errores = new();
 
@@ -65,15 +60,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             else if (!_credenciales.EsApellidoValido(apellido))
             {
                 errores[CampoApellido] = MensajeApellido;
-            }
-
-            if (string.IsNullOrWhiteSpace(telefono))
-            {
-                errores[CampoTelefono] = "El teléfono del cliente es obligatorio.";
-            }
-            else if (!_credenciales.EsTelefonoValido(telefono))
-            {
-                errores[CampoTelefono] = MensajeTelefono;
             }
 
             return errores;

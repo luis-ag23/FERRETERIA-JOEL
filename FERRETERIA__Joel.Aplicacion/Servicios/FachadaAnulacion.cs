@@ -148,6 +148,10 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
                 // 3. PRIMERO CONFIRMAR LA ANULACIÓN Y LA REPOSICIÓN
                 await _unidadDeTrabajo.ConfirmarAsync();
+
+                // 4. La venta ya está confirmada: se invalida la caché del
+                //    historial para que la siguiente lectura tome el estado nuevo.
+                await _ventas.InvalidarCacheAsync();
             }
             catch (Exception)
             {

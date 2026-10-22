@@ -178,7 +178,6 @@ CREATE TABLE cliente
     Ci                    VARCHAR(15)   NULL DEFAULT NULL,
     Nombre                VARCHAR(100)  NOT NULL,
     Apellido              VARCHAR(100)  NOT NULL,
-    Telefono              VARCHAR(20)   NOT NULL,
     Estado                TINYINT       NOT NULL DEFAULT 1,
     FechaRegistro         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FechaActualizacion    DATETIME      NULL DEFAULT NULL,
@@ -305,15 +304,15 @@ VALUES
     ('Pedro',    'Castillo',  'EmpleadoVenta','70000009','pedro.castillo@ferreteria.com', '$argon2id$v=19$m=19456,t=2,p=1$DkC+fWxOlRk1/X6aGj7e9A$a34WBFccYECQ3Ka+UwVczdl8Rn5zku1/kXvK+Yjpdsc', 1, 1),
     ('Elena',    'Rojas',     'EmpleadoVenta', '70000010', 'elena.rojas@ferreteria.com',    '$argon2id$v=19$m=19456,t=2,p=1$6lLxKhg6camSJXMOp3SN9A$vkifcdnD0iQr6VnYP1kF05W/7N/4AcCXfrd7Olubf0o', 1, 1);
 
--- CLIENTES (5) - con CI desde el inicio
+-- CLIENTES (5) - con CI desde el inicio, sin teléfono
 INSERT INTO cliente
-    (Ci, Nombre, Apellido, Telefono, Estado, IdEmpleadoResponsable)
+    (Ci, Nombre, Apellido, Estado, IdEmpleadoResponsable)
 VALUES
-    ('1234567', 'Juan',   'Pérez',  '71234567', 1, 1),
-    ('2345678', 'María',  'Quispe', '72345678', 1, 1),
-    ('3456789', 'Carlos', 'Ticona', '73456789', 1, 1),
-    ('4567890', 'Ana',    'Mamani', '74567890', 1, 1),
-    ('5678901', 'Luis',   'Choque', '75678901', 1, 1);
+    ('1234567', 'Juan',   'Pérez',  1, 1),
+    ('2345678', 'María',  'Quispe', 1, 1),
+    ('3456789', 'Carlos', 'Ticona', 1, 1),
+    ('4567890', 'Ana',    'Mamani', 1, 1),
+    ('5678901', 'Luis',   'Choque', 1, 1);
 
 -- MARCAS (10)
 INSERT INTO marca

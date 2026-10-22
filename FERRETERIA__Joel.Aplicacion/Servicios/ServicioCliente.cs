@@ -51,8 +51,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         public async Task<ResultadoCliente> CrearAsync(
             string ci,
             string nombre,
-            string apellido,
-            string telefono)
+            string apellido)
         {
             int idEmpleado = _contextoUsuario.IdEmpleado;
             if (idEmpleado <= 0)
@@ -66,11 +65,10 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
             nombre = NormalizarTexto(nombre);
             apellido = NormalizarTexto(apellido);
-            telefono = NormalizarTelefono(telefono);
             ci = NormalizarCi(ci);
 
             Dictionary<string, string> errores =
-                _validador.Validar(ci, nombre, apellido, telefono);
+                _validador.Validar(ci, nombre, apellido);
 
             if (errores.Count == 0 && await _repositorio.ExisteCiAsync(ci))
             {
@@ -93,7 +91,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 Ci = ci,
                 Nombre = nombre,
                 Apellido = apellido,
-                Telefono = telefono,
                 Estado = 1,
                 FechaRegistro = DateTime.Now,
                 IdEmpleadoResponsable = idEmpleado
@@ -116,12 +113,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
             return Regex.Replace(texto?.Trim() ?? string.Empty, @"\s+", " ");
         }
 
-        // Acepta "7111 2222" o "7111-2222" y guarda solo los dígitos.
-        private static string NormalizarTelefono(string? telefono)
-        {
-            return Regex.Replace(telefono ?? string.Empty, @"[\s\-]", string.Empty);
-        }
-        
         // Quita espacios y pasa a mayúsculas: "1234567 - 1a" -> "1234567-1A".
         // No inventa el guion: sin él, "12345671A" no cumple el formato y se rechaza.
         private static string NormalizarCi(string? ci)

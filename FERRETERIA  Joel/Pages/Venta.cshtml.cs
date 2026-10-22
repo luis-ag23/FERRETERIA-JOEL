@@ -58,8 +58,7 @@ namespace FERRETERIA__Joel.Pages
                     {
                         id = c.IdCliente,
                         ci = c.Ci,
-                        nombre = $"{c.Nombre} {c.Apellido}".Trim(),
-                        telefono = c.Telefono
+                        nombre = $"{c.Nombre} {c.Apellido}".Trim()
                     });
                 return new JsonResult(clientes);
             }
@@ -101,16 +100,14 @@ namespace FERRETERIA__Joel.Pages
         public async Task<IActionResult> OnPostCrearClienteAsync(
             string? nuevoClienteCi,
             string? nuevoClienteNombre,
-            string? nuevoClienteApellido,
-            string? nuevoClienteTelefono)
+            string? nuevoClienteApellido)
         {
             try
             {
                 ResultadoCliente resultado = await _fachada.CrearClienteAsync(
                     nuevoClienteCi ?? string.Empty,
                     nuevoClienteNombre ?? string.Empty,
-                    nuevoClienteApellido ?? string.Empty,
-                    nuevoClienteTelefono ?? string.Empty);
+                    nuevoClienteApellido ?? string.Empty);
 
                 if (!resultado.Exito || resultado.Cliente is null)
                     return BadRequest(new
@@ -125,8 +122,7 @@ namespace FERRETERIA__Joel.Pages
                     exito = true,
                     id = resultado.Cliente.IdCliente,
                     ci = resultado.Cliente.Ci,
-                    nombre = $"{resultado.Cliente.Nombre} {resultado.Cliente.Apellido}".Trim(),
-                    telefono = resultado.Cliente.Telefono
+                    nombre = $"{resultado.Cliente.Nombre} {resultado.Cliente.Apellido}".Trim()
                 });
             }
             catch (Exception ex)

@@ -19,7 +19,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             Ci,
             Nombre,
             Apellido,
-            Telefono,
             Estado,
             FechaRegistro,
             FechaActualizacion,
@@ -75,7 +74,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     Ci,
                     Nombre,
                     Apellido,
-                    Telefono,
                     Estado,
                     IdEmpleadoResponsable
                 )
@@ -84,7 +82,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     @ci,
                     @nombre,
                     @apellido,
-                    @telefono,
                     1,
                     @idEmpleadoResponsable
                 )";
@@ -94,7 +91,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.Parameters.AddWithValue("@ci", cliente.Ci);
             command.Parameters.AddWithValue("@nombre", cliente.Nombre);
             command.Parameters.AddWithValue("@apellido", cliente.Apellido);
-            command.Parameters.AddWithValue("@telefono", cliente.Telefono);
             command.Parameters.AddWithValue(
                 "@idEmpleadoResponsable",
                 (object?)cliente.IdEmpleadoResponsable ?? DBNull.Value);
@@ -184,7 +180,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                   Ci = reader["Ci"] == DBNull.Value ? "" : reader["Ci"].ToString() ?? "",
                 Nombre = reader["Nombre"].ToString() ?? "",
                 Apellido = reader["Apellido"].ToString() ?? "",
-                Telefono = reader["Telefono"].ToString() ?? "",
                 Estado = reader.GetByte("Estado"),
                 FechaRegistro = reader.GetDateTime("FechaRegistro"),
                 FechaActualizacion = reader["FechaActualizacion"] == DBNull.Value

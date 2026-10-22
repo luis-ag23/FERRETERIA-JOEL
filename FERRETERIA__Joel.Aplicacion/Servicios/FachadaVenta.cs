@@ -98,14 +98,12 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         public Task<ResultadoCliente> CrearClienteAsync(
             string ci,
             string nombre,
-            string apellido,
-            string telefono)
+            string apellido)
         {
             return _servicioCliente.CrearAsync(
                 ci,
                 nombre,
-                apellido,
-                telefono);
+                apellido);
         }
 
         public async Task<(LineaVentaDetalle? Linea, string? Error)> CalcularLineaAsync(
@@ -312,6 +310,10 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                 }
 
                 await _unidadDeTrabajo.ConfirmarAsync();
+
+                // La venta ya está confirmada: se invalida la caché del
+                // historial para que la siguiente lectura tome el dato nuevo.
+                await _ventas.InvalidarCacheAsync();
 
                 try
                 {

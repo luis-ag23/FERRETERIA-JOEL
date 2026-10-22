@@ -528,6 +528,15 @@
             return;
         }
 
+        // La redirección al registrar tiene dos destinos:
+        //   · una pestaña nueva con el comprobante de la venta;
+        //   · la aplicación (esta misma ventana) al historial de ventas.
+        // La pestaña se abre de forma síncrona, dentro del gesto del
+        // usuario, para que el bloqueador de ventanas emergentes del
+        // navegador no la impida; su contenido se fija cuando el servidor
+        // responde con la URL del comprobante.
+        var pestanaComprobante = window.open('', '_blank');
+
         marcandoEnvio(true);
 
         fetch(urlRegistrarAjax, {
@@ -535,11 +544,20 @@
             body: new FormData(form),
             credentials: 'same-origin',
             headers: { 'Accept': 'application/json' }
-        }).then(leerJson).then(function () {
+        }).then(leerJson).then(function (respuesta) {
+            if (pestanaComprobante) {
+                if (respuesta && respuesta.urlPdf) {
+                    pestanaComprobante.location.href = respuesta.urlPdf;
+                } else {
+                    pestanaComprobante.close();
+                }
+            }
+
             // La venta queda registrada: se va al historial para revisarla
-            // (y abrir su comprobante) en lugar de quedarse en el formulario.
+            // en lugar de quedarse en el formulario.
             window.location.href = urlVentas || '/Ventas';
         }).catch(function (error) {
+            if (pestanaComprobante) pestanaComprobante.close();
             alerta(error.message || 'No se pudo registrar la venta.', 'No se pudo registrar');
         }).finally(function () {
             marcandoEnvio(false);
@@ -661,11 +679,9 @@
     var campoCliente = {
         Ci: 'nuevoClienteCi',
         Nombre: 'nuevoClienteNombre',
-        Apellido: 'nuevoClienteApellido',
-        Telefono: 'nuevoClienteTelefono'
+        Apellido: 'nuevoClienteApellido'
     };
     var formatoNombre = /^\p{L}[\p{L}\s.,'\-&()]*$/u;
-    var formatoTelefono = /^[5-8][0-9]{7}$/;
     var formatoCi = /^[0-9]{6,8}(-[0-9][A-Z])?$/;
 
     var inputCi = document.getElementById('nuevoClienteCi');
@@ -710,7 +726,6 @@
         var nombre = datos.nombre.trim();
         var apellido = datos.apellido.trim();
         var ci = datos.ci.replace(/\s/g, '').toUpperCase();
-        var telefono = datos.telefono.trim();
 
         if (!ci) errores.Ci = 'El CI del cliente es obligatorio.';
         else if (!formatoCi.test(ci)) errores.Ci = 'El CI debe tener de 6 a 8 dígitos y, si tiene complemento, un guion con un dígito y una letra (ej: 1234567-1A).';
@@ -722,10 +737,6 @@
         if (!apellido) errores.Apellido = 'Los apellidos del cliente son obligatorios.';
         else if (apellido.length > 100 || !formatoNombre.test(apellido))
             errores.Apellido = 'Los apellidos solo admiten letras y espacios (máximo 100 caracteres).';
-
-        if (!telefono) errores.Telefono = 'El teléfono del cliente es obligatorio.';
-        else if (!formatoTelefono.test(telefono))
-            errores.Telefono = 'El teléfono debe tener 8 dígitos y comenzar con 5, 6, 7 u 8.';
 
         return errores;
     }
@@ -742,8 +753,7 @@
             var erroresLocales = validarCliente({
                 nombre: document.getElementById('nuevoClienteNombre').value,
                 apellido: document.getElementById('nuevoClienteApellido').value,
-                ci: document.getElementById('nuevoClienteCi').value,
-                telefono: document.getElementById('nuevoClienteTelefono').value
+                ci: document.getElementById('nuevoClienteCi').value
             });
             if (Object.keys(erroresLocales).length > 0) {
                 mostrarErroresCampo(erroresLocales);
@@ -769,8 +779,7 @@
                 mostrarCliente({
                     ci: respuesta.ci,
                     id: respuesta.id,
-                    nombre: respuesta.nombre,
-                    telefono: respuesta.telefono
+                    nombre: respuesta.nombre
                 });
                 cerrarNuevoCliente();
                 formCliente.reset();

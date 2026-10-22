@@ -30,10 +30,14 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             IdEmpleadoResponsable";
 
         private readonly IConexionTransaccional _conexion;
+        private readonly ICacheSeleccion? _cache;
 
-        public MySqlVentaRepository(IConexionTransaccional conexion)
+        public MySqlVentaRepository(
+            IConexionTransaccional conexion,
+            ICacheSeleccion? cache = null)
         {
             _conexion = conexion;
+            _cache = cache;
         }
 
         private async Task<MySqlCommand> CrearComandoAsync(string query)
@@ -52,6 +56,21 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
         public virtual async Task<List<Venta>> ObtenerTodosAsync()
         {
+            // Historial de ventas servido desde la caché distribuida: la
+            // primera lectura va a MySQL y deja el JSON en Redis; las
+            // siguientes la toman de Redis (mismo patrón cache-aside del
+            // catálogo). La invalidación se hace tras el COMMIT, en las
+            // fachadas, para no repoblar la caché con datos previos al
+            // commit.
+            const string cacheKey = "cache:select:ventas:todos";
+
+            if (_cache != null)
+            {
+                var resultado = await _cache.ObtenerAsync<List<Venta>>(cacheKey);
+                if (resultado.EsHit && resultado.Valor is not null)
+                    return resultado.Valor;
+            }
+
             List<Venta> ventas = new();
 
             string query = $@"
@@ -67,6 +86,9 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             {
                 ventas.Add(MapearVenta(reader));
             }
+
+            if (_cache != null)
+                await _cache.GuardarAsync(cacheKey, ventas);
 
             return ventas;
         }
@@ -111,6 +133,17 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
         }
 
         // ================== Operaciones propias de Ventas ==================
+
+        /// <summary>
+        /// Invalida la caché del historial de ventas. Se invoca DESPUÉS del
+        /// COMMIT (en las fachadas) para que la siguiente lectura vuelva a
+        /// MySQL y no sirva un historial anterior a la venta.
+        /// </summary>
+        public virtual async Task InvalidarCacheAsync()
+        {
+            if (_cache != null)
+                await _cache.InvalidarPorPrefijoAsync("cache:select:ventas:*");
+        }
 
         public virtual async Task AsignarCodigoAsync(int idVenta)
         {

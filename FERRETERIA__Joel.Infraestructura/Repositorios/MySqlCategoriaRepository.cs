@@ -304,6 +304,12 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
 
             await connection.OpenAsync();
             await command.ExecuteNonQueryAsync();
+
+            // El recálculo cambia el PorcentajeGanancia de las categorías:
+            // hay que invalidar la caché del catálogo para que la siguiente
+            // lectura no sirva el porcentaje anterior.
+            if (_cache != null)
+                await _cache.InvalidarPorPrefijoAsync("cache:select:categorias:*");
         }
     }
 }
