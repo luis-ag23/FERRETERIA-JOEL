@@ -201,6 +201,10 @@ namespace FERRETERIA__Joel.Pages
 
             string token = UrlProtector.Cifrar(resultado.IdVenta.ToString());
 
+            // El aviso viaja en TempData para que el historial de ventas
+            // confirme el registro al llegar desde la redireccion.
+            TempData["Mensaje"] = resultado.Mensaje;
+
             return new JsonResult(new
             {
                 exito = true,

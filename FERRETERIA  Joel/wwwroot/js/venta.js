@@ -19,6 +19,7 @@
     var urlClientes = app.getAttribute('data-url-clientes');
     var urlProductos = app.getAttribute('data-url-productos');
     var urlRegistrarAjax = app.getAttribute('data-url-registrar-ajax');
+    var urlVentas = app.getAttribute('data-url-ventas');
 
     var fmt = new Intl.NumberFormat('es-BO', {
         minimumFractionDigits: 2,
@@ -520,17 +521,6 @@
 
     // ---------- Registro de la venta (AJAX) ----------
 
-    function reiniciarVenta() {
-        lineas = [];
-        render();   // vacía la tabla y los campos ocultos, y recalcula totales
-        clienteId.value = '0';
-        clienteNombre.value = '';
-        clienteSeleccionado.replaceChildren();
-        clienteSeleccionado.hidden = true;
-        inputCliente.value = '';
-        actualizarBotonRegistrar();
-    }
-
     function registrarVenta() {
         if (!urlRegistrarAjax) {
             alerta('Falta la dirección de registro en la página (data-url-registrar-ajax).',
@@ -540,29 +530,16 @@
 
         marcandoEnvio(true);
 
-        // La pestaña se abre ahora, dentro del clic del usuario, para que el
-        // navegador no la bloquee. Al responder el servidor se le asigna el PDF.
-        var ventana = window.open('', '_blank');
-        if (ventana) {
-            try { ventana.document.title = 'Generando comprobante…'; } catch (e) { }
-        }
-
         fetch(urlRegistrarAjax, {
             method: 'POST',
             body: new FormData(form),
             credentials: 'same-origin',
             headers: { 'Accept': 'application/json' }
-        }).then(leerJson).then(function (respuesta) {
-            reiniciarVenta();
-
-            if (ventana) {
-                ventana.location.href = respuesta.urlPdf;
-            } else {
-                // Pestaña bloqueada: la venta ya está guardada, se abre el PDF aquí.
-                window.location.href = respuesta.urlPdf;
-            }
+        }).then(leerJson).then(function () {
+            // La venta queda registrada: se va al historial para revisarla
+            // (y abrir su comprobante) en lugar de quedarse en el formulario.
+            window.location.href = urlVentas || '/Ventas';
         }).catch(function (error) {
-            if (ventana) ventana.close();
             alerta(error.message || 'No se pudo registrar la venta.', 'No se pudo registrar');
         }).finally(function () {
             marcandoEnvio(false);
