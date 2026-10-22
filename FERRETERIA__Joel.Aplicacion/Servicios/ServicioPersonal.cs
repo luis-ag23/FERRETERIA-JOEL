@@ -43,16 +43,6 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         }
 
         /// <summary>
-        /// Lista solo las cuentas pendientes de activación (Estado -1), con la
-        /// proyección del flujo de activación (incluye el vencimiento del
-        /// token). Se usan para ofrecer el reenvío del enlace.
-        /// </summary>
-        public async Task<List<Empleado>> ListarPendientesAsync()
-        {
-            return await _servicioActivacion.ObtenerPendientesAsync();
-        }
-
-        /// <summary>
         /// Reenvía el enlace de activación a una cuenta pendiente (Estado -1):
         /// genera un token nuevo y vuelve a enviar el correo. Se usa cuando el
         /// enlace anterior venció o se perdió.

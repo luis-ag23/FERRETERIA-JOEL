@@ -38,13 +38,6 @@ namespace FERRETERIA__Joel.Pages
         /// </summary>
         public List<Empleado> Personal { get; set; } = new();
 
-        /// <summary>
-        /// Cuentas pendientes de activación (Estado -1): el enlace se envió
-        /// pero todavía no se usó. Se listan aparte para poder reenviar el
-        /// enlace cuando venció.
-        /// </summary>
-        public List<Empleado> Pendientes { get; set; } = new();
-
         public async Task OnGetAsync()
         {
             ViewData["ActiveMenu"] = "Registro";
@@ -146,7 +139,6 @@ namespace FERRETERIA__Joel.Pages
             try
             {
                 Personal = await _servicio.ListarAsync();
-                Pendientes = await _servicio.ListarPendientesAsync();
             }
             catch (Exception ex)
             {
