@@ -19,9 +19,23 @@ WORKDIR /src/FERRETERIA  Joel
 RUN dotnet publish "FERRETERIA__Joel.Web.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+
+# openssl se usa para generar el certificado con el que se cifran las claves
+# de Data Protection. El certificado se guarda en un volumen compartido por
+# las cuatro replicas. curl lo usa el healthcheck para consultar /health.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl curl \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 ENV ASPNETCORE_URLS=http://+:8080
 ENV ASPNETCORE_ENVIRONMENT=Docker
+ENV DATA_PROTECTION_CERT_DIR=/var/ferreteria/proteccion
 EXPOSE 8080
+
 COPY --from=build /app/publish .
-ENTRYPOINT ["dotnet", "FERRETERIA__Joel.Web.dll"]
+COPY ["docker/entrypoint.sh", "/usr/local/bin/entrypoint.sh"]
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["dotnet", "FERRETERIA__Joel.Web.dll"]

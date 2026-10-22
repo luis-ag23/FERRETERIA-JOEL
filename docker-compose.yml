@@ -1,20 +1,56 @@
+# Escalamiento horizontal del monolito Ferretería Joel.
+#
+# Los secretos NO están en este archivo: se toman de variables de entorno
+# definidas en el archivo .env de la raiz (no versionado). Copie .env.example
+# a .env y complete los valores antes de levantar el proyecto:
+#
+#   cp .env.example .env
+#
+# Valores por defecto admitidos con la sintaxis ${VAR:-valor}.
+
+x-app-common: &app-common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  restart: always
+  depends_on:
+    mysql:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  volumes:
+    # Volumen compartido con las cuatro replicas: contiene el certificado con
+    # el que se cifran las claves de Data Protection. Tiene que ser el mismo
+    # en todas ellas para que una cookie emitida por una replica sea valida
+    # en las demas.
+    - proteccion_datos:/var/ferreteria/proteccion
+  networks:
+    - ferreteria-net
+  healthcheck:
+    test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health || exit 1"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+    start_period: 30s
+
 services:
   mysql:
     image: mysql:8.0
     container_name: fj-mysql
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: FerreteriaJoel2026!
-      MYSQL_DATABASE: bdferreteria
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?defina MYSQL_ROOT_PASSWORD en el archivo .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-bdferreteria}
     ports:
-      - "3307:3306"
+      - "${MYSQL_PUERTO_HOST:-3307}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./Scripts/init-completo.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     networks:
       - ferreteria-net
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pFerreteriaJoel2026!"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
       timeout: 20s
       retries: 10
 
@@ -23,8 +59,10 @@ services:
     container_name: fj-redis
     restart: always
     ports:
-      - "6379:6379"
+      - "${REDIS_PUERTO_HOST:-6379}:6379"
     command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
     networks:
       - ferreteria-net
     healthcheck:
@@ -34,91 +72,84 @@ services:
       retries: 5
 
   app1:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    <<: *app-common
     container_name: fj-app1
-    restart: always
     environment:
       - ASPNETCORE_ENVIRONMENT=Docker
       - HOSTNAME=app1
-      - ConnectionStrings__MySqlConnection=Server=mysql;Database=bdferreteria;Uid=root;Pwd=FerreteriaJoel2026!;Port=3306;
+      - ConnectionStrings__MySqlConnection=Server=mysql;Database=${MYSQL_DATABASE:-bdferreteria};Uid=root;Pwd=${MYSQL_ROOT_PASSWORD};Port=3306;
       - Redis__Connection=redis:6379
-      - Redis__SessionTtlMinutes=30
-      - Redis__CacheTtlMinutes=5
-      - UrlProteccion__Clave=FerreteriaJoel2026$$ClaveSecretaUrl#Cambiar
-      - Smtp__Host=smtp.gmail.com
-      - Smtp__Puerto=587
-      - Smtp__Usuario=ferreteriajoel42@gmail.com
-      - Smtp__Clave=zcxwuursjghnfcvz
-      - Smtp__UsarSsl=true
-      - Smtp__Remitente=ferreteriajoel42@gmail.com
-      - Smtp__RemitenteNombre=Ferretería Joel
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - ferreteria-net
+      - Redis__SessionTtlMinutes=${REDIS_SESSION_TTL_MINUTES:-30}
+      - Redis__CacheTtlMinutes=${REDIS_CACHE_TTL_MINUTES:-5}
+      - UrlProteccion__Clave=${URL_PROTECCION_CLAVE:?defina URL_PROTECCION_CLAVE en el archivo .env}
+      - Smtp__Host=${SMTP_HOST:-smtp.gmail.com}
+      - Smtp__Puerto=${SMTP_PUERTO:-587}
+      - Smtp__Usuario=${SMTP_USUARIO:-}
+      - Smtp__Clave=${SMTP_CLAVE:-}
+      - Smtp__UsarSsl=${SMTP_USAR_SSL:-true}
+      - Smtp__Remitente=${SMTP_REMITENTE:-}
+      - Smtp__RemitenteNombre=${SMTP_REMITENTE_NOMBRE:-Ferretería Joel}
+      - DataProtection__CertificadoRuta=/var/ferreteria/proteccion/proteccion.pfx
 
   app2:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    <<: *app-common
     container_name: fj-app2
-    restart: always
     environment:
       - ASPNETCORE_ENVIRONMENT=Docker
       - HOSTNAME=app2
-      - ConnectionStrings__MySqlConnection=Server=mysql;Database=bdferreteria;Uid=root;Pwd=FerreteriaJoel2026!;Port=3306;
+      - ConnectionStrings__MySqlConnection=Server=mysql;Database=${MYSQL_DATABASE:-bdferreteria};Uid=root;Pwd=${MYSQL_ROOT_PASSWORD};Port=3306;
       - Redis__Connection=redis:6379
-      - Redis__SessionTtlMinutes=30
-      - Redis__CacheTtlMinutes=5
-      - UrlProteccion__Clave=FerreteriaJoel2026$$ClaveSecretaUrl#Cambiar
-      - Smtp__Host=smtp.gmail.com
-      - Smtp__Puerto=587
-      - Smtp__Usuario=ferreteriajoel42@gmail.com
-      - Smtp__Clave=zcxwuursjghnfcvz
-      - Smtp__UsarSsl=true
-      - Smtp__Remitente=ferreteriajoel42@gmail.com
-      - Smtp__RemitenteNombre=Ferretería Joel
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - ferreteria-net
+      - Redis__SessionTtlMinutes=${REDIS_SESSION_TTL_MINUTES:-30}
+      - Redis__CacheTtlMinutes=${REDIS_CACHE_TTL_MINUTES:-5}
+      - UrlProteccion__Clave=${URL_PROTECCION_CLAVE:?defina URL_PROTECCION_CLAVE en el archivo .env}
+      - Smtp__Host=${SMTP_HOST:-smtp.gmail.com}
+      - Smtp__Puerto=${SMTP_PUERTO:-587}
+      - Smtp__Usuario=${SMTP_USUARIO:-}
+      - Smtp__Clave=${SMTP_CLAVE:-}
+      - Smtp__UsarSsl=${SMTP_USAR_SSL:-true}
+      - Smtp__Remitente=${SMTP_REMITENTE:-}
+      - Smtp__RemitenteNombre=${SMTP_REMITENTE_NOMBRE:-Ferretería Joel}
+      - DataProtection__CertificadoRuta=/var/ferreteria/proteccion/proteccion.pfx
 
   app3:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    <<: *app-common
     container_name: fj-app3
-    restart: always
     environment:
       - ASPNETCORE_ENVIRONMENT=Docker
       - HOSTNAME=app3
-      - ConnectionStrings__MySqlConnection=Server=mysql;Database=bdferreteria;Uid=root;Pwd=FerreteriaJoel2026!;Port=3306;
+      - ConnectionStrings__MySqlConnection=Server=mysql;Database=${MYSQL_DATABASE:-bdferreteria};Uid=root;Pwd=${MYSQL_ROOT_PASSWORD};Port=3306;
       - Redis__Connection=redis:6379
-      - Redis__SessionTtlMinutes=30
-      - Redis__CacheTtlMinutes=5
-      - UrlProteccion__Clave=FerreteriaJoel2026$$ClaveSecretaUrl#Cambiar
-      - Smtp__Host=smtp.gmail.com
-      - Smtp__Puerto=587
-      - Smtp__Usuario=ferreteriajoel42@gmail.com
-      - Smtp__Clave=zcxwuursjghnfcvz
-      - Smtp__UsarSsl=true
-      - Smtp__Remitente=ferreteriajoel42@gmail.com
-      - Smtp__RemitenteNombre=Ferretería Joel
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - ferreteria-net
+      - Redis__SessionTtlMinutes=${REDIS_SESSION_TTL_MINUTES:-30}
+      - Redis__CacheTtlMinutes=${REDIS_CACHE_TTL_MINUTES:-5}
+      - UrlProteccion__Clave=${URL_PROTECCION_CLAVE:?defina URL_PROTECCION_CLAVE en el archivo .env}
+      - Smtp__Host=${SMTP_HOST:-smtp.gmail.com}
+      - Smtp__Puerto=${SMTP_PUERTO:-587}
+      - Smtp__Usuario=${SMTP_USUARIO:-}
+      - Smtp__Clave=${SMTP_CLAVE:-}
+      - Smtp__UsarSsl=${SMTP_USAR_SSL:-true}
+      - Smtp__Remitente=${SMTP_REMITENTE:-}
+      - Smtp__RemitenteNombre=${SMTP_REMITENTE_NOMBRE:-Ferretería Joel}
+      - DataProtection__CertificadoRuta=/var/ferreteria/proteccion/proteccion.pfx
+
+  app4:
+    <<: *app-common
+    container_name: fj-app4
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Docker
+      - HOSTNAME=app4
+      - ConnectionStrings__MySqlConnection=Server=mysql;Database=${MYSQL_DATABASE:-bdferreteria};Uid=root;Pwd=${MYSQL_ROOT_PASSWORD};Port=3306;
+      - Redis__Connection=redis:6379
+      - Redis__SessionTtlMinutes=${REDIS_SESSION_TTL_MINUTES:-30}
+      - Redis__CacheTtlMinutes=${REDIS_CACHE_TTL_MINUTES:-5}
+      - UrlProteccion__Clave=${URL_PROTECCION_CLAVE:?defina URL_PROTECCION_CLAVE en el archivo .env}
+      - Smtp__Host=${SMTP_HOST:-smtp.gmail.com}
+      - Smtp__Puerto=${SMTP_PUERTO:-587}
+      - Smtp__Usuario=${SMTP_USUARIO:-}
+      - Smtp__Clave=${SMTP_CLAVE:-}
+      - Smtp__UsarSsl=${SMTP_USAR_SSL:-true}
+      - Smtp__Remitente=${SMTP_REMITENTE:-}
+      - Smtp__RemitenteNombre=${SMTP_REMITENTE_NOMBRE:-Ferretería Joel}
+      - DataProtection__CertificadoRuta=/var/ferreteria/proteccion/proteccion.pfx
 
   nginx:
     image: nginx:alpine
@@ -127,16 +158,24 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
-      - "80:80"
+      - "${HTTP_PUERTO_HOST:-80}:80"
     depends_on:
       - app1
       - app2
       - app3
+      - app4
     networks:
       - ferreteria-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/nginx-health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   mysql_data:
+  redis_data:
+  proteccion_datos:
 
 networks:
   ferreteria-net:
