@@ -7,11 +7,12 @@ namespace FERRETERIA__Joel.Infraestructura.Servicios;
 /// <summary>
 /// Adaptador del puerto <see cref="ICacheSeleccion"/> sobre Redis.
 ///
-/// Aplica el patrón <em>Cache-Aside</em> y deja rastro de cada acceso: un
-/// HIT o un MISS quedan registrados en el log con la clave, la réplica que
-/// atendió la petición y el origen real del dato. Además se guardan en el
-/// propio Redis para que el rastro sea compartido entre réplicas y sirva de
-/// evidencia en la vista de diagnóstico.
+/// Aplica el patrón <em>Cache-Aside</em>: ante un MISS se lee de MySQL y el
+/// resultado se guarda en Redis con expiración, de modo que la siguiente
+/// réplica que atienda la misma consulta ya encuentra el dato cacheado.
+///
+/// La caché se observa directamente en el contenedor de Redis (las claves y
+/// sus TTL), no desde la aplicación.
 ///
 /// Ante una caída de Redis el adaptador degrada a MISS: la aplicación sigue
 /// funcionando contra MySQL, que es el sistema de registro.
@@ -57,16 +58,6 @@ public class CacheSeleccionRedis : ICacheSeleccion
                     clave,
                     replica);
             }
-
-            await RegistrarEventoAsync(new EventoCache
-            {
-                Fecha = DateTime.UtcNow,
-                Clave = clave,
-                Resultado = esHit ? "HIT" : "MISS",
-                Replica = replica,
-                Origen = esHit ? "REDIS" : "MYSQL",
-                Filas = esHit ? ContarFilas(valor) : 0
-            });
 
             return new ResultadoCache<T>
             {
@@ -126,15 +117,6 @@ public class CacheSeleccionRedis : ICacheSeleccion
                 "CACHE INVALIDATE | prefijo={Prefijo} | replica={Replica} | origen=REDIS",
                 prefijo,
                 _replica.Id);
-
-            await RegistrarEventoAsync(new EventoCache
-            {
-                Fecha = DateTime.UtcNow,
-                Clave = prefijo,
-                Resultado = "INVALIDATE",
-                Replica = _replica.Id,
-                Origen = "REDIS"
-            });
         }
         catch (Exception ex)
         {
@@ -143,46 +125,6 @@ public class CacheSeleccionRedis : ICacheSeleccion
                 "CACHE INVALIDATE ERROR | prefijo={Prefijo} | replica={Replica}",
                 prefijo,
                 _replica.Id);
-        }
-    }
-
-    public Task<List<EventoCache>> ObtenerEventosAsync(int cantidad = 50)
-    {
-        try
-        {
-            return _cache.ObtenerEventosAsync(cantidad);
-        }
-        catch (Exception ex)
-        {
-            _log.LogWarning(ex, "No se pudieron leer los eventos de caché");
-            return Task.FromResult(new List<EventoCache>());
-        }
-    }
-
-    public Task<List<ClaveCache>> ObtenerClavesAsync(string prefijo)
-    {
-        try
-        {
-            return _cache.ObtenerClavesAsync(prefijo);
-        }
-        catch (Exception ex)
-        {
-            _log.LogWarning(ex, "No se pudieron listar las claves de caché");
-            return Task.FromResult(new List<ClaveCache>());
-        }
-    }
-
-    private async Task RegistrarEventoAsync(EventoCache evento)
-    {
-        try
-        {
-            await _cache.RegistrarEventoAsync(evento);
-        }
-        catch (Exception ex)
-        {
-            // El registro del evento es informativo: si falla, no debe
-            // interrumpir la operación principal.
-            _log.LogDebug(ex, "No se pudo registrar el evento de caché");
         }
     }
 

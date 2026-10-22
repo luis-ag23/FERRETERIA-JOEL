@@ -8,9 +8,9 @@ namespace FERRETERIA__Joel.Dominio.Puertos
     /// la infraestructura decide el transporte real (Redis).
     ///
     /// Implementa el patrón <em>Cache-Aside</em>: el repositorio consulta la
-    /// caché, y solo ante un MISS recorre a MySQL. Cada acceso queda
-    /// registrado (HIT/MISS) con la clave, la réplica y el origen del dato,
-    /// para poder evidenciar el comportamiento durante la defensa.
+    /// caché, y solo ante un MISS recorre a MySQL. La caché se observa
+    /// directamente en Redis (contenedor <c>fj-redis</c>), no desde la
+    /// aplicación.
     /// </summary>
     public interface ICacheSeleccion
     {
@@ -34,18 +34,5 @@ namespace FERRETERIA__Joel.Dominio.Puertos
         /// (alta, actualización o baja lógica).
         /// </summary>
         Task InvalidarPorPrefijoAsync(string prefijo);
-
-        /// <summary>
-        /// Devuelve los eventos de caché más recientes registrados por
-        /// cualquier réplica. Sirve para la vista de diagnóstico.
-        /// </summary>
-        Task<List<EventoCache>> ObtenerEventosAsync(int cantidad = 50);
-
-        /// <summary>
-        /// Devuelve las claves de caché que coinciden con el prefijo indicado,
-        /// junto con su tiempo de vida restante. Sirve para la vista de
-        /// diagnóstico.
-        /// </summary>
-        Task<List<ClaveCache>> ObtenerClavesAsync(string prefijo);
     }
 }
