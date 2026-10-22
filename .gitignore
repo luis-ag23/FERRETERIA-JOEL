@@ -7,6 +7,12 @@
 .env
 .env.local
 
+# Artefactos de prueba (no versionar)
+cookies.txt
+*.cookies
+TestResult.xml
+[Cc]ookies*.txt
+
 # User-specific files
 *.rsuser
 *.suo
@@ -368,5 +374,5 @@ FodyWeavers.xsd
 
 # Variables secretos del settings
 
-# Ignorar configuración local con credenciales
+# Ignorar configuraciï¿½n local con credenciales
 **/appsettings.json
