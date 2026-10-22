@@ -121,10 +121,22 @@
                                         <form method="post"
                                               asp-page-handler="Reactivar"
                                               class="fj-inline-form"
-                                              data-fj-confirm="¿Desea reactivar la cuenta de '@empleado.Nombre @empleado.Apellido'?">
+                                              data-fj-confirm="¿Desea reactivar la cuenta de '@empleado.Nombre @empleado.Apellido'? Se le enviará un nuevo enlace de activación.">
                                             <input type="hidden" name="idEmpleado" value="@empleado.IdEmpleado" />
                                             <button type="submit" class="fj-btn fj-btn-primary fj-btn-sm" title="Reactivar cuenta">
                                                 Reactivar
+                                            </button>
+                                        </form>
+                                    }
+                                    else if (empleado.Estado == EstadoEmpleado.PendienteActivacion)
+                                    {
+                                        <form method="post"
+                                              asp-page-handler="Reenviar"
+                                              class="fj-inline-form"
+                                              data-fj-confirm="¿Está seguro de reenviar el enlace de activación a '@empleado.Nombre @empleado.Apellido'? Se generará un enlace nuevo y el anterior dejará de funcionar.">
+                                            <input type="hidden" name="idEmpleado" value="@empleado.IdEmpleado" />
+                                            <button type="submit" class="fj-btn fj-btn-primary fj-btn-sm" title="Reenviar enlace de activación">
+                                                Reenviar
                                             </button>
                                         </form>
                                     }
@@ -148,6 +160,82 @@
             </table>
         </div>
     </section>
+
+    @if (Model.Pendientes.Any())
+    {
+        <section class="fj-card fj-table-card" aria-label="Pendientes de activación" style="margin-top:1.5rem;">
+            <div class="fj-form-field" style="gap:.35rem;padding:1rem 1rem 0;">
+                <h2 style="margin:0;font-size:1.15rem;">Pendientes de activación</h2>
+                <p class="fj-form-hint" style="margin:0;">
+                    Empleados que recibieron el enlace pero aún no lo usaron. Si el enlace venció (10 minutos),
+                    use <strong>Reenviar</strong> para generar uno nuevo.
+                </p>
+            </div>
+
+            <div class="fj-table-wrap fj-table-wrap-scroll">
+                <table class="fj-table fj-table-personal">
+                    <thead>
+                        <tr>
+                            <th scope="col">Empleado</th>
+                            <th scope="col">Rol</th>
+                            <th scope="col">Correo</th>
+                            <th scope="col">Enlace vence</th>
+                            <th scope="col" class="fj-td-acciones">Acciones</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @foreach (var pendiente in Model.Pendientes)
+                        {
+                            var vencido = pendiente.TokenExpira is null || pendiente.TokenExpira < DateTime.Now;
+                            <tr>
+                                <td>
+                                    <span class="fj-nombre">@pendiente.Nombre @pendiente.Apellido</span>
+                                    <span class="fj-nombre-sub">@pendiente.Telefono</span>
+                                </td>
+
+                                <td class="fj-td-secundario">@pendiente.Rol</td>
+
+                                <td class="fj-td-secundario">
+                                    @if (!string.IsNullOrEmpty(pendiente.CorreoElectronico))
+                                    {
+                                        <span title="@pendiente.CorreoElectronico">@pendiente.CorreoElectronico</span>
+                                    }
+                                    else
+                                    {
+                                        <span>—</span>
+                                    }
+                                </td>
+
+                                <td class="fj-td-secundario">
+                                    @if (vencido)
+                                    {
+                                        <span class="fj-pill" style="--pill: var(--warning);">Vencido</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@pendiente.TokenExpira?.ToString("HH:mm:ss")</span>
+                                    }
+                                </td>
+
+                                <td class="fj-td-acciones">
+                                    <form method="post"
+                                          asp-page-handler="Reenviar"
+                                          class="fj-inline-form"
+                                          data-fj-confirm="¿Está seguro de reenviar el enlace de activación a '@pendiente.Nombre @pendiente.Apellido'? Se generará un enlace nuevo y el anterior dejará de funcionar.">
+                                        <input type="hidden" name="idEmpleado" value="@pendiente.IdEmpleado" />
+                                        <button type="submit" class="fj-btn fj-btn-primary fj-btn-sm" title="Reenviar enlace de activación">
+                                            Reenviar
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
 
 </div>
 

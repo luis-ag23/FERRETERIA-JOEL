@@ -1,7 +1,6 @@
 using FERRETERIA__Joel.Aplicacion.Modelos;
 using FERRETERIA__Joel.Aplicacion.Servicios;
 using FERRETERIA__Joel.Dominio.Constantes;
-using FERRETERIA__Joel.Dominio.Entidades;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -14,8 +13,12 @@ namespace FERRETERIA__Joel.Pages
     /// Alta de personal exclusiva del administrador. Permite crear cuentas con
     /// rol <c>EmpleadoVenta</c> o <c>Administrador</c>. No se define contraseña:
     /// la cuenta nace pendiente de activación y se envía un enlace por correo
-    /// para que el empleado la establezca. También permite reenviar el enlace
-    /// cuando el anterior venció.
+    /// para que el empleado la establezca.
+    ///
+    /// <para>
+    /// El listado de pendientes y el reenvío del enlace viven en la página
+    /// <c>Personal</c>.
+    /// </para>
     /// </summary>
     [Authorize(Roles = RolesSistema.Administrador)]
     public class RegistroModel : PageModel
@@ -28,11 +31,6 @@ namespace FERRETERIA__Joel.Pages
 
         public List<string> Errores { get; set; } = new();
         public Dictionary<string, string> ErroresCampo { get; set; } = new();
-
-        /// <summary>
-        /// Empleados pendientes de activación (enlace enviado y no usado).
-        /// </summary>
-        public List<Empleado> Pendientes { get; set; } = new();
 
         /// <summary>
         /// Enlace de activación mostrado en pantalla cuando no hay SMTP
@@ -60,10 +58,9 @@ namespace FERRETERIA__Joel.Pages
             _logger = logger;
         }
 
-        public async Task OnGetAsync()
+        public void OnGet()
         {
             ViewData["ActiveMenu"] = "Registro";
-            await CargarPendientesAsync();
         }
 
         public async Task<IActionResult> OnPostRegistrarAsync()
@@ -89,7 +86,6 @@ namespace FERRETERIA__Joel.Pages
 
                     await MarcarCorreoDuplicadoAsync();
 
-                    await CargarPendientesAsync();
                     return Page();
                 }
 
@@ -98,7 +94,6 @@ namespace FERRETERIA__Joel.Pages
 
                 EnlaceActivacion = resultado.EnlaceActivacion;
 
-                await CargarPendientesAsync();
                 return Page();
             }
             catch (MySqlException ex) when (ex.Number == 1062)
@@ -110,7 +105,6 @@ namespace FERRETERIA__Joel.Pages
 
                 await MarcarCorreoDuplicadoAsync();
 
-                await CargarPendientesAsync();
                 return Page();
             }
             catch (Exception ex)
@@ -118,45 +112,8 @@ namespace FERRETERIA__Joel.Pages
                 _logger.LogError(ex, "Error al registrar la cuenta.");
                 Errores.Add(
                     "No se pudo completar el registro. Inténtalo nuevamente.");
-                await CargarPendientesAsync();
                 return Page();
             }
-        }
-
-        /// <summary>
-        /// Reenvía el enlace de activación a un empleado pendiente: genera un
-        /// token nuevo y vuelve a enviar el correo.
-        /// </summary>
-        public async Task<IActionResult> OnPostReenviarAsync(int idEmpleado)
-        {
-            ViewData["ActiveMenu"] = "Registro";
-
-            try
-            {
-                ResultadoRegistro resultado =
-                    await _servicioEmpleado.ReenviarActivacionAsync(idEmpleado);
-
-                if (resultado.Exitoso)
-                {
-                    TempData["Mensaje"] =
-                        "Se reenvió el enlace de activación al correo del empleado.";
-
-                    EnlaceActivacion = resultado.EnlaceActivacion;
-                }
-                else
-                {
-                    Errores = resultado.Errores;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al reenviar la activación.");
-                Errores.Add(
-                    "No se pudo reenviar el enlace. Inténtalo nuevamente.");
-            }
-
-            await CargarPendientesAsync();
-            return Page();
         }
 
         /// <summary>
@@ -192,7 +149,6 @@ namespace FERRETERIA__Joel.Pages
                     "No se pudo reenviar el enlace. Inténtalo nuevamente.");
             }
 
-            await CargarPendientesAsync();
             return Page();
         }
 
@@ -222,18 +178,6 @@ namespace FERRETERIA__Joel.Pages
                 _logger.LogError(
                     ex,
                     "Error al comprobar si el correo duplicado está pendiente.");
-            }
-        }
-
-        private async Task CargarPendientesAsync()
-        {
-            try
-            {
-                Pendientes = await _servicioEmpleado.ObtenerPendientesAsync();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al listar empleados pendientes.");
             }
         }
 

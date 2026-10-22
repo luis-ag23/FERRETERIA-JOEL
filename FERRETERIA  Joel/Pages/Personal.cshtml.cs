@@ -38,6 +38,13 @@ namespace FERRETERIA__Joel.Pages
         /// </summary>
         public List<Empleado> Personal { get; set; } = new();
 
+        /// <summary>
+        /// Cuentas pendientes de activación (Estado -1): el enlace se envió
+        /// pero todavía no se usó. Se listan aparte para poder reenviar el
+        /// enlace cuando venció.
+        /// </summary>
+        public List<Empleado> Pendientes { get; set; } = new();
+
         public async Task OnGetAsync()
         {
             ViewData["ActiveMenu"] = "Registro";
@@ -103,11 +110,43 @@ namespace FERRETERIA__Joel.Pages
             return RedirectToPage();
         }
 
+        /// <summary>
+        /// Reenvía el enlace de activación a una cuenta pendiente (Estado -1):
+        /// genera un token nuevo y vuelve a enviar el correo. Se usa cuando el
+        /// enlace anterior venció o se perdió.
+        /// </summary>
+        public async Task<IActionResult> OnPostReenviarAsync(int idEmpleado)
+        {
+            try
+            {
+                ResultadoPersonal resultado =
+                    await _servicio.ReenviarActivacionAsync(idEmpleado);
+
+                if (resultado.Exitoso)
+                {
+                    TempData["Mensaje"] = resultado.Mensaje;
+                }
+                else
+                {
+                    TempData["MensajeError"] = resultado.Mensaje;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al reenviar la activación.");
+                TempData["MensajeError"] =
+                    "No se pudo reenviar el enlace. Inténtalo nuevamente.";
+            }
+
+            return RedirectToPage();
+        }
+
         private async Task CargarAsync()
         {
             try
             {
                 Personal = await _servicio.ListarAsync();
+                Pendientes = await _servicio.ListarPendientesAsync();
             }
             catch (Exception ex)
             {
