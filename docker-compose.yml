@@ -1,5 +1,91 @@
-# Escalamiento horizontal del monolito Ferretería Joel.
+# =============================================================================
+# Escalamiento horizontal del monolito Ferretería Joel  (2do entregable ARQ)
+# =============================================================================
 #
+# Topología:
+#
+#     Navegador
+#         |
+#         v
+#     Nginx  (fj-nginx)            <- balanceador / proxy frontal
+#         |  round-robin + failover automático
+#         +--> app1  (fj-app1)     <- réplica de servicio
+#         +--> app2  (fj-app2)     <- réplica de servicio
+#         +--> app3  (fj-app3)     <- réplica de servicio
+#         +--> app4  (fj-app4)     <- RÉPLICA DE DEFENSA (reserva)
+#         |
+#         +--> MySQL  (fj-mysql)   <- sistema de registro (datos maestros)
+#         +--> Redis  (fj-redis)   <- caché distribuida + sesión + claves
+#
+# -----------------------------------------------------------------------------
+# PAPEL DE LA CUARTA RÉPLICA (app4) EN LA DEFENSA
+# -----------------------------------------------------------------------------
+# app4 NO es una copia de app1..app3: es la réplica de reserva que permite
+# demostrar en vivo la Alta Disponibilidad durante la defensa. Con las cuatro
+# réplicas levantadas el sistema ya es tolerante a un fallo (Nginx reintenta
+# contra otra réplica con proxy_next_upstream), pero con TRES réplicas de
+# servicio y UNA de reserva la demostración es mucho más clara:
+#
+#   1) Se detiene la réplica de reserva y se comprueba que el sistema sigue
+#      respondiendo con normalidad:
+#
+#         docker compose stop app4
+#         curl -i http://localhost/ | findstr /I "X-Replica"
+#
+#   2) Se detiene además una réplica de servicio y se comprueba que Nginx
+#      reintenta solo contra otra réplica (failover, sin error para el
+#      usuario):
+#
+#         docker compose stop app1
+#         curl -i http://localhost/ | findstr /I "X-Replica"
+#
+#   3) Se levantan de nuevo y se comprueba que el balanceo round-robin
+#      vuelve a repartir el tráfico entre las cuatro:
+#
+#         docker compose start app1 app4
+#         1..4 | %% curl -s -o NUL -w "%%{http_code} " http://localhost/
+#
+# La reserva también sirve para el caso de que una réplica de servicio falle
+# durante la defensa: se levanta con "docker compose start app4" y el sistema
+# recupera capacidad sin interventionar el código.
+#
+# -----------------------------------------------------------------------------
+# AVISO OPERATIVO DURANTE LA DEFENSA
+# -----------------------------------------------------------------------------
+#   * Para vaciar la caché usa el borrado por patrón:
+#         docker exec fj-redis redis-cli --scan --pattern "ferreteria:cache:*" \
+#           | xargs -r -I{} docker exec fj-redis redis-cli DEL {}
+#     NO uses "redis-cli FLUSHALL": borraría también la clave
+#     "FerreteriaJoel-DataProtection-Keys" (las claves de Data Protection
+#     compartidas) y las cookies de sesión dejarían de ser válidas en las
+#     réplicas distintas de la que las emitió.
+#   * "docker compose down -v" borra los volúmenes: se regenera la base de
+#     datos con Scripts/init-completo.sql y se pierde la sesión abierta.
+#     Para reiniciar el sistema sin perder el estado: "docker compose restart".
+#
+# -----------------------------------------------------------------------------
+# ARCHIVOS QUE INTERVIENEN EN LA DEFENSA
+# -----------------------------------------------------------------------------
+#   docker-compose.yml                     este archivo: topología, réplicas,
+#                                          variables de entorno y volúmenes.
+#   nginx/nginx.conf                       balanceo round-robin, cabeceras
+#                                          X-Replica-Id / X-Replica-Served y
+#                                          failover con proxy_next_upstream.
+#   Program.cs                             cabecera X-Replica-Id, sesiones
+#                                          compartidas y secretos de arranque.
+#   FERRETERIA__Joel.Infraestructura/
+#     Servicios/IdentificadorReplica.cs    identificador único de cada réplica.
+#     Servicios/CacheSeleccionRedis.cs     caché distribuida sobre Redis.
+#     Servicios/RedisCacheHelper.cs        lectura/escritura de claves y TTL.
+#   docker/entrypoint.sh                   certificado de Data Protection
+#                                          compartido por las 4 réplicas.
+#   Scripts/init-completo.sql              único script de base de datos: es el
+#                                          que monta Docker (esquema + semilla).
+#   .env / .env.example                    secretos (no versionado / plantilla).
+#
+# -----------------------------------------------------------------------------
+# SECRETOS
+# -----------------------------------------------------------------------------
 # Los secretos NO están en este archivo: se toman de variables de entorno
 # definidas en el archivo .env de la raiz (no versionado). Copie .env.example
 # a .env y complete los valores antes de levantar el proyecto:
@@ -131,6 +217,16 @@ services:
       - Smtp__RemitenteNombre=${SMTP_REMITENTE_NOMBRE:-Ferretería Joel}
       - DataProtection__CertificadoRuta=/var/ferreteria/proteccion/proteccion.pfx
 
+  # ---------------------------------------------------------------------------
+  # app4: REPLICA DE DEFENSA (reserva).
+  #
+  # Es idéntica a app1..app3 (misma imagen, misma configuracion, mismo volumen
+  # de Data Protection) y por eso puede atender trafico normal en cualquier
+  # momento. Su funcion es ser la replica de reserva: durante la defensa se
+  # detiene para mostrar el failover y, si una replica de servicio falla, se
+  # levanta al instante con "docker compose start app4" para recuperar
+  # capacidad.
+  # ---------------------------------------------------------------------------
   app4:
     <<: *app-common
     container_name: fj-app4

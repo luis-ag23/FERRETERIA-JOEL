@@ -1,9 +1,25 @@
 -- ============================================================
--- SCRIPT UNIFICADO: FERRETERÍA JOEL
+-- FERRETERÍA JOEL — ESQUEMA Y DATOS SEMILLA (script único)
 -- Base de datos: bdferreteria
--- Crea BD, tablas finales (con CI en cliente, campos venta), bitácora,
--- índices únicos y datos semilla.
--- Ejecutar UNA sola vez.
+--
+-- Este es el ÚNICO script de base de datos del proyecto y es el que monta
+-- Docker: docker-compose.yml lo copia en
+-- /docker-entrypoint-initdb.d/01-init.sql, de modo que MySQL lo ejecuta solo
+-- la primera vez que se crea el volumen.
+--
+-- Contiene TODO lo que necesita la aplicación:
+--   - creación de la base y del juego de tablas final (catálogo, clientes,
+--     empleados, ventas, histórico de precios y bitácora de sesiones);
+--   - los índices únicos (correo del empleado, código de categoría, razón
+--     social del proveedor, código de producto y CI del cliente);
+--   - los datos semilla (10 empleados, 10 categorías, 10 marcas, 10
+--     proveedores, 10 productos y 5 clientes).
+--
+-- Es el esquema canónico: las columnas coinciden exactamente con las que
+-- leen y escriben los repositorios de la aplicación. Si se modifica una
+-- columna, hay que modificarla también en el código C#.
+--
+-- Ejecutar UNA sola vez sobre una base vacía.
 -- ============================================================
 
 CREATE DATABASE IF NOT EXISTS bdferreteria
