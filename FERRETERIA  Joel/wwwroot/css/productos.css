@@ -585,3 +585,53 @@
     display: block;
     max-width: 100%;
 }
+
+/* Tabla de personal: nombres, rol, correo, alta, estado y acciones.
+   El correo es el dato más largo, por eso se le da más ancho y se evita
+   que se recorte con puntos suspensivos. */
+.fj-table-personal {
+    min-width: 52rem;
+}
+
+/* Empleado (nombre + teléfono) */
+.fj-table-personal th:nth-child(1),
+.fj-table-personal td:nth-child(1) {
+    width: 16rem;
+}
+
+/* Rol */
+.fj-table-personal th:nth-child(2),
+.fj-table-personal td:nth-child(2) {
+    width: 9rem;
+    white-space: nowrap;
+}
+
+/* Correo */
+.fj-table-personal th:nth-child(3),
+.fj-table-personal td:nth-child(3) {
+    width: 20rem;
+}
+
+.fj-table-personal .fj-ellipsis {
+    display: block;
+    max-width: 100%;
+}
+
+/* Alta */
+.fj-table-personal th:nth-child(4),
+.fj-table-personal td:nth-child(4) {
+    width: 7.5rem;
+    white-space: nowrap;
+}
+
+/* Estado */
+.fj-table-personal th:nth-child(5),
+.fj-table-personal td:nth-child(5) {
+    width: 8rem;
+}
+
+/* Acciones */
+.fj-table-personal th:nth-child(6),
+.fj-table-personal td:nth-child(6) {
+    width: 7.5rem;
+}

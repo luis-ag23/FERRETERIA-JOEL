@@ -21,13 +21,16 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
     {
         private readonly IRepositoryEmpleado _repositorio;
         private readonly IContextoUsuario _contextoUsuario;
+        private readonly ServicioRegistroEmpleado _servicioActivacion;
 
         public ServicioPersonal(
             IRepositoryEmpleado repositorio,
-            IContextoUsuario contextoUsuario)
+            IContextoUsuario contextoUsuario,
+            ServicioRegistroEmpleado servicioActivacion)
         {
             _repositorio = repositorio;
             _contextoUsuario = contextoUsuario;
+            _servicioActivacion = servicioActivacion;
         }
 
         /// <summary>
@@ -37,6 +40,47 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
         public async Task<List<Empleado>> ListarAsync()
         {
             return await _repositorio.ObtenerTodosSinCredencialesAsync();
+        }
+
+        /// <summary>
+        /// Reenvía el enlace de activación a una cuenta pendiente (Estado -1):
+        /// genera un token nuevo y vuelve a enviar el correo. Se usa cuando el
+        /// enlace anterior venció o se perdió.
+        /// </summary>
+        public async Task<ResultadoPersonal> ReenviarActivacionAsync(
+            int idEmpleado)
+        {
+            if (idEmpleado <= 0)
+            {
+                return new ResultadoPersonal
+                {
+                    Exitoso = false,
+                    Mensaje = "El empleado indicado no es válido."
+                };
+            }
+
+            ResultadoRegistro resultado =
+                await _servicioActivacion.ReenviarActivacionAsync(idEmpleado);
+
+            if (!resultado.Exitoso)
+            {
+                return new ResultadoPersonal
+                {
+                    Exitoso = false,
+                    IdEmpleado = idEmpleado,
+                    Mensaje = resultado.Errores.FirstOrDefault()
+                        ?? "No se pudo reenviar el enlace de activación."
+                };
+            }
+
+            return new ResultadoPersonal
+            {
+                Exitoso = true,
+                IdEmpleado = idEmpleado,
+                Estado = EstadoEmpleado.PendienteActivacion,
+                Mensaje =
+                    "Se reenvió el enlace de activación al correo del empleado."
+            };
         }
 
         /// <summary>
@@ -53,15 +97,34 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
         /// <summary>
         /// Reactiva una cuenta dada de baja. La cuenta vuelve a estado
-        /// pendiente de activación: el empleado debe definir de nuevo su
-        /// contraseña mediante el enlace de activación.
+        /// pendiente de activación y se le reenvía el enlace de activación al
+        /// correo: el empleado debe definir de nuevo su contraseña.
         /// </summary>
         public async Task<ResultadoPersonal> ReactivarAsync(int idEmpleado)
         {
-            return await CambiarEstadoAsync(
+            ResultadoPersonal resultado = await CambiarEstadoAsync(
                 idEmpleado,
                 EstadoEmpleado.PendienteActivacion,
                 "La cuenta fue reactivada y quedó pendiente de activación.");
+
+            if (!resultado.Exitoso)
+            {
+                return resultado;
+            }
+
+            // Se reenvía el enlace de activación con un token nuevo para que el
+            // empleado pueda definir su contraseña de nuevo.
+            try
+            {
+                await _servicioActivacion.ReenviarActivacionAsync(idEmpleado);
+            }
+            catch
+            {
+                // La reactivación ya se aplicó; si el correo falla, el
+                // administrador puede reenviarlo desde la lista de pendientes.
+            }
+
+            return resultado;
         }
 
         private async Task<ResultadoPersonal> CambiarEstadoAsync(

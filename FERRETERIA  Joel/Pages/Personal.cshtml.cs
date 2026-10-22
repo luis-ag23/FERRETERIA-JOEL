@@ -38,8 +38,6 @@ namespace FERRETERIA__Joel.Pages
         /// </summary>
         public List<Empleado> Personal { get; set; } = new();
 
-        public List<string> Errores { get; set; } = new();
-
         public async Task OnGetAsync()
         {
             ViewData["ActiveMenu"] = "Registro";
@@ -51,8 +49,6 @@ namespace FERRETERIA__Joel.Pages
         /// </summary>
         public async Task<IActionResult> OnPostBajaAsync(int idEmpleado)
         {
-            ViewData["ActiveMenu"] = "Registro";
-
             try
             {
                 ResultadoPersonal resultado =
@@ -64,18 +60,17 @@ namespace FERRETERIA__Joel.Pages
                 }
                 else
                 {
-                    Errores.Add(resultado.Mensaje);
+                    TempData["MensajeError"] = resultado.Mensaje;
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al dar de baja al empleado.");
-                Errores.Add(
-                    "No se pudo completar la baja. Inténtalo nuevamente.");
+                TempData["MensajeError"] =
+                    "No se pudo completar la baja. Inténtalo nuevamente.";
             }
 
-            await CargarAsync();
-            return Page();
+            return RedirectToPage();
         }
 
         /// <summary>
@@ -84,8 +79,6 @@ namespace FERRETERIA__Joel.Pages
         /// </summary>
         public async Task<IActionResult> OnPostReactivarAsync(int idEmpleado)
         {
-            ViewData["ActiveMenu"] = "Registro";
-
             try
             {
                 ResultadoPersonal resultado =
@@ -97,18 +90,48 @@ namespace FERRETERIA__Joel.Pages
                 }
                 else
                 {
-                    Errores.Add(resultado.Mensaje);
+                    TempData["MensajeError"] = resultado.Mensaje;
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al reactivar al empleado.");
-                Errores.Add(
-                    "No se pudo completar la reactivación. Inténtalo nuevamente.");
+                TempData["MensajeError"] =
+                    "No se pudo completar la reactivación. Inténtalo nuevamente.";
             }
 
-            await CargarAsync();
-            return Page();
+            return RedirectToPage();
+        }
+
+        /// <summary>
+        /// Reenvía el enlace de activación a una cuenta pendiente (Estado -1):
+        /// genera un token nuevo y vuelve a enviar el correo. Se usa cuando el
+        /// enlace anterior venció o se perdió.
+        /// </summary>
+        public async Task<IActionResult> OnPostReenviarAsync(int idEmpleado)
+        {
+            try
+            {
+                ResultadoPersonal resultado =
+                    await _servicio.ReenviarActivacionAsync(idEmpleado);
+
+                if (resultado.Exitoso)
+                {
+                    TempData["Mensaje"] = resultado.Mensaje;
+                }
+                else
+                {
+                    TempData["MensajeError"] = resultado.Mensaje;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al reenviar la activación.");
+                TempData["MensajeError"] =
+                    "No se pudo reenviar el enlace. Inténtalo nuevamente.";
+            }
+
+            return RedirectToPage();
         }
 
         private async Task CargarAsync()
@@ -120,8 +143,8 @@ namespace FERRETERIA__Joel.Pages
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al listar el personal.");
-                Errores.Add(
-                    "No se pudo cargar el listado del personal.");
+                TempData["MensajeError"] =
+                    "No se pudo cargar el listado del personal.";
             }
         }
     }

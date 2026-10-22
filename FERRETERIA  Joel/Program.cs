@@ -1,4 +1,5 @@
 using FERRETERIA__Joel.Aplicacion.Servicios;
+using FERRETERIA__Joel.Dominio.Constantes;
 using FERRETERIA__Joel.Dominio.Entidades;
 using FERRETERIA__Joel.Dominio.Puertos;
 using FERRETERIA__Joel.Helpers;
@@ -12,6 +13,8 @@ using FERRETERIA__Joel.Infraestructura.Servicios;
 using FERRETERIA__Joel.Seguridad;
 using FERRETERIA__Joel.Servicios;
 using System.Security.Cryptography.X509Certificates;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -74,6 +77,42 @@ builder.Services
         options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = true;
+
+        // Bloqueo de acceso inmediato tras una baja lógica: en cada petición
+        // se revalida que la cuenta siga activa. Si el administrador dio de
+        // baja al empleado (Estado distinto de Activo), la cookie se rechaza
+        // al instante en vez de esperar a que caduque.
+        options.Events = new CookieAuthenticationEvents
+        {
+            OnValidatePrincipal = async contexto =>
+            {
+                string? idTexto = contexto.Principal?
+                    .FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+                if (!int.TryParse(idTexto, out int idEmpleado))
+                {
+                    contexto.RejectPrincipal();
+                    return;
+                }
+
+                IRepositoryEmpleado repositorio =
+                    contexto.HttpContext.RequestServices
+                        .GetRequiredService<IRepositoryEmpleado>();
+
+                Empleado? empleado =
+                    await repositorio.ObtenerPorIdSinCredencialesAsync(
+                        idEmpleado);
+
+                // Cuenta inexistente o no activa: se invalida la sesión.
+                if (empleado is null
+                    || empleado.Estado != EstadoEmpleado.Activo)
+                {
+                    contexto.RejectPrincipal();
+                    await contexto.HttpContext.SignOutAsync(
+                        CookieAuthenticationDefaults.AuthenticationScheme);
+                }
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
