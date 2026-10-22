@@ -227,25 +227,25 @@ services:
   # levanta al instante con "docker compose start app4" para recuperar
   # capacidad.
   # ---------------------------------------------------------------------------
-  app4:
-    <<: *app-common
-    container_name: fj-app4
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Docker
-      - HOSTNAME=app4
-      - ConnectionStrings__MySqlConnection=Server=mysql;Database=${MYSQL_DATABASE:-bdferreteria};Uid=root;Pwd=${MYSQL_ROOT_PASSWORD};Port=3306;
-      - Redis__Connection=redis:6379
-      - Redis__SessionTtlMinutes=${REDIS_SESSION_TTL_MINUTES:-30}
-      - Redis__CacheTtlMinutes=${REDIS_CACHE_TTL_MINUTES:-5}
-      - UrlProteccion__Clave=${URL_PROTECCION_CLAVE:?defina URL_PROTECCION_CLAVE en el archivo .env}
-      - Smtp__Host=${SMTP_HOST:-smtp.gmail.com}
-      - Smtp__Puerto=${SMTP_PUERTO:-587}
-      - Smtp__Usuario=${SMTP_USUARIO:-}
-      - Smtp__Clave=${SMTP_CLAVE:-}
-      - Smtp__UsarSsl=${SMTP_USAR_SSL:-true}
-      - Smtp__Remitente=${SMTP_REMITENTE:-}
-      - Smtp__RemitenteNombre=${SMTP_REMITENTE_NOMBRE:-Ferretería Joel}
-      - DataProtection__CertificadoRuta=/var/ferreteria/proteccion/proteccion.pfx
+  # app4:
+  #   <<: *app-common
+  #   container_name: fj-app4
+  #   environment:
+  #     - ASPNETCORE_ENVIRONMENT=Docker
+  #     - HOSTNAME=app4
+  #     - ConnectionStrings__MySqlConnection=Server=mysql;Database=${MYSQL_DATABASE:-bdferreteria};Uid=root;Pwd=${MYSQL_ROOT_PASSWORD};Port=3306;
+  #     - Redis__Connection=redis:6379
+  #     - Redis__SessionTtlMinutes=${REDIS_SESSION_TTL_MINUTES:-30}
+  #     - Redis__CacheTtlMinutes=${REDIS_CACHE_TTL_MINUTES:-5}
+  #     - UrlProteccion__Clave=${URL_PROTECCION_CLAVE:?defina URL_PROTECCION_CLAVE en el archivo .env}
+  #     - Smtp__Host=${SMTP_HOST:-smtp.gmail.com}
+  #     - Smtp__Puerto=${SMTP_PUERTO:-587}
+  #     - Smtp__Usuario=${SMTP_USUARIO:-}
+  #     - Smtp__Clave=${SMTP_CLAVE:-}
+  #     - Smtp__UsarSsl=${SMTP_USAR_SSL:-true}
+  #     - Smtp__Remitente=${SMTP_REMITENTE:-}
+  #     - Smtp__RemitenteNombre=${SMTP_REMITENTE_NOMBRE:-Ferretería Joel}
+  #     - DataProtection__CertificadoRuta=/var/ferreteria/proteccion/proteccion.pfx
 
   nginx:
     image: nginx:alpine
@@ -259,7 +259,7 @@ services:
       - app1
       - app2
       - app3
-      - app4
+      #- app4
     networks:
       - ferreteria-net
     healthcheck:
