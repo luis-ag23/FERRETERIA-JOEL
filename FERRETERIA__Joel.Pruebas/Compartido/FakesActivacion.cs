@@ -29,6 +29,11 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
             return Task.FromResult(_empleados.ToList());
         }
 
+        public override Task<List<Empleado>> ObtenerTodosSinCredencialesAsync()
+        {
+            return Task.FromResult(_empleados.ToList());
+        }
+
         public override Task<int> InsertarAsync(Empleado empleado)
         {
             empleado.IdEmpleado = _empleados.Count + 1;
@@ -40,6 +45,45 @@ namespace FERRETERIA__Joel.Pruebas.Compartido
         {
             return Task.FromResult(
                 _empleados.FirstOrDefault(e => e.CorreoElectronico == correo));
+        }
+
+        public override Task<Empleado?> ObtenerPorCorreoConCredencialesAsync(
+            string correo)
+        {
+            return Task.FromResult(
+                _empleados.FirstOrDefault(e => e.CorreoElectronico == correo));
+        }
+
+        public override Task<Empleado?> ObtenerPorCorreoSinCredencialesAsync(
+            string correo)
+        {
+            return Task.FromResult(
+                _empleados.FirstOrDefault(e => e.CorreoElectronico == correo));
+        }
+
+        public override Task<bool> ExistePorCorreoAsync(string correo)
+        {
+            return Task.FromResult(
+                _empleados.Any(e => e.CorreoElectronico == correo));
+        }
+
+        public override Task<bool> ActualizarEstadoAsync(
+            int idEmpleado,
+            sbyte nuevoEstado,
+            int idEmpleadoResponsable)
+        {
+            Empleado? empleado =
+                _empleados.FirstOrDefault(e => e.IdEmpleado == idEmpleado);
+
+            if (empleado is null || empleado.Estado == nuevoEstado)
+            {
+                return Task.FromResult(false);
+            }
+
+            empleado.Estado = nuevoEstado;
+            empleado.IdEmpleadoResponsable = idEmpleadoResponsable;
+
+            return Task.FromResult(true);
         }
 
         public override Task<Empleado?> ObtenerPorTokenActivacionAsync(
