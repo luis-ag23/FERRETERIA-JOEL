@@ -129,11 +129,13 @@ builder.Services.AddSingleton<RedisCacheHelper>(sp =>
 });
 builder.Services.AddScoped<SesionRedisServicio>();
 
-// Identificador real de la réplica en ejecución (nombre del contenedor).
+// Identificador real de la replica en ejecucion: su nombre (app1..app4) y
+// el identificador unico que genera al arrancar.
 builder.Services.AddSingleton<IIdentificadorReplica, IdentificadorReplica>();
 
-// Puerto de la caché distribuida: patrón cache-aside con registro de cada
-// HIT/MISS (clave, réplica y origen del dato).
+// Puerto de la cache distribuida: patron cache-aside. Cada acierto o fallo
+// queda en el log de la replica (clave y origen del dato); las claves se
+// observan directamente en el contenedor de Redis.
 builder.Services.AddSingleton<ICacheSeleccion, CacheSeleccionRedis>();
 
 // DataProtection con Redis: las claves se comparten entre todas las réplicas
@@ -273,11 +275,14 @@ if (!app.Environment.IsDevelopment())
 
 app.UseForwardedHeaders();
 
-// Identificador de la replica que atendio la peticion. Nginx lo reenvia al
-// cliente (proxy_pass_header X-Replica-Id): sirve como evidencia de que el
-// escalamiento horizontal esta distribuyendo las peticiones.
+// Identificador unico de la replica que atendio la peticion. Cada replica
+// genera el suyo al arrancar (nombre de la replica mas un token aleatorio:
+// app1-3F2A9C77), de modo que la cabecera identifica al proceso real que
+// respondio y no solo al contenedor. Nginx lo reenvia al cliente
+// (proxy_pass_header X-Replica-Id): es la evidencia de que el escalamiento
+// horizontal esta distribuyendo las peticiones entre instancias distintas.
 string idReplica =
-    app.Services.GetRequiredService<IIdentificadorReplica>().Id;
+    app.Services.GetRequiredService<IIdentificadorReplica>().IdInstancia;
 
 app.Use(async (context, next) =>
 {
@@ -338,6 +343,7 @@ app.MapGet("/health", async (
         // y la cache distribuida: se informa como degradada.
         estado = redisDisponible ? "saludable" : "degradado",
         replica = replica.Id,
+        idInstancia = replica.IdInstancia,
         redis = redisDisponible,
         fecha = DateTime.UtcNow
     });

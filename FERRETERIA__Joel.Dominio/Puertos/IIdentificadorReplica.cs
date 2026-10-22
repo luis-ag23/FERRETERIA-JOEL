@@ -6,7 +6,7 @@ namespace FERRETERIA__Joel.Dominio.Puertos
     /// (<c>HOSTNAME</c>); nunca es un valor fijo simulado.
     ///
     /// Se declara en el dominio porque tanto la aplicación (registro de
-    /// eventos de caché) como la capa web (identificador mostrado en la
+    /// accesos a la caché) como la capa web (identificador mostrado en la
     /// interfaz) necesitan conocerlo, y ninguno debe depender de la
     /// infraestructura concreta.
     /// </summary>
@@ -16,5 +16,16 @@ namespace FERRETERIA__Joel.Dominio.Puertos
         /// Nombre de la réplica en ejecución, por ejemplo <c>app1</c>.
         /// </summary>
         string Id { get; }
+
+        /// <summary>
+        /// Identificador único de la réplica, generado en el momento en que
+        /// arranca, por ejemplo <c>app1-3F2A9C77</c>.
+        ///
+        /// Es lo que se muestra en la interfaz y lo que viaja en la cabecera
+        /// <c>X-Replica-Id</c>: al refrescar la página se ve un identificador
+        /// distinto en cada petición, lo que demuestra que hay varias
+        /// instancias reales repartiendo el tráfico.
+        /// </summary>
+        string IdInstancia { get; }
     }
 }
