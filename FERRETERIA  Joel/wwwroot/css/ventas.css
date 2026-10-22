@@ -38,7 +38,7 @@
 
 /* El diálogo global (.fj-modal-dialog) tiene max-width: 26rem, lo que
    dejaba este modal demasiado estrecho: la tabla repartía sus 4 columnas
-   en partes iguales y "PRODUCTO"/"SUBTOTAL" se partían en dos líneas.
+   en partes iguales y "PRODUCTO"/"TOTAL" se partían en dos líneas.
    Aquí ampliamos el ancho útil y damos aire al contenido. */
 .fj-ventas-modal-dlg {
     width: min(46rem, 100%);
@@ -71,7 +71,7 @@
 }
 
 /* Encabezados de una sola línea y columnas con ancho definido:
-   Producto se lleva el espacio restante; Cant./Precio/Subtotal compactas. */
+   Producto se lleva el espacio restante; Cant./Precio/Total compactas. */
 .ventas-detalle-tabla .fj-table thead th {
     white-space: nowrap;
 }

@@ -433,7 +433,7 @@
             input.dataset.cantidad = l.id;
             tdCantidad.appendChild(input);
 
-            var tdSubtotal = celdaPrecio(redondear(l.precio * l.cantidad));
+            var tdImporte = celdaPrecio(redondear(l.precio * l.cantidad));
 
             var tdAcciones = crear('td', 'fj-td-acciones');
             var btnQuitar = crear('button', 'fj-btn fj-btn-danger fj-btn-icon');
@@ -448,7 +448,7 @@
             tr.appendChild(tdUnidad);
             tr.appendChild(tdPrecio);
             tr.appendChild(tdCantidad);
-            tr.appendChild(tdSubtotal);
+            tr.appendChild(tdImporte);
             tr.appendChild(tdAcciones);
             lineasBody.appendChild(tr);
         });
@@ -492,15 +492,11 @@
         }, 0);
         total = redondear(total);
 
-        // Actualizar subtotal solo si el elemento existe en el HTML
-        var elSubtotal = document.getElementById('totalSubtotal');
-        if (elSubtotal) elSubtotal.textContent = dinero(total);
-
         // Total principal
         var elTotal = document.getElementById('totalFinal');
         if (elTotal) elTotal.textContent = dinero(total);
 
-        return { subtotal: total, total: total };
+        return { total: total };
     }
 
     // ---------- Botón Registrar ----------

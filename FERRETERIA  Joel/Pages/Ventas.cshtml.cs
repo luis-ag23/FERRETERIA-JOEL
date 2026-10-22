@@ -79,8 +79,6 @@ namespace FERRETERIA__Joel.Pages
                 metodoPago = resultado.MetodoPago,
                 estadoPago = resultado.EstadoPago,
                 fecha = resultado.FechaRegistro,
-                subtotal = resultado.MontoTotal,
-                descuento = 0m,
                 total = resultado.MontoTotal,
                 motivoAnulacion = resultado.MotivoAnulacion,
                 lineas = resultado.Detalles.Select(d => new

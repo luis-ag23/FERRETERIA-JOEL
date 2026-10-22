@@ -177,11 +177,6 @@ namespace FERRETERIA__Joel.Servicios
         {
             contenedor.AlignRight().Width(230).Column(col =>
             {
-                col.Item().Row(f =>
-                {
-                    f.RelativeItem().Text("Subtotal");
-                    f.AutoItem().Text($"{venta.Subtotal:N2} Bs");
-                });
                 col.Item().PaddingTop(4).BorderTop(1).BorderColor(ColorBorde).Row(f =>
                 {
                     f.RelativeItem().Text("TOTAL").Bold().FontSize(12);

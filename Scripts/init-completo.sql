@@ -192,7 +192,7 @@ CREATE TABLE cliente
   COLLATE = utf8mb4_unicode_ci;
 
 -- ============================================================
--- VENTA (con campos finales: estado, auditoría y descuento)
+-- VENTA (con campos finales: estado y auditoría)
 -- ============================================================
 CREATE TABLE venta
 (
@@ -203,9 +203,6 @@ CREATE TABLE venta
     MetodoPago            VARCHAR(50)    NOT NULL DEFAULT 'Efectivo',
     EstadoPago            VARCHAR(20)    NOT NULL DEFAULT 'Pendiente',
     MontoTotal            DECIMAL(12,2)  NOT NULL DEFAULT 0,
-    Subtotal              DECIMAL(12,2)  NOT NULL DEFAULT 0,
-    MontoDescuento        DECIMAL(12,2)  NOT NULL DEFAULT 0,
-    PorcentajeDescuento   DECIMAL(5,2)   NOT NULL DEFAULT 0,
     FechaRegistro         DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FechaActualizacion    DATETIME       NULL DEFAULT NULL,
     FechaAnulacion        DATETIME       NULL DEFAULT NULL,

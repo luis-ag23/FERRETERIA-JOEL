@@ -236,7 +236,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
 
                 List<DetalleVenta> detalles = new();
                 List<LineaVentaDetalle> lineasCalculadas = new();
-                decimal subtotal = 0m;
+                decimal total = 0m;
 
                 foreach (KeyValuePair<int, int> par in cantidades)
                 {
@@ -268,7 +268,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                     decimal totalProducto =
                         Math.Round(producto.PrecioVenta * par.Value, 2);
 
-                    subtotal += totalProducto;
+                    total += totalProducto;
 
                     detalles.Add(new DetalleVenta
                     {
@@ -298,8 +298,7 @@ namespace FERRETERIA__Joel.Aplicacion.Servicios
                     IdCliente = cliente.IdCliente,
                     MetodoPago = metodoPago,
                     EstadoPago = estadoPago,
-                    Subtotal = subtotal,
-                    MontoTotal = Math.Round(subtotal, 2),
+                    MontoTotal = Math.Round(total, 2),
                     IdEmpleadoResponsable = idEmpleado
                 };
 

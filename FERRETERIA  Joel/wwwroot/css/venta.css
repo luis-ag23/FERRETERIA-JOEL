@@ -348,7 +348,7 @@
 }
 
 @media (max-width: 480px) {
-    /* En pantallas muy estrechas se oculta el Subtotal por línea y se
+    /* En pantallas muy estrechas se oculta el Importe por línea y se
        reducen las columnas numéricas para que la tabla no se recorte
        (el total se muestra debajo). La tabla es desplazable si hiciera falta. */
     #tablaLineas th:nth-child(5),

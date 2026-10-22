@@ -22,7 +22,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             MetodoPago,
             EstadoPago,
             MontoTotal,
-            Subtotal,
             FechaRegistro,
             FechaActualizacion,
             FechaAnulacion,
@@ -82,7 +81,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     MetodoPago,
                     EstadoPago,
                     MontoTotal,
-                    Subtotal,
                     IdEmpleadoResponsable
                 )
                 VALUES
@@ -92,7 +90,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                     @metodoPago,
                     @estadoPago,
                     @montoTotal,
-                    @subtotal,
                     @idEmpleadoResponsable
                 )";
 
@@ -103,7 +100,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             command.Parameters.AddWithValue("@metodoPago", venta.MetodoPago);
             command.Parameters.AddWithValue("@estadoPago", venta.EstadoPago);
             command.Parameters.AddWithValue("@montoTotal", venta.MontoTotal);
-            command.Parameters.AddWithValue("@subtotal", venta.Subtotal);
 
             command.Parameters.AddWithValue(
                 "@idEmpleadoResponsable",
@@ -161,9 +157,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
         SET
             EstadoVenta = @estadoAnulada,
             MontoTotal = 0.00,
-            Subtotal = 0.00,
-            MontoDescuento = 0.00,
-            PorcentajeDescuento = 0.00,
             FechaAnulacion = CURRENT_TIMESTAMP,
             MotivoAnulacion = @motivo,
             IdEmpleadoAnulacion = @idEmpleadoAnulacion,
@@ -195,7 +188,6 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
                 MetodoPago = reader["MetodoPago"].ToString() ?? "",
                 EstadoPago = reader["EstadoPago"].ToString() ?? "",
                 MontoTotal = reader.GetDecimal("MontoTotal"),
-                Subtotal = reader.GetDecimal("Subtotal"),
                 FechaRegistro = reader.GetDateTime("FechaRegistro"),
                 FechaActualizacion = reader["FechaActualizacion"] == DBNull.Value
                     ? null

@@ -25,8 +25,6 @@ namespace FERRETERIA__Joel.Aplicacion.Modelos
 
         public string EstadoVenta { get; private init; } = string.Empty;
 
-        public decimal Subtotal { get; private init; }
-
         public decimal MontoTotal { get; private init; }
 
         public DateTime FechaRegistro { get; private init; }
@@ -67,7 +65,6 @@ namespace FERRETERIA__Joel.Aplicacion.Modelos
                 MetodoPago = venta.MetodoPago,
                 EstadoPago = venta.EstadoPago,
                 EstadoVenta = venta.EstadoVenta,
-                Subtotal = venta.Subtotal,
                 MontoTotal = venta.MontoTotal,
                 FechaRegistro = venta.FechaRegistro,
                 FechaAnulacion = venta.FechaAnulacion,

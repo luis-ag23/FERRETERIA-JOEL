@@ -49,7 +49,6 @@
     var fechaEl = document.getElementById('ventasDetalleFecha');
     var pagoEl = document.getElementById('ventasDetallePago');
     var lineasEl = document.getElementById('ventasDetalleLineas');
-    var subtotalEl = document.getElementById('ventasDetalleSubtotal');
     var totalEl = document.getElementById('ventasDetalleTotal');
     var motivoEl = document.getElementById('ventasDetalleMotivo');
 
@@ -88,7 +87,6 @@
                 });
             }
 
-            if (subtotalEl) subtotalEl.textContent = dinero(v.subtotal);
             if (totalEl) totalEl.textContent = dinero(v.total);
 
             if (motivoEl) {
