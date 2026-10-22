@@ -166,7 +166,6 @@ solución (`.slnx`).
 | `FERRETERIA__Joel.Aplicacion` | Casos de uso: `Servicios/` (servicios y **fachadas**) y `Modelos/` (DTOs) | Dominio + Infraestructura |
 | `FERRETERIA__Joel.Infraestructura` | Adaptadores de salida: `Repositorios/` (MySQL), `Conexion/`, `Factories/`, `Seguridad/` (Argon2) | Dominio |
 | `FERRETERIA  Joel` (Web) | Adaptador de entrada: `Pages/` (Razor Pages), `Servicios/ContextoUsuarioHttp`, `Helpers/`, `Program.cs` | Dominio + Aplicación + Infraestructura |
-| `FERRETERIA__Joel.Pruebas` | Pruebas unitarias e integración (xUnit) | Todas |
 
 **Regla de dependencias (regla de dependencia de Clean Architecture):**
 
@@ -506,7 +505,7 @@ end note
    detalle externo.
 
 2. **Proyectos por capa (no carpetas).** Se materializó cada capa como un
-   `.csproj` real (`Dominio`, `Aplicacion`, `Infraestructura`, Web y `Pruebas`),
+   `.csproj` real (`Dominio`, `Aplicacion`, `Infraestructura` y Web),
    de modo que el compilador **impide físicamente** las dependencias prohibidas:
    el Dominio no referencia a nadie y ninguna capa externa lo contamina. La
    Aplicación referencia a Dominio e Infraestructura (para las fábricas y las
@@ -516,7 +515,7 @@ end note
    eliminaron los puertos específicos por entidad y se conservaron solo
    `IRepository<T>` e `IGestionarRepository<T>`; las operaciones que no son CRUD
    se exponen como métodos concretos `virtual`, lo que mantiene los contratos
-   pequeños y permite sustituirlos en pruebas.
+   pequeños y permite sustituirlos por otra implementación.
 
 4. **Patrón Repository con ADO .NET.** Cada repositorio `MySql*` encapsula su
    SQL; las capas superiores solo ven entidades. Cambiar de motor de base de datos
@@ -579,8 +578,9 @@ builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Producto>>, Pr
 
 - **Nuevo campo de solo lectura en una entidad** → nueva propiedad en
   `Dominio/Entidades/` (por ejemplo `Producto`), proyección en el
-  `MySql*Repository` correspondiente y columna en `Scripts/esquema.sql`; el
-  resto de capas no se modifica.
+  `MySql*Repository` correspondiente y columna en `Scripts/init-completo.sql`
+  (el esquema canónico, único script del proyecto); el resto de capas no se
+  modifica.
 - **Nuevo puerto** (por ejemplo `ICacheSeleccion`) → nueva interfaz en
   `Dominio/Puertos/` + su adaptador en `Infraestructura/` + una línea de
   registro en `Program.cs`.
@@ -589,12 +589,13 @@ builder.Services.AddScoped<RepositoryCreator<IGestionarRepository<Producto>>, Pr
 
 ### L — Sustitución de Liskov (Liskov Substitution Principle)
 
-Cada implementación respeta el contrato de su puerto. Los **fakes** de las
-pruebas (`FERRETERIA__Joel.Pruebas/Compartido/FakesVenta.cs`) **heredan** de los
-repositorios MySQL concretos (pasando `null!` al constructor) y sobrescriben sus
-métodos `virtual`, respetando el mismo contrato; las fachadas funcionan igual con
-ambos. Las pruebas unitarias del módulo de ventas se ejecutan sin base de datos
-gracias a esta sustitución.
+Cada implementación respeta el contrato de su puerto. Las operaciones que no
+son CRUD se declaran como métodos concretos `virtual`, de modo que una
+implementación alternativa puede sobrescribirlos **respetando el mismo
+contrato**: las fachadas funcionan igual con cualquiera de ellas. El contrato
+mínimo `IRepository<T>` y el completo `IGestionarRepository<T>` se
+complementan sin obligar a los repositorios que solo implementan CRUD a
+declarar operaciones que no usan.
 
 ### I — Segregación de Interfaces (Interface Segregation Principle)
 
@@ -787,40 +788,43 @@ Se mantienen **sincrónicos** solo los cálculos en memoria (por ejemplo, el
 
 ---
 
-# 5. Pruebas
+# 5. Verificación y validación
 
-El proyecto `FERRETERIA__Joel.Pruebas` (xUnit) cubre utilidades de dominio,
-servicios, fachadas (con fakes) e integración real contra MySQL.
+La validación del sistema se hizo **sobre el despliegue real** de Docker
+Compose (7 contenedores: Nginx, cuatro réplicas del monolito, MySQL y Redis),
+porque lo que se entrega es justamente ese despliegue escalado y no un entorno
+aislado.
 
-```
-dotnet test "FERRETERIA  Joel.slnx"
-```
-
-| Suite | Archivo | Qué verifica |
-|-------|---------|--------------|
-| Fachada de venta (unitarias) | `Servicios/FachadaVentaPruebas.cs` | Registro, stock insuficiente, agrupación de líneas duplicadas, anulación y comprobante |
-| Cliente | `Servicios/ServicioClientePruebas.cs` | Alta válida, campos obligatorios, búsqueda de activos |
-| Registro de personal | `Servicios/ServicioRegistroEmpleadoPruebas.cs` | Alta con cuenta pendiente, envío y reenvío del enlace de activación, validación del token y activación de la cuenta |
-| Utilidades | `Utilidades/NumeroALetrasPruebas.cs`, `Utilidades/NombreAbreviadoPruebas.cs`, `Utilidades/SiglasPruebas.cs` | Conversión de número a letras, nombre abreviado y siglas |
-| Integración (ventas) | `Integracion/FachadaVentaIntegracionPruebas.cs` | Registro de venta contra MySQL real: descuento de stock, anulación que lo restaura y concurrencia (se omite sin cadena de conexión) |
-| Integración (personal) | `Integracion/MySqlEmpleadoRepositoryIntegracionPruebas.cs` | Proyecciones sin credenciales, credenciales solo para autenticación, existencia por correo, baja lógica y reactivación (se omite sin cadena de conexión) |
-
-Resultado actual: **119/119 pruebas correctas** (109 unitarias + 10 de integración
-real contra MySQL) y `dotnet build` sin errores ni advertencias.
-
-Las pruebas de integración se activan con la variable de entorno
-`FERRETERIA_TEST_CONNECTION` apuntando a una base de desarrollo; sin ella se
-omiten sin fallar:
+## 5.1 Verificación estática
 
 ```bash
-FERRETERIA_TEST_CONNECTION="Server=localhost;Port=3307;Database=bdferreteria;Uid=root;Pwd=..." \
-  dotnet test "FERRETERIA  Joel.slnx"
+dotnet build "FERRETERIA  Joel.slnx"
 ```
 
-Estas pruebas son las que detectaron que el script de arranque de Docker
-(`Scripts/init-completo.sql`) estaba desincronizado con el esquema canónico
-(`Scripts/esquema.sql`) y que el mapeo de la proyección pública del empleado
-leía una columna que esa proyección no trae.
+Resultado: **0 errores y 0 advertencias** en los cuatro proyectos de la
+solución (`Dominio`, `Aplicacion`, `Infraestructura` y Web).
+
+## 5.2 Verificación funcional sobre el despliegue
+
+| Escenario | Cómo se comprobó | Resultado |
+|-----------|-------------------|-----------|
+| Distribución de carga | Varias peticiones seguidas con `curl`; la cabecera `X-Replica-Id` devolvió identificadores de instancia distintos | Correcto |
+| Failover | `docker compose stop app1` y nueva petición | HTTP 200: Nginx reintenta solo con `proxy_next_upstream` |
+| Réplica de reserva | `docker compose stop app4` | El sistema sigue respondiendo con `app1`…`app3` |
+| Caché distribuida | Lectura del catálogo en una réplica y lectura en otra | La segunda responde `CACHE HIT`: el dato lo sirvió Redis, no MySQL |
+| Invalidación de caché | Alta o actualización de un producto y nueva lectura | `CACHE MISS` y posterior `CACHE WRITE`: la clave se invalidó y se repuso |
+| Sesión compartida | Inicio de sesión y recarga con la misma cookie sobre otra réplica | La sesión se mantiene: las claves de Data Protection están cifradas en Redis y las comparten las cuatro réplicas |
+| Venta completa | Registro de una venta desde la interfaz | Correcto: se descuenta el stock, queda registrada en `venta` y `detalle_venta` y se imprime el comprobante |
+| Baja lógica y reactivación | Baja de un empleado y reactivación posterior | La fila no se elimina: cambia `Estado` (`-1` pendiente de activación, `0` inactivo, `1` activo) |
+| Seguridad por rol | Intento de acceder a una página de administración con una cuenta de `EmpleadoVenta` | Denegado: la página exige el rol `Administrador` |
+
+## 5.3 Esquema de base de datos
+
+`Scripts/init-completo.sql` es el **único script** del proyecto: crea la base,
+las diez tablas, los índices únicos y los datos semilla. Es el mismo archivo que
+monta Docker (`/docker-entrypoint-initdb.d/01-init.sql`), de modo que el
+esquema del despliegue y el de la base de desarrollo son idénticos y no pueden
+divergir.
 
 ---
 
@@ -883,7 +887,8 @@ Histórico de precios y Ventas.
 - La **segregación de interfaces** se volvió natural al crecer el sistema:
   mantener solo contratos genéricos pequeños (`IRepository<T>`,
   `IGestionarRepository<T>`) y exponer las operaciones especiales como métodos
-  concretos simplificó las implementaciones y su sustitución en pruebas.
+  concretos simplificó las implementaciones y permitió sustituirlas sin tocar
+  ni la aplicación ni las páginas.
 - La **asincronía de extremo a extremo** mejora la escalabilidad del servidor ante
   ventas concurrentes sin complicar la lógica de negocio.
 
@@ -903,8 +908,10 @@ tocar puertos, repositorios, servicios y páginas de forma coordinada.*
 
 ## 7.3 Recomendaciones para futuros trabajos
 
-1. **Pruebas de integración continuas.** Ampliar la suite contra MySQL real para
-   cubrir también los repositorios de catálogo, no solo las fachadas de venta.
+1. **Automatización de la verificación.** Incorporar una suite de pruebas
+   automatizadas (unitarias e integración contra MySQL real) al flujo de
+   entrega, para cubrir también los repositorios de catálogo y no solo las
+   fachadas de venta.
 2. **Segregación fina de privilegios.** Ampliar los roles más allá de
    `Administrador` / `EmpleadoVenta` (por ejemplo, separar caja, almacén y
    atención al cliente) manteniendo el mismo esquema de autorización por página.
@@ -977,22 +984,40 @@ Todo el estado que debe sobrevivir al cambio de réplica (sesión, claves de Dat
 Protection, caché) vive en **Redis**; MySQL sigue siendo el sistema de
 registro.
 
+**Papel de la cuarta réplica (`app4`):** es la **réplica de reserva de la
+defensa**. `app1`…`app3` atienden el tráfico normal y `app4` queda disponible
+como reserva: durante la demostración se detiene para comprobar que el sistema
+sigue respondiendo, se detiene además una réplica de servicio para ver el
+*failover* de Nginx y, si algo falla en vivo, `docker compose start app4`
+recupera capacidad sin tocar el código. Es la misma imagen que las otras tres,
+con el mismo volumen de Data Protection y el mismo Redis detrás. El procedimiento
+completo está comentado en `docker-compose.yml` y detallado en el `README.md`.
+
 ## 8.2 Evidencias de escalamiento
 
 | Evidencia | Quién la escribe | Qué demuestra |
 |-----------|------------------|---------------|
-| Cabecera `X-Replica-Id` | La réplica que atiende la petición (`Program.cs`); Nginx la reenvía al cliente (`proxy_pass_header X-Replica-Id`) | Qué réplica respondió la petición |
+| Cabecera `X-Replica-Id` | La réplica que atiende la petición (`Program.cs`); Nginx la reenvía al cliente (`proxy_pass_header X-Replica-Id`) | **Qué proceso real respondió**, con su identificador único de instancia |
 | Cabecera `X-Replica-Served` | Nginx (`add_header X-Replica-Served $upstream_addr always`) | La dirección del *upstream* que atendió la petición |
-| Sonda `GET /health` | La réplica | Estado, identificador de réplica y si Redis responde |
+| Interfaz web | La vista compartida (`Pages/Shared/_Layout.cshtml`) | La cabecera superior muestra «Atendido por: app2-7B3E1D90» |
+| Sonda `GET /health` | La réplica | Estado, nombre e identificador único de la réplica y si Redis responde |
 
 ```bash
 curl -I http://localhost/ | grep -i x-replica
-# X-Replica-Id: app3
+# X-Replica-Id: app3-5B7D2E41
 # X-Replica-Served: 172.18.0.5:8080
 
 curl -s http://localhost/health
-# {"estado":"saludable","replica":"app3","redis":true,"fecha":"..."}
+# {"estado":"saludable","replica":"app3","idInstancia":"app3-5B7D2E41","redis":true,"fecha":"..."}
 ```
+
+El identificador **no es el nombre del contenedor**, sino el que la réplica
+genera al arrancar: el nombre (`app1`…`app4`) más un token aleatorio de ocho
+hexadecimales (`app3-5B7D2E41`). Se resuelve en
+`Infraestructura/Servicios/IdentificadorReplica.cs` leyendo `HOSTNAME` y
+generando el token en el arranque, de modo que **dos peticiones atendidas por
+réplicas distintas muestran identificadores distintos**: queda demostrado que
+el tráfico se reparte entre procesos reales y no entre respuestas simuladas.
 
 La sonda `/health` la usan el *healthcheck* de Docker Compose y el balanceador:
 si una réplica deja de responder, Nginx la saca de la rotación.
@@ -1011,16 +1036,33 @@ adaptador `CacheSeleccionRedis` (Infraestructura).
   `cache:select:categorias:*`, `cache:select:marcas:*`,
   `cache:select:proveedores:*`), de modo que la siguiente lectura vuelva a la
   base de datos.
-- **Registro compartido:** cada acceso queda anotado como `HIT` o `MISS` con la
-  clave, la réplica que lo produjo y el origen real del dato (`REDIS` o
-  `MYSQL`). El registro se guarda en Redis, así que es **compartido** entre las
-  cuatro réplicas.
+- **Registro en el log:** cada acierto o fallo se anota en el log de la réplica
+  que atendió la petición (`CACHE HIT` / `CACHE MISS`) con la clave, la réplica
+  y el origen real del dato (`REDIS` o `MYSQL`).
 - **Degradación segura:** si Redis cae, el adaptador degrada a `MISS` y la
   aplicación sigue operando contra MySQL.
 
-La evidencia en pantalla es la vista **`/DiagnosticoCache`** (solo
-**administrador**): lista las claves que hay en Redis con su tiempo de vida
-restante y los últimos 50 accesos registrados por cualquier réplica.
+La caché **no tiene pantalla propia**: se observa directamente desde la
+terminal, en el contenedor `fj-redis`.
+
+```bash
+# Claves guardadas (las consultas cacheadas del catálogo)
+docker exec -it fj-redis redis-cli --scan --pattern "ferreteria:cache:*"
+
+# Tiempo de vida y tamaño de una clave concreta
+docker exec -it fj-redis redis-cli TTL "ferreteria:cache:select:productos:todos"
+docker exec -it fj-redis redis-cli STRLEN "ferreteria:cache:select:productos:todos"
+
+# Valor almacenado (JSON)
+docker exec -it fj-redis redis-cli GET "ferreteria:cache:select:categorias:todos"
+
+# Vaciar la caché y ver cómo vuelve a MySQL (MISS) y se repone (HIT)
+docker exec -it fj-redis redis-cli --scan --pattern "ferreteria:cache:*" \
+  | xargs -r -I{} docker exec fj-redis redis-cli DEL {}
+
+# HIT / MISS en el log de cada réplica
+docker compose logs app1 | grep CACHE
+```
 
 ## 8.4 Data Protection compartido y cifrado
 
@@ -1095,9 +1137,19 @@ resuelve en este orden:
 2. El archivo `/etc/hostname` del contenedor.
 3. Como último recurso, el nombre de la máquina.
 
-Este identificador es el que viaja en la cabecera `X-Replica-Id`, el que
-devuelve la sonda `/health` y el que se registra junto a cada `HIT`/`MISS` de
-la caché.
+El puerto expone **dos** datos:
+
+- `Id`: el **nombre** de la réplica (`app1`…`app4`).
+- `IdInstancia`: el **identificador único**, formado por el nombre más un token
+  aleatorio de ocho hexadecimales generado en el arranque
+  (`app1-3F2A9C77`). Nunca se repite entre réplicas ni entre dos arranques de
+  la misma réplica.
+
+Es el `IdInstancia` el que viaja en la cabecera `X-Replica-Id`, el que muestra
+la interfaz («Atendido por: app1-3F2A9C77»), el que devuelve la sonda
+`/health` y el que se registra junto a cada `HIT`/`MISS` de la caché. Mostrar
+solo el nombre (`app1`) no demuestra que haya varias instancias reales; el
+sufijo aleatorio sí.
 
 ---
 

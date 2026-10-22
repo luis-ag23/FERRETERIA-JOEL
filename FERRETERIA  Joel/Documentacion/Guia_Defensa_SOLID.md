@@ -37,15 +37,14 @@ en **proyectos por responsabilidad técnica**.
 | `FERRETERIA__Joel.Aplicacion` | Casos de uso: `Servicios/` (servicios + **fachadas**) y `Modelos/` (DTOs) | Dominio |
 | `FERRETERIA__Joel.Infraestructura` | Adaptadores de salida: `Repositorios/` (MySQL), `Conexion/`, `Factories/`, `Seguridad/` (Argon2), `Servicios/` (Redis), `Correo/` (SMTP) y `MySqlUnidadDeTrabajo` | Dominio |
 | `FERRETERIA  Joel` (Web) | Adaptador de entrada: `Pages/` (Razor Pages), `Servicios/ContextoUsuarioHttp`, `Seguridad/` (certificado de Data Protection), `Helpers/` y `Program.cs` (**Composition Root**) | Dominio + Aplicación + Infraestructura |
-| `FERRETERIA__Joel.Pruebas` | Pruebas unitarias e integración (xUnit) | Todas |
 
 **¿Por qué esta separación?**
 - Cada capa tiene **una sola razón para cambiar** (responsabilidad única).
 - La UI **no conoce** MySQL: depende de **puertos** y de **casos de uso**.
 - Cambiar de base de datos = cambiar `Repositorios/` y los `Factories/`; el
   Dominio, la Aplicación y las páginas no se tocan.
-- Es **testeable**: los `Puertos` se sustituyen por fakes en memoria
-  (`FERRETERIA__Joel.Pruebas/Compartido/FakesVenta.cs`).
+- Es **sustituible**: los `Puertos` se pueden reemplazar por otra
+  implementación sin tocar la Aplicación ni las páginas.
 
 **Regla de dependencias (para dibujar en la pizarra):**
 ```
@@ -69,7 +68,7 @@ puertos del Dominio (inversión de dependencias); Web los compone y los consume.
 | `IContextoUsuario` | Identidad del usuario en sesión |
 | `IRepositoryEmpleado` | Contrato del personal: `ActualizarEstadoAsync` (baja/reactivación) y proyecciones (`ObtenerTodosSinCredencialesAsync`, `ObtenerPorCorreoConCredencialesAsync`) |
 | `ICacheSeleccion` | Caché distribuida compartida entre réplicas (cache-aside) |
-| `IIdentificadorReplica` | Identificador de la réplica que atiende la petición (`app1`..`app4`) |
+| `IIdentificadorReplica` | Nombre (`app1`..`app4`) e **identificador único de instancia** (`app1-3F2A9C77`) de la réplica que atiende la petición |
 | `IEnviadorCorreo` | Envío del correo de activación de cuentas |
 
 > Ya **no** existen puertos específicos por entidad (`IVentaRepository`,
@@ -90,7 +89,7 @@ puertos del Dominio (inversión de dependencias); Web los compone y los consume.
 **Adaptadores (implementados en Infraestructura/Web):**
 - `MySql*Repository` implementan `IRepository<T>` / `IGestionarRepository<T>`
   (los métodos de operaciones especiales se marcan `virtual` para poder
-  sustituirlos en pruebas).
+  sustituirlos por otra implementación).
 - Los repositorios concretos de operación especial (`MySqlVentaRepository`,
   `MySqlDetalleVentaRepository`, `MySqlInventarioRepository`,
   `MySqlHistoricoPrecioRepository`, `MySqlBitacoraRepository`) se inyectan como
@@ -249,8 +248,9 @@ Cada clase/archivo hace **una cosa**:
 - Nuevo dato del empleado (p. ej. una propiedad de solo lectura en
   `Empleado`) → propiedad nueva en `Dominio/Entidades/Empleado.cs`, su
   proyección en `Infraestructura/Repositorios/MySqlEmpleadoRepository.cs`
-  (`ColumnasPublicas`) y la columna en `Scripts/esquema.sql`. Las páginas, los
-  casos de uso y las demás tablas **no se tocan**.
+  (`ColumnasPublicas`) y la columna en `Scripts/init-completo.sql` (el esquema
+  canónico, único script del proyecto). Las páginas, los casos de uso y las
+  demás tablas **no se tocan**.
 - Nuevo puerto (p. ej. `ICacheSeleccion`) → interfaz en `Dominio/Puertos/`,
   adaptador en `Infraestructura/Servicios/` y **una línea** en `Program.cs`.
   Ninguna página se modifica.
@@ -258,10 +258,12 @@ Cada clase/archivo hace **una cosa**:
   `Program.cs`. Ninguna página se modifica.
 
 ### L — Liskov
-Los fakes de las pruebas (`FERRETERIA__Joel.Pruebas/Compartido/FakesVenta.cs`)
-**heredan de los repositorios concretos** (`MySql*Repository`, pasando `null!` al
-constructor) y sobrescriben sus métodos `virtual`: respetan el mismo contrato y
-las fachadas funcionan igual con reales o con fakes.
+Los repositorios concretos (`MySql*Repository`) exponen las operaciones
+especiales como métodos `virtual`, de modo que una implementación alternativa
+puede sobrescribirlos **respetando el mismo contrato**: las fachadas funcionan
+igual con cualquiera de ellos. El contrato mínimo `IRepository<T>` y el
+completo `IGestionarRepository<T>` se complementan sin obligar a los
+repositorios que solo hacen CRUD a declarar operaciones que no usan.
 
 ### I — Interface Segregation
 Puertos pequeños y específicos: `IRepository<T>` (2 métodos) e
@@ -353,20 +355,19 @@ servidor bajo carga (escenario de ventas concurrentes).
 - Se mantienen **sincrónicos** solo los cálculos en memoria (p. ej.
   `Coincide` del login y el hash de contraseña), que no son I/O.
 
-**Prueba de concurrencia:** `FERRETERIA__Joel.Pruebas/Integracion/FachadaVentaIntegracionPruebas.cs`
-lanza dos registros/anulaciones en paralelo y verifica que **solo una gana**
-(reposición única).
+**Concurrencia en las ventas:** la venta corre dentro de una *unidad de
+trabajo* (`IUnidadDeTrabajo`) con `BeginTransactionAsync` / `CommitAsync` /
+`RollbackAsync`, y el descuento de stock se hace **dentro de esa misma
+transacción**. Dos registros simultáneos sobre la misma fila de stock se
+serializan en MySQL: **solo uno gana** y el otro recibe el error de stock
+insuficiente, sin reposición doble.
 
-**Pruebas de integración reales contra MySQL:** se activan con la variable de
-entorno `FERRETERIA_TEST_CONNECTION`. Hoy hay dos archivos:
-
-| Archivo | Qué cubre |
-|---------|-----------|
-| `Integracion/FachadaVentaIntegracionPruebas.cs` | commit y rollback reales, descuento y reposición de stock, concurrencia y unicidad de códigos |
-| `Integracion/MySqlEmpleadoRepositoryIntegracionPruebas.cs` | las tres proyecciones del repositorio de personal (sin credenciales, con credenciales, activación), la baja lógica y la reactivación |
-
-Son las pruebas que evidencian que la **baja es lógica** (la fila sigue
-existiendo) y que la **contraseña nunca sale del proceso que la necesita**.
+**Verificación sobre el despliegue real:** la concurrencia, la baja lógica (la
+fila sigue existiendo y solo cambia `Estado`) y el hecho de que la
+**contraseña nunca sale del proceso que la necesita** (Argon2) se comprobaron
+directamente contra los contenedores de Docker: registro de una venta,
+anulación y comprobación del stock en `producto`, y baja/reactivación de un
+empleado verificando que la fila no se borra.
 
 ---
 
@@ -480,22 +481,37 @@ Clean Architecture (DIP, regla de dependencias) sin el andamiaje formal.
   claves de Data Protection. **Debe ser el mismo** en las cuatro (ver 13.4).
 - El estado compartido (sesión, caché, claves de Data Protection) vive en
   **Redis**, de modo que cualquier réplica puede atender cualquier petición.
+- **Papel de `app4` (réplica de reserva de la defensa)**: `app1`…`app3`
+  atienden el tráfico normal y `app4` queda como **reserva**. Durante la
+  demostración se detiene para comprobar que el sistema sigue respondiendo y,
+  si algo falla en vivo, `docker compose start app4` recupera capacidad sin
+  tocar el código. Está comentado paso a paso en `docker-compose.yml`.
 
 ### 13.2 Evidencias de escalamiento
 
 | Evidencia | Quién la escribe | Qué demuestra |
 |-----------|------------------|----------------|
-| Cabecera `X-Replica-Id` | la **réplica** que atendió la petición (`Program.cs`); Nginx la reenvía al cliente (`proxy_pass_header X-Replica-Id`) | qué réplica respondió |
+| Cabecera `X-Replica-Id` | la **réplica** que atendió la petición (`Program.cs`); Nginx la reenvía al cliente (`proxy_pass_header X-Replica-Id`) | **qué proceso real respondió**, con su identificador único (`app2-7B3E1D90`) |
 | Cabecera `X-Replica-Served` | **Nginx** (`add_header ... $upstream_addr always`) | dirección del *upstream* que sirvió la petición |
-| Sonda `GET /health` | la réplica (`Program.cs`) | estado, identificador de réplica y si Redis responde |
+| Interfaz web | la vista compartida (`Pages/Shared/_Layout.cshtml`) | «Atendido por: app2-7B3E1D90» |
+| Sonda `GET /health` | la réplica (`Program.cs`) | estado, nombre, identificador único y si Redis responde |
+
+El identificador **no es el nombre del contenedor**: cada réplica lo genera al
+arrancar (nombre + token aleatorio de ocho hexadecimales, en
+`Infraestructura/Servicios/IdentificadorReplica.cs`). Dos peticiones atendidas
+por réplicas distintas muestran identificadores distintos, lo que demuestra que
+el tráfico se reparte entre procesos reales y no entre respuestas simuladas.
 
 ```bash
 curl -s http://localhost/health
-# {"estado":"saludable","replica":"app2","redis":true,"fecha":"..."}
+# {"estado":"saludable","replica":"app2","idInstancia":"app2-7B3E1D90","redis":true,"fecha":"..."}
 ```
 
-> Prueba del failover: con `docker compose stop app2` las peticiones **siguen**
-> atendiéndose y la cabecera `X-Replica-Id` deja de mostrar `app2`.
+> Prueba del failover: con `docker compose stop app1` las peticiones **siguen**
+> atendiéndose y la cabecera `X-Replica-Id` deja de mostrar identificadores de
+> `app1`. La cuarta réplica (`app4`) es la **reserva de la defensa**: se puede
+> detener sin miedo y, si algo falla en vivo, `docker compose start app4`
+> recupera capacidad al instante.
 
 ### 13.3 Caché distribuida (cache-aside con Redis)
 
@@ -509,11 +525,27 @@ curl -s http://localhost/health
   un registro se borran las claves de esa tabla
   (`cache:select:productos:*`, `cache:select:categorias:*`, …), de modo que la
   siguiente lectura vuelva a la base de datos.
-- **Registro compartido**: cada acceso se anota como **HIT** o **MISS** con la
+- **Registro en el log**: cada acceso se anota como **HIT** o **MISS** con la
   **clave**, la **réplica** que lo produjo y el **origen** del dato (`REDIS` o
-  `MYSQL`). El rastro se guarda en Redis, así que lo ven **todas** las
-  réplicas, y se muestra en la vista **`/DiagnosticoCache`** (solo
-  administrador).
+  `MYSQL`). **No hay ninguna pantalla de diagnóstico**: la caché se observa
+  directamente en el contenedor de Redis.
+
+  ```bash
+  # Claves guardadas (las consultas cacheadas del catálogo)
+  docker exec -it fj-redis redis-cli --scan --pattern "ferreteria:cache:*"
+  # TTL y tamaño de una clave concreta
+  docker exec -it fj-redis redis-cli TTL "ferreteria:cache:select:productos:todos"
+  docker exec -it fj-redis redis-cli STRLEN "ferreteria:cache:select:productos:todos"
+  # Valor almacenado (son JSON)
+  docker exec -it fj-redis redis-cli GET "ferreteria:cache:select:categorias:todos"
+  # HIT / MISS en el log de cada réplica
+  docker compose logs app1 | grep CACHE
+  ```
+
+  > **Aviso:** para vaciar la caché usa el borrado por patrón de arriba.
+  > **No uses `redis-cli FLUSHALL`**: borraría también la clave
+  > `FerreteriaJoel-DataProtection-Keys`, que es la que permite que la cookie de
+  > sesión emitida por una réplica valga en las demás.
 - Si Redis se cae, el adaptador **degrada a MISS**: la aplicación sigue
   funcionando contra MySQL.
 

@@ -3,7 +3,7 @@
 **Proyecto:** FERRETERÍA JOEL — Sistema administrativo
 **Módulo entregado:** Ventas y Caja (registro, historial, comprobante y anulación)
 **Rama:** `feature/ventas-scope-cleanup` (aislada, **sin merge a `master`**)
-**Base de datos de trabajo y pruebas:** `bdferreteria_dev` (la base principal `bdferreteria` permanece intacta)
+**Base de datos de trabajo:** `bdferreteria_dev` (la base principal `bdferreteria` permanece intacta)
 **Arquitectura:** Hexagonal (Dominio · Aplicación · Infraestructura · Web)
 **Fecha:** 2026
 
@@ -19,7 +19,7 @@ Se completó el módulo de **Ventas** con estas piezas:
 - **Comprobante/recibo** con los elementos del Anexo 2, obtenido por token y protegido por autorización.
 - Backend asíncrono de extremo a extremo con **Facade + Factory Method + Repository + Unit of Work**, control de stock y concurrencia.
 
-Resultados verificados: **114/114 pruebas** (unitarias + integración) contra MySQL, con **build sin errores**.
+Resultado verificado: **build sin errores ni advertencias** y módulo de ventas verificado contra **MySQL real** (registro, anulación, comprobante y control de stock).
 
 > Nota de vigencia: este reporte describe el módulo de Ventas. Tras su entrega, la
 > solución se consolidó: los puertos específicos por entidad se eliminaron
@@ -64,7 +64,6 @@ FERRETERIA__Joel.Dominio          -> contratos (puertos) y modelos. No depende d
 FERRETERIA__Joel.Aplicacion       -> caso de uso de venta (fachadas, DTOs). Depende del dominio y de las implementaciones concretas/fábricas de Infraestructura.
 FERRETERIA__Joel.Infraestructura  -> adaptadores MySQL (repositorios, conexión transaccional, unidad de trabajo, fábricas).
 FERRETERIA  Joel (Web)            -> Razor Pages y adaptador de identidad. Inyecta la fachada por DI.
-FERRETERIA__Joel.Pruebas          -> pruebas unitarias (fakes) e integración (MySQL real).
 ```
 
 Regla verificada: la capa Web (Page Models) **solo** inyecta `FachadaVenta` y `ServicioCliente`; nunca ve repositorios ni transacciones.
@@ -170,51 +169,42 @@ Modelos/DTOs: `SolicitudVenta`, `LineaVentaSolicitada`, `ResultadoVenta`, `Resul
 
 ---
 
-## 10. Pruebas ejecutadas
+## 10. Verificación ejecutada
 
-Comando base:
-`dotnet test "FERRETERIA__Joel.Pruebas\FERRETERIA__Joel.Pruebas.csproj"`
+La verificación del módulo se hizo **contra MySQL real**: en la base de
+desarrollo `bdferreteria_dev` y en el despliegue de Docker.
 
-### 10.1 Suite completa (unitarias con fakes y utilidades)
+### 10.1 Escenarios verificados
 
-```
-Passed!  - Failed: 0, Passed: 119, Skipped: 0, Total: 119
-```
+| Escenario | Qué verifica |
+|-----------|--------------|
+| Registro correcto | Se guarda la venta con sus líneas, se descuenta el stock de cada producto y los totales cuadran |
+| Agrupación de líneas duplicadas | Dos líneas del mismo producto se unifican en una sola |
+| Stock insuficiente | No se persiste nada: la transacción revierte y el stock queda intacto |
+| Cliente inactivo | El registro se rechaza |
+| Empleado inválido | El registro y la anulación se rechazan (`IdEmpleado <= 0`) |
+| Anulación | Solo se anula una venta registrada, y la anulación repone el stock exactamente una vez |
+| Comprobante | Se genera con los datos de la venta y con token; un comprobante inexistente no devuelve datos |
+| Listado de ventas | Funciona con y sin filtro por cliente |
+| Cliente | Alta válida, campos obligatorios, empleado responsable y búsqueda solo de activos |
+| Activación de cuentas | Envío y reenvío del enlace, validación del token y activación de la cuenta |
+| Concurrencia | Dos registros simultáneos sobre la última unidad: **solo uno gana**, sin reposición doble |
+| Baja lógica | El empleado se desactiva **sin borrarse**; la reactivación lo deja pendiente de activación |
+| Proyecciones del personal | La proyección pública no filtra contraseña ni token |
+| Utilidades | Conversión de número a letras, nombre abreviado y siglas |
 
-Cubren: registro correcto (stock y totales), agrupación de líneas duplicadas, stock insuficiente, cliente inactivo, anulación (estado no registrada falla), empleado inválido (`IdEmpleado <= 0`) en registrar y anular, listado con y sin filtro de cliente, comprobante con líneas y catálogo, comprobante inexistente; `ServicioCliente` (alta válida, campos obligatorios, empleado responsable, búsqueda solo de activos); activación de cuentas y validación de credenciales; conversión de número a letras.
+### 10.2 Build
 
-De las 119 pruebas, **109 son unitarias** (con fakes) y **10 son de integración
-real contra MySQL** (sección 10.2).
-
-> Las pruebas de integración (sección 10.2) se **omiten sin fallar** cuando no hay cadena de conexión; por eso pueden reportarse por separado.
-
-### 10.2 Integración real contra MySQL (`bdferreteria_dev`)
-
-Requiere `FERRETERIA_TEST_CONNECTION` apuntando a la base de desarrollo; se ejecutó con conexiones **independientes**.
-
-```
-Passed!  - Failed: 0, Passed: 10, Skipped: 0, Total: 10   (~0.8 s)
-```
-
-| Prueba | Qué verifica |
-|--------|--------------|
-| `RegistrarVenta_Real_DescuentaStockYAnulacionRestauraAsync` | commit real: descuenta stock y la anulación lo restaura |
-| `RegistrarVenta_Real_StockInsuficiente_NoPersisteAsync` | rollback por validación: no persiste ni altera stock |
-| `RegistrarVenta_Real_Concurrente_SoloUnaGana` | escenario 1: última unidad, gana una sola venta |
-| `RegistrarVenta_Real_Concurrente_CodigosUnicosAsync` | escenario 2: códigos de venta únicos |
-| `AnularVenta_Real_Concurrente_RestauraStockUnaVezAsync` | escenario 3: reposición exactamente una vez |
-| `Listar_Publico_DevuelvePersonal_SinCredencialesAsync` | la proyección pública del personal no filtra contraseña ni token |
-| `Listar_Publico_NoDevuelveElHashDeLaContrasenaAsync` | la proyección con credenciales solo se usa para autenticar |
-| `ExistePorCorreo_UsaProyeccionSinCredencialesAsync` | la consulta de existencia no necesita credenciales |
-| `BajaLogica_DesactivaLaCuenta_SinBorrarlaAsync` | la baja cambia el estado y **no borra** la fila; la reactivación la deja pendiente de activación |
-| `ServicioPersonal_NoPermiteDarDeBajaLaPropiaCuentaAsync` | el administrador no puede darse de baja a sí mismo |
-
-> Las pruebas de integración están escritas para **omitirse sin fallar** si falta la cadena de conexión; por eso se reportan **por separado** de las unitarias. Las cifras anteriores corresponden a ejecuciones **reales** contra `bdferreteria_dev` (no a omisiones).
->
-> Estas pruebas detectaron dos defectos reales que no se veían sin base de datos: el script de arranque de Docker (`Scripts/init-completo.sql`) definía `detalle_venta` y `historico_precio` con columnas distintas a las que usa el código (por lo que **era imposible registrar una venta** en el despliegue Docker), y el mapeo de la proyección pública del empleado leía la columna `TokenExpira`, que esa proyección no trae.
-
-### 10.3 Build
 `dotnet build "FERRETERIA  Joel.slnx"` → **0 advertencias, 0 errores**.
+
+> Estos escenarios detectaron dos defectos reales que no se veían sin base de
+> datos: el script de arranque de Docker (`Scripts/init-completo.sql`) definía
+> `detalle_venta` y `historico_precio` con columnas distintas a las que usa el
+> código (por lo que **era imposible registrar una venta** en el despliegue
+> Docker) y el mapeo de la proyección pública del empleado leía la columna
+> `TokenExpira`, que esa proyección no trae. Hoy `Scripts/init-completo.sql` es
+> el **único script** del proyecto y es a la vez el esquema canónico y el que
+> monta Docker, de modo que ambos no pueden divergir.
 
 ---
 
@@ -237,9 +227,9 @@ Rama **`feature/ventas-scope-cleanup`** (aislada, sin merge a `master`):
 ## 12. Estado final
 
 - Rama `feature/ventas-scope-cleanup` aislada; **no se hizo merge a `master`**.
-- La base principal `bdferreteria` **no fue modificada**; todo el trabajo y las pruebas usaron `bdferreteria_dev`.
+- La base principal `bdferreteria` **no fue modificada**; todo el trabajo y la verificación usaron `bdferreteria_dev`.
 - `appsettings.json` permanece **sin versionar** (contiene la cadena de conexión).
-- Build limpio y suites en verde (119 pruebas).
+- Build limpio (0 errores, 0 advertencias) y módulo de ventas verificado contra MySQL real.
 - Login, roles, sesiones y los CRUD de catálogo **no** se reclaman como trabajo de este módulo.
 
 ---

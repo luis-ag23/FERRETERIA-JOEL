@@ -44,7 +44,6 @@ Web ─▶ Aplicacion ─▶ Dominio ◀─ Infraestructura
 | `FERRETERIA__Joel.Aplicacion` | Casos de uso: `Servicios/` (servicios y fachadas), `Modelos/` (DTOs) |
 | `FERRETERIA__Joel.Infraestructura` | Adaptadores de salida: `Repositorios/` (MySQL), `Conexion/`, `Factories/`, `Seguridad/`, `Servicios/` (Redis) |
 | `FERRETERIA  Joel` (Web) | Adaptador de entrada: `Pages/` (Razor Pages), `Helpers/`, `Seguridad/`, `Program.cs` |
-| `FERRETERIA__Joel.Pruebas` | Pruebas unitarias e integración (xUnit) |
 
 ### Patrones de diseño
 
@@ -116,23 +115,30 @@ cp .env.example .env
 
 ## Base de datos
 
-> **`Scripts/esquema.sql` es el esquema canónico.** Es el que coincide con el
-> código C# (los repositorios leen y escriben exactamente esas columnas).
-> `Scripts/init-completo.sql` es el script de arranque que monta Docker
-> (`/docker-entrypoint-initdb.d/01-init.sql`): contiene el mismo esquema más la
-> tabla `bitacora_sesion` y los datos semilla. **Ambos deben mantenerse
-> alineados**: si divergen, la aplicación falla contra la base recién creada
-> (por ejemplo, con `Unknown column 'TotalProducto' in 'field list'` al
-> registrar una venta).
+> **`Scripts/init-completo.sql` es el único script de base de datos del
+> proyecto y es el esquema canónico**: sus columnas coinciden exactamente con
+> las que leen y escriben los repositorios. Además es el que monta Docker
+> (`docker-compose.yml` lo copia en `/docker-entrypoint-initdb.d/01-init.sql`,
+> así que MySQL lo ejecuta solo la primera vez que se crea el volumen).
 
-Ejecutar los scripts de `Scripts/` en orden sobre MySQL:
+Contiene todo lo que necesita la aplicación: la base `bdferreteria`, las diez
+tablas (catálogo, clientes, empleados, ventas, histórico de precios y bitácora
+de sesiones), los índices únicos (correo del empleado, código de categoría,
+razón social del proveedor, código de producto y CI del cliente) y los datos
+semilla (10 empleados, 10 categorías, 10 marcas, 10 proveedores, 10 productos
+y 5 clientes).
 
-1. `Scripts/esquema.sql` — esquema base (catálogo, clientes, empleados, ventas).
-2. `Scripts/registro_seguridad.sql` — índice único de correo del empleado (login).
-3. `Scripts/bitacora_seguridad.sql` — tabla de bitácora de sesiones.
-4. `Scripts/migracion_ventas.sql` — columnas y restricciones del módulo de ventas
-   (anulación) y limpieza de credenciales del cliente.
-5. `Scripts/migracion_cliente_ci.sql`
+Ejecutar una sola vez, sobre una base vacía:
+
+```bash
+docker compose up -d          # se aplica solo al crear el volumen
+```
+
+O a mano, en MySQL (Workbench, CLI, etc.):
+
+```bash
+mysql -u root -p < Scripts/init-completo.sql
+```
 
 ## Escalamiento horizontal (EC2)
 
@@ -159,6 +165,15 @@ Los cuatro contenedores de aplicación son **idénticos** (misma imagen) y
 difieren solo en el identificador de réplica (`HOSTNAME=app1…app4`). Todo el
 estado compartido (sesiones, claves de Data Protection, caché) vive en Redis,
 de modo que cualquier réplica puede atender cualquier petición.
+
+**Papel de la cuarta réplica (`app4`)**: es la **réplica de reserva de la
+defensa**. Con tres réplicas de servicio (`app1`…`app3`) y una de reserva
+(`app4`) la demostración de alta disponibilidad es más clara: se detiene `app4`
+para ver que el sistema sigue respondiendo, se detiene además una réplica de
+servicio para ver el *failover* de Nginx y, si algo falla durante la defensa,
+`docker compose start app4` recupera capacidad sin tocar el código. Está
+documentado con comandos en `docker-compose.yml` y en el apartado
+[Plan de defensa](#plan-de-defensa).
 
 ### Levantar el sistema
 
@@ -203,19 +218,21 @@ proxy_next_upstream_tries 4;
 ### Evidencias de escalamiento
 
 * **Cabecera `X-Replica-Id`**: la escribe la réplica que atendió la petición y
-  Nginx la reenvía al cliente. `curl -I http://localhost/` muestra siempre la
-  réplica que respondió.
+  Nginx la reenvía al cliente. No es el nombre del contenedor, sino el
+  **identificador único que la réplica genera al arrancar** (`app1-3F2A9C77`):
+  el sufijo aleatorio es distinto en cada proceso, así que dos peticiones
+  seguidas con réplicas distintas lo demuestran.
 * **Cabecera `X-Replica-Served`**: la escribe Nginx con la dirección del
   *upstream* que atendió la petición.
-* **Vista `/DiagnosticoCache`** (solo administrador): lista las claves que hay
-  en Redis con su tiempo de vida restante y el registro compartido de los
-  últimos 50 accesos (HIT/MISS, clave, réplica y origen del dato).
+* **Interfaz**: la cabecera superior muestra *«Atendido por: app1-3F2A9C77»*.
+  Al recargar la página cambia el identificador, porque cada petición la
+  atiende una réplica distinta.
 * **Sonda `/health`**: devuelve el estado de la réplica y si Redis responde.
   La usan el *healthcheck* de Docker y el balanceador.
 
 ```bash
 curl -s http://localhost/health
-# {"estado":"saludable","replica":"app2","redis":true,"fecha":"..."}
+# {"estado":"saludable","replica":"app2","idInstancia":"app2-3F2A9C77","redis":true,"fecha":"..."}
 ```
 
 ### Caché distribuida (Redis)
@@ -229,11 +246,39 @@ el patrón **cache-aside** a través del puerto `ICacheSeleccion`:
 * **Invalidación**: al insertar, actualizar o cambiar el estado de un registro
   se borra el prefijo de claves de esa tabla, de modo que la siguiente lectura
   vuelva a la base de datos.
-* **Registro**: cada acceso se anota como `HIT` o `MISS` con la clave, la
-  réplica que lo produjo y el origen real del dato.
+* **Registro**: cada acierto o fallo se anota en el log de la réplica (`CACHE
+  HIT` / `CACHE MISS`) con la clave y el origen real del dato.
 
 Como la caché es la **misma** para las cuatro réplicas, un dato cargado por
 `app1` es servido desde Redis por `app3` sin volver a consultar MySQL.
+
+La caché **no tiene pantalla propia**: se observa directamente en el contenedor
+de Redis.
+
+```bash
+# 1. Ver las claves que hay guardadas (las "consultas" cacheadas)
+docker exec -it fj-redis redis-cli --scan --pattern "ferreteria:cache:*"
+
+# 2. Ver el TTL y el tamaño de una clave concreta
+docker exec -it fj-redis redis-cli TTL "ferreteria:cache:select:productos:todos"
+docker exec -it fj-redis redis-cli STRLEN "ferreteria:cache:select:productos:todos"
+
+# 3. Ver el valor almacenado (son JSON)
+docker exec -it fj-redis redis-cli GET "ferreteria:cache:select:categorias:todos"
+
+# 4. Vaciar la caché y ver cómo vuelve a MySQL (MISS) y luego se repone (HIT)
+docker exec -it fj-redis redis-cli --scan --pattern "ferreteria:cache:*" \
+  | xargs -r -I{} docker exec fj-redis redis-cli DEL {}
+
+# 5. Ver los HIT/MISS en el log de cada réplica
+docker compose logs app1 | grep CACHE
+docker compose logs app4 | grep CACHE
+```
+
+> **No uses `redis-cli FLUSHALL`**: borraría también la clave
+> `FerreteriaJoel-DataProtection-Keys`, que es la que permite que la cookie de
+> sesión emitida por una réplica valga en las demás. Para vaciar la caché usa
+> el borrado por patrón del punto 4, que solo toca las claves `ferreteria:cache:*`.
 
 ### Data Protection compartido y cifrado
 
@@ -254,8 +299,9 @@ sesión se rompería al cambiar de réplica.
 ### Comprobación del failover
 
 ```bash
-# Detener una réplica y comprobar que el sistema sigue respondiendo
-docker compose stop app2
+# Detener la réplica de reserva de la defensa y comprobar que el sistema
+# sigue respondiendo con normalidad
+docker compose stop app4
 
 for i in $(seq 1 6); do
   curl -s -o /dev/null -D - http://localhost/health | grep -i x-replica-id
@@ -263,44 +309,78 @@ done
 ```
 
 Las peticiones se siguen atendiendo y la cabecera `X-Replica-Id` deja de
-mostrar `app2`. Para volver a incorporarla:
+mostrar `app4`. Para volver a incorporarla:
 
 ```bash
-docker compose start app2
+docker compose start app4
 ```
 
-## Compilar, probar y ejecutar
+## Plan de defensa
+
+Orden sugerido para la demostración en vivo (todos los comandos son de
+Docker, sin tocar el código).
+
+```bash
+# 0. Estado del conjunto: 7 contenedores healthy
+docker compose ps
+
+# 1. DISTRIBUCIÓN: varias peticiones, cada una de una réplica distinta.
+#    El identificador único (app1-3F2A9C77) cambia en cada respuesta.
+for i in $(seq 1 6); do
+  curl -s -o /dev/null -D - http://localhost/ | grep -i "x-replica-id"
+done
+
+#    Lo mismo se ve en la interfaz: la cabecera superior muestra
+#    "Atendido por: app2-7B3E1D90". Al recargar cambia.
+
+# 2. FAILOVER: se detiene la réplica de reserva (app4) y el sistema sigue
+#    respondiendo
+docker compose stop app4
+curl -s -o /dev/null -D - http://localhost/ | grep -i "x-replica-id"
+
+# 3. Se detiene además una réplica de servicio: Nginx reintenta solo contra
+#    otra (proxy_next_upstream) y el usuario no ve ningún error
+docker compose stop app1
+curl -s -o /dev/null -w "HTTP %{http_code}\n" http://localhost/
+
+# 4. Se levantan de nuevo y el balanceo round-robin vuelve a repartir
+docker compose start app1 app4
+
+# 5. CACHÉ DISTRIBUIDA: se ve en el contenedor de Redis
+docker exec -it fj-redis redis-cli --scan --pattern "ferreteria:cache:*"
+docker exec -it fj-redis redis-cli TTL "ferreteria:cache:select:productos:todos"
+
+# 6. SESIÓN COMPARTIDA: la misma cookie vale en cualquier réplica
+docker compose logs app2 | grep -i "FerreteriaJoel.Session"
+
+# 7. SALUD DE CADA RÉPLICA
+docker compose ps
+curl -s http://localhost/health
+```
+
+### Archivos que intervienen
+
+| Archivo | Qué demuestra |
+|---------|---------------|
+| `docker-compose.yml` | Topología, las cuatro réplicas, el papel de reserva de `app4`, secretos y volúmenes |
+| `nginx/nginx.conf` | Round-robin, `X-Replica-Served`, `proxy_next_upstream` (failover) |
+| `Program.cs` | Cabecera `X-Replica-Id`, `UseForwardedHeaders`, Data Protection, secretos de arranque |
+| `FERRETERIA__Joel.Infraestructura/Servicios/IdentificadorReplica.cs` | Identificador único generado al arrancar |
+| `FERRETERIA__Joel.Infraestructura/Servicios/CacheSeleccionRedis.cs` | Patrón cache-aside sobre Redis |
+| `FERRETERIA__Joel.Infraestructura/Servicios/RedisCacheHelper.cs` | Lectura, escritura, TTL y borrado por patrón |
+| `docker/entrypoint.sh` | Certificado de Data Protection compartido por las cuatro réplicas |
+| `Scripts/init-completo.sql` | Esquema canónico + datos semilla (único script) |
+| `.env` / `.env.example` | Secretos fuera del repositorio |
+
+## Compilar y ejecutar
 
 ```bash
 # Compilar la solución completa
 dotnet build "FERRETERIA  Joel.slnx"
 
-# Ejecutar las pruebas
-dotnet test "FERRETERIA  Joel.slnx"
-
 # Ejecutar la aplicación web
 dotnet run --project "FERRETERIA  Joel"
 ```
-
-### Pruebas de integración
-
-La suite se divide en pruebas unitarias (siempre se ejecutan) y pruebas de
-integración **reales contra MySQL** (ventas, stock, anulación, personal y baja
-lógica). Estas últimas solo se activan si la variable de entorno
-`FERRETERIA_TEST_CONNECTION` apunta a una base de desarrollo; sin ella se
-omiten sin fallar:
-
-```bash
-# PowerShell
-# La clave es la misma que MYSQL_ROOT_PASSWORD del archivo .env
-$env:FERRETERIA_TEST_CONNECTION="Server=localhost;Port=3307;Database=bdferreteria;Uid=root;Pwd=<tu_clave>;"
-dotnet test "FERRETERIA  Joel.slnx"
-```
-
-Con la variable definida se ejecutan las **119** pruebas (109 unitarias + 10 de
-integración real: 5 del módulo de ventas y 5 del de personal). Con el
-despliegue de Docker levantando, el puerto `3307` es el que MySQL publica en el
-host.
 
 ## Documentación
 
@@ -316,20 +396,20 @@ host.
 Secuencia para dejar el proyecto funcionando: **base de datos → configuración →
 variables de entorno (opcional) → ejecución**.
 
-### 1. Base de datos — ejecutar los SQL 1 y 2
+### 1. Base de datos — un solo script
 
-En MySQL (Workbench, CLI, etc.) ejecuta, en este orden:
+En MySQL (Workbench, CLI, etc.) ejecuta **una sola vez**, sobre una base
+vacía:
 
-- **SQL 1 — `Scripts/esquema.sql`**: crea la base `bdferreteria`, todas las tablas
-  (catálogo, clientes, empleados, ventas, histórico de precios) y los datos de
-  prueba. Ya incluye las columnas del módulo de ventas (`EstadoVenta`) y el
-  índice único de correo del empleado.
-- **SQL 2 — `Scripts/bitacora_seguridad.sql`**: crea la tabla `bitacora_sesion`
-  (login/logout).
+- **`Scripts/init-completo.sql`**: crea la base `bdferreteria`, las diez
+  tablas (catálogo, clientes, empleados, ventas, histórico de precios y
+  bitácora de sesiones), los índices únicos y los datos semilla. Es el mismo
+  script que monta Docker, así que la base de desarrollo y la del despliegue
+  tienen exactamente el mismo esquema.
 
-> Scripts adicionales: `Scripts/registro_seguridad.sql` es idempotente y ya no es
-> necesario en bases nuevas; `Scripts/migracion_ventas.sql` sirve **solo** para
-> actualizar una base creada con un esquema anterior.
+```bash
+mysql -u root -p < Scripts/init-completo.sql
+```
 
 ### 2. Configurar la conexión (archivo `.env`)
 
