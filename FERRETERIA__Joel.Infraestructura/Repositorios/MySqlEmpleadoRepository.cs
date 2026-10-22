@@ -193,6 +193,37 @@ namespace FERRETERIA__Joel.Infraestructura.Repositorios
             return empleados;
         }
 
+        /// <summary>
+        /// Devuelve una cuenta por su identificador con la proyección pública,
+        /// sin la contraseña ni el token de activación. Se usa para revalidar
+        /// que la cuenta siga activa en cada petición autenticada.
+        /// </summary>
+        public virtual async Task<Empleado?> ObtenerPorIdSinCredencialesAsync(
+            int idEmpleado)
+        {
+            string query = $@"
+                SELECT {ColumnasPublicas}
+                FROM empleado
+                WHERE IdEmpleado = @id
+                LIMIT 1";
+
+            using MySqlConnection connection =
+                _connectionFactory.CreateConnection();
+
+            using MySqlCommand command = new MySqlCommand(query, connection);
+
+            command.Parameters.AddWithValue("@id", idEmpleado);
+
+            await connection.OpenAsync();
+
+            using MySqlDataReader reader =
+                (MySqlDataReader)await command.ExecuteReaderAsync();
+
+            return await reader.ReadAsync()
+                ? MapearEmpleado(reader)
+                : null;
+        }
+
         // ================== Autenticación ==================
 
         /// <summary>

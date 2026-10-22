@@ -40,6 +40,14 @@ namespace FERRETERIA__Joel.Dominio.Puertos
         Task<List<Empleado>> ObtenerTodosSinCredencialesAsync();
 
         /// <summary>
+        /// Devuelve una cuenta por su identificador con la proyección pública,
+        /// sin la contraseña ni el token de activación. Se usa para revalidar
+        /// que la cuenta siga activa en cada petición autenticada (bloqueo de
+        /// acceso tras una baja lógica).
+        /// </summary>
+        Task<Empleado?> ObtenerPorIdSinCredencialesAsync(int idEmpleado);
+
+        /// <summary>
         /// Devuelve la cuenta asociada a un correo con la proyección pública.
         /// Se usa para comprobar el estado de una cuenta sin exponer
         /// credenciales.

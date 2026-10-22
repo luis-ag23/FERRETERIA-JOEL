@@ -4,6 +4,13 @@
 * text=auto
 
 ###############################################################################
+# Los scripts de shell deben viajar siempre con fin de linea LF: si se
+# escriben con CRLF (Windows), el shebang del entrypoint de Docker incluye un
+# "\r" y el contenedor falla al arrancar ("no such file or directory").
+###############################################################################
+*.sh text eol=lf
+
+###############################################################################
 # Set default behavior for command prompt diff.
 #
 # This is need for earlier builds of msysgit that does not have it on by

@@ -17,6 +17,18 @@
             pasa a estado inactivo y deja de poder iniciar sesión, pero el histórico de ventas y la
             auditoría se conservan.
         </p>
+        <ul class="fj-form-hint" style="margin:.75rem 0 0;padding-left:1.1rem;">
+            <li>
+                <strong>Consulta sin credenciales:</strong> el listado se arma con un
+                <code>SELECT</code> de la proyección pública; ni la contraseña ni el token de
+                activación se leen de la base ni viajan a la interfaz.
+            </li>
+            <li>
+                <strong>Baja lógica y bloqueo de acceso:</strong> dar de baja solo cambia el estado
+                de la cuenta (nunca se ejecuta <code>DELETE</code>); la cuenta queda sin acceso
+                porque el inicio de sesión exige el estado activo.
+            </li>
+        </ul>
     </section>
 
     @if (TempData["Mensaje"] != null)
@@ -99,16 +111,17 @@
                                     {
                                         <form method="post" asp-page-handler="Reactivar" style="display:inline;">
                                             <input type="hidden" name="idEmpleado" value="@empleado.IdEmpleado" />
-                                            <button type="submit" class="fj-btn fj-btn-primary" style="padding:.35rem .8rem;font-size:.85rem;">
+                                            <button type="submit" class="fj-btn fj-btn-primary fj-btn-sm">
                                                 Reactivar
                                             </button>
                                         </form>
                                     }
                                     else
                                     {
-                                        <form method="post" asp-page-handler="Baja" style="display:inline;">
+                                        <form method="post" asp-page-handler="Baja" style="display:inline;"
+                                              onsubmit="return confirm('¿Dar de baja a @empleado.Nombre @empleado.Apellido? La cuenta dejará de poder iniciar sesión, pero no se borrará.');">
                                             <input type="hidden" name="idEmpleado" value="@empleado.IdEmpleado" />
-                                            <button type="submit" class="fj-btn fj-btn-ghost" style="padding:.35rem .8rem;font-size:.85rem;">
+                                            <button type="submit" class="fj-btn fj-btn-danger fj-btn-sm">
                                                 Dar de baja
                                             </button>
                                         </form>
